@@ -192,6 +192,13 @@ h2{font-size:15px;font-weight:700;letter-spacing:.26em;margin-bottom:10px}
   <button class="btn sm" id="rerollBtn">Relancer (<span id="rrLeft">0</span>)</button>
 </div>
 
+<div class="ovl" id="evo">
+  <div class="center"><div class="eyebrow">Choix définitif</div>
+    <h2 style="margin-top:6px" id="evoName">ÉVOLUTION</h2>
+    <div class="sub" id="evoSub"></div></div>
+  <div id="evoWrap" style="margin:auto 0"></div>
+</div>
+
 <div class="ovl" id="loot">
   <div class="center"><div class="eyebrow" id="lootTitle">COFFRE</div>
     <h2 style="margin-top:6px">ARTEFACT</h2>
@@ -279,201 +286,340 @@ const MAX_LV     = 7;    // niveau maximum d'une magie (cf. doc)
 const MAX_UTIL   = 5;    // magies utilitaires
 const SPELL_SLOTS= 6;
 
-/* --- 1.1 MAGIES OFFENSIVES (17) --------------------------------------- */
+/* --- 1.1 MAGIES OFFENSIVES (17) ---------------------------------------
+   Structure conforme à la fiche : progression fixe du niveau 2 au 6, puis
+   ÉVOLUTION au niveau 7 (Magic Bolt évolue deux fois : niveau 4 et 7).
+   `dmg` est un coefficient appliqué à l'ATK, jamais une valeur ajoutée.
+   Les pourcentages de la fiche sont ramenés à l'échelle du jeu (×0,35)
+   pour garder les rapports de force entre sorts sans casser l'équilibre.  */
+const E=(id,nm,d,f)=>({id,nm,d,f});
+const U=(t,f)=>({t,f});
+
 const SPELLS = {
 /* 1 */ bolt:{nm:'Trait Magique', ic:'✦', c:EL.arcane, tags:['Arcane','Projectile'], cast:'proj',
-  d:"Le projectile de base du personnage. Tire sur l'ennemi le plus proche.",
-  base:{dmg:2.2, cd:0.95, count:1, speed:310, pierce:0, size:5, spread:.18},
-  ups:[{t:'+30 % dégâts',f:s=>s.dmg*=1.30},{t:'+1 projectile',f:s=>s.count+=1},
-       {t:'Cooldown -18 %',f:s=>s.cd*=0.82},{t:'+1 projectile',f:s=>s.count+=1},
-       {t:'+35 % dégâts, transperce',f:s=>{s.dmg*=1.35;s.pierce+=1}},
-       {t:'+2 projectiles, transperce 2',f:s=>{s.count+=2;s.pierce+=2;s.size+=2}}]},
+  d:"Le projectile de base. Tire sur l'ennemi le plus proche.",
+  base:{dmg:1.75, cd:.75, count:1, speed:310, pierce:0, size:5, spread:.18},
+  evoAt:[4,7],
+  ups:[U('Nombre +1',s=>s.count+=1), U('Dégâts +50 %',s=>s.dmg*=1.5), null,
+       U('Nombre +1',s=>s.count+=1), U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{4:[
+    E('arrow','Flèche Magique','Traverse tous les ennemis. Dégâts +80 %, taille et vitesse +180 %.',
+      s=>{s.pierce=99;s.dmg*=1.8;s.size*=2.8;s.speed*=2.8}),
+    E('fireworks','Feu d\'Artifice','Les projectiles se divisent en 3 et explosent. Dégâts +50 %, recharge +2 s.',
+      s=>{s.dmg*=1.5;s.cdAdd=(s.cdAdd||0)+2;s.split=3;s.aoe=34}),
+    E('fission','Fission','Tire aussi vers 2 cibles supplémentaires.', s=>s.extraT=2)],
+   7:[
+    E('chaincast','Incantation Enchaînée','Nombre +1, recharge -20 %.', s=>{s.count+=1;s.cd*=.8}),
+    E('firewill','Tir à Volonté','Tire dans des directions aléatoires. Nombre ×5, dégâts +50 %, recharge +3 s.',
+      s=>{s.count*=5;s.dmg*=1.5;s.cdAdd=(s.cdAdd||0)+3;s.randomDir=1}),
+    E('doppel','Doppelgänger','Remplacé par 3 mirages qui tirent à ta place. Recharge +50 %.',
+      s=>{s.mirage=3;s.cd*=1.5})]}},
 
 /* 2 */ fireball:{nm:'Boule de Feu', ic:'◉', c:EL.feu, tags:['Feu','Projectile','Explosion'], cast:'proj',
   d:"Projectile explosif. Profite énormément de la taille de magie.",
-  base:{dmg:2.7, cd:1.7, count:1, speed:230, aoe:46, size:8, spread:.28},
-  ups:[{t:'+28 % dégâts',f:s=>s.dmg*=1.28},{t:'Explosion +25 %',f:s=>s.aoe*=1.25},
-       {t:'+1 projectile',f:s=>s.count+=1},{t:'Cooldown -20 %',f:s=>s.cd*=0.80},
-       {t:'+35 % dégâts, explosion +25 %',f:s=>{s.dmg*=1.35;s.aoe*=1.25}},
-       {t:'+2 projectiles, embrase',f:s=>{s.count+=2;s.burn=true;s.dmg*=1.2}}]},
+  base:{dmg:2.45, cd:1.5, count:1, speed:230, aoe:46, size:8, spread:.28, pierce:0},
+  evoAt:[7],
+  ups:[U('Nombre +1',s=>s.count+=1), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Taille +20 %',s=>{s.size*=1.2;s.aoe*=1.2}), U('Nombre +1',s=>s.count+=1),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('bigbang','Big Bang','Le premier projectile a ×1,5 dégâts et taille. Dégâts +80 %.',
+      s=>{s.dmg*=1.8;s.firstBig=1.5}),
+    E('poison','Gaz Toxique','L\'explosion s\'étend et frappe 3 fois. Dégâts -30 %.',
+      s=>{s.dmg*=.7;s.hits=3;s.expand=1}),
+    E('constellation','Constellation','Envoyé à un endroit aléatoire, ralentit et te suit. Pénétration +1.',
+      s=>{s.pierce+=1;s.wander=1})]}},
 
 /* 3 */ storm:{nm:'Orage', ic:'⚡', c:EL.foudre, tags:['Foudre','Zone'], cast:'storm',
-  d:"Des éclairs frappent les ennemis proches. Redoutable sur les groupes.",
-  base:{dmg:3.0, cd:2.6, count:3, aoe:32},
-  ups:[{t:'+2 éclairs',f:s=>s.count+=2},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'Cooldown -22 %',f:s=>s.cd*=0.78},{t:'+2 éclairs, zone +25 %',f:s=>{s.count+=2;s.aoe*=1.25}},
-       {t:'+35 % dégâts',f:s=>s.dmg*=1.35},
-       {t:'+4 éclairs, tonnerre',f:s=>{s.count+=4;s.aoe*=1.3;s.dmg*=1.2}}]},
+  d:"Des éclairs frappent les ennemis proches.",
+  base:{dmg:5.25, cd:2, count:1, aoe:32},
+  evoAt:[7],
+  ups:[U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
+  evos:{7:[
+    E('bluebolt','Coup de Tonnerre','Les orages tombent en continu, 1 à 3 fois de suite.', s=>s.repeat=3),
+    E('overcharge','Surtension','Chaque éclair rebondit 2 fois. Dégâts +40 %.',
+      s=>{s.chains=2;s.range=130;s.dmg*=1.4}, ),
+    E('thunderhead','Front Orageux','Zone +60 %, dégâts +60 %, recharge +25 %.',
+      s=>{s.aoe*=1.6;s.dmg*=1.6;s.cd*=1.25})]}},
 
 /* 4 */ meteor:{nm:'Météore', ic:'☄', c:EL.feu, tags:['Feu','Zone','Impact'], cast:'meteor',
-  d:"Des météores tombent à des positions aléatoires. Énorme potentiel de zone.",
-  base:{dmg:7.6, cd:4.4, count:1, aoe:74, delay:0.85},
-  ups:[{t:'+30 % dégâts',f:s=>s.dmg*=1.30},{t:'+1 impact',f:s=>s.count+=1},
-       {t:'Taille +22 %',f:s=>s.aoe*=1.22},{t:'Cooldown -22 %',f:s=>s.cd*=0.78},
-       {t:'+1 impact, +30 % dégâts',f:s=>{s.count+=1;s.dmg*=1.30}},
-       {t:'+2 impacts, chute accélérée',f:s=>{s.count+=2;s.delay*=0.55;s.aoe*=1.2}}]},
+  d:"Des météores tombent à des positions aléatoires.",
+  base:{dmg:5.25, cd:4.5, count:1, aoe:74, delay:.85},
+  evoAt:[7],
+  ups:[U('Nombre +1',s=>s.count+=1), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Taille +20 %',s=>s.aoe*=1.2), U('Nombre +1',s=>s.count+=1),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('volcanic','Éruption Volcanique','Laisse un cratère qui inflige 25 % des dégâts par seconde pendant 3 s.',
+      s=>s.leaveLava=1),
+    E('shower','Pluie de Météores','Nombre ×3, chute -30 %, dégâts -25 %, taille -25 %.',
+      s=>{s.count*=3;s.delay*=.7;s.dmg*=.75;s.aoe*=.75}),
+    E('asteroid','Astéroïde','Les météores fusionnent. Taille +50 % par météore, dégâts ×3, recharge ×2.',
+      s=>{s.merge=1;s.dmg*=3;s.cd*=2})]}},
 
 /* 5 */ cyclone:{nm:'Cyclone', ic:'🌀', c:EL.nature, tags:['Nature','Zone','Contrôle'], cast:'cyclone',
   d:"Une rafale se développe autour de toi et aspire les ennemis.",
-  base:{dmg:1.5, cd:5.0, count:1, aoe:60, grow:2.1, dur:3.0, tick:0.32, pull:60},
-  ups:[{t:'Taille +30 %',f:s=>s.aoe*=1.30},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'Durée +40 %',f:s=>s.dur*=1.40},{t:'Cooldown -22 %',f:s=>s.cd*=0.78},
-       {t:'+1 rafale, aspiration +50 %',f:s=>{s.count+=1;s.pull*=1.5}},
-       {t:'Taille +40 %, +40 % dégâts',f:s=>{s.aoe*=1.4;s.dmg*=1.4}}]},
+  base:{dmg:1.75, cd:3.5, count:1, aoe:60, grow:2.1, dur:2, tick:.3, pull:60},
+  evoAt:[7],
+  ups:[U('Nombre +1',s=>s.count+=1), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Durée +30 %',s=>s.dur*=1.3), U('Nombre +1',s=>s.count+=1),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('extreme','Intempéries','Nombre +2, recharge -10 %.', s=>{s.count+=2;s.cd*=.9}),
+    E('eorb','Orbe Électrique','Rétrécit et tire dans toutes les directions. Dégâts ×2, taille +30 %.',
+      s=>{s.dmg*=2;s.aoe*=1.3;s.shrink=1;s.spit=1}),
+    E('void','Vide','Apparaît successivement à des positions aléatoires et reste sur place. Expansion ×9, durée -50 %, recharge ×2.',
+      s=>{s.grow*=9;s.dur*=.5;s.cd*=2;s.scatter=1;s.follow=0})]}},
 
 /* 6 */ shock:{nm:'Décharge Électrique', ic:'⌁', c:EL.foudre, tags:['Foudre','Chaîne'], cast:'shock',
-  d:"Une décharge part dans une direction et rebondit d'ennemi en ennemi.",
-  base:{dmg:2.7, cd:2.1, chains:3, range:140, count:1, falloff:0.86},
-  ups:[{t:'+2 rebonds',f:s=>s.chains+=2},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'Portée +25 %',f:s=>s.range*=1.25},{t:'+2 rebonds, cooldown -20 %',f:s=>{s.chains+=2;s.cd*=0.80}},
-       {t:'Rebonds sans perte de puissance',f:s=>s.falloff=1},
-       {t:'+1 décharge, +4 rebonds',f:s=>{s.count+=1;s.chains+=4}}]},
+  d:"Une décharge part vers l'ennemi le plus proche.",
+  base:{dmg:1.75, cd:2, chains:0, range:140, count:2, falloff:.86},
+  evoAt:[7],
+  ups:[U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
+  evos:{7:[
+    E('chainlight','Chaîne d\'Éclairs','Les éclairs rebondissent 1 à 3 fois. Dégâts +50 %.',
+      s=>{s.chains+=3;s.dmg*=1.5}),
+    E('highout','Haute Tension','50 % de chance d\'infliger ×2,5. Recharge -15 %.',
+      s=>{s.roll=2.5;s.cd*=.85}),
+    E('supercond','Supraconductivité','Les éclairs jaillissent en série vers les ennemis proches. Dégâts ×3, taille ×2.',
+      s=>{s.dmg*=3;s.range*=2;s.serial=1})]}},
 
 /* 7 */ energy:{nm:"Trait d'Énergie", ic:'➤', c:EL.energie, tags:['Énergie','Projectile','Perce'], cast:'proj',
-  d:"Projectile pénétrant. Excellent contre les lignes d'ennemis.",
-  base:{dmg:2.5, cd:1.45, count:1, speed:410, pierce:3, size:6, spread:.12},
-  ups:[{t:'+2 pénétrations',f:s=>s.pierce+=2},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'+1 trait',f:s=>s.count+=1},{t:'Cooldown -20 %',f:s=>s.cd*=0.80},
-       {t:'+3 pénétrations, +30 % dégâts',f:s=>{s.pierce+=3;s.dmg*=1.30}},
-       {t:'+2 traits, transperce tout',f:s=>{s.count+=2;s.pierce+=99}}]},
+  d:"Salve de traits pénétrants.",
+  base:{dmg:2.6, cd:3.3, count:5, speed:410, pierce:3, size:6, spread:.5, life:1.1},
+  evoAt:[7],
+  ups:[U('Dégâts +20 %, Nombre +2',s=>{s.dmg*=1.2;s.count+=2}),
+       U('Dégâts +20 %, Nombre +2',s=>{s.dmg*=1.2;s.count+=2}),
+       U('Dégâts +20 %, Nombre +2',s=>{s.dmg*=1.2;s.count+=2}),
+       U('Dégâts +20 %, Nombre +2',s=>{s.dmg*=1.2;s.count+=2}),
+       U('Dégâts +20 %, Nombre +2',s=>{s.dmg*=1.2;s.count+=2}), null],
+  evos:{7:[
+    E('charged','Particules Chargées','Les traits reviennent vers toi en fin de course. Nombre +35 %, vitesse +35 %.',
+      s=>{s.count=Math.round(s.count*1.35);s.speed*=1.35;s.returns=1}),
+    E('spark','Étincelle','Frappe toutes les 0,3 s. Durée ×2,5, taille +25 %, dégâts -25 %.',
+      s=>{s.life*=2.5;s.size*=1.25;s.dmg*=.75;s.pierce=99;s.reHit=.3}),
+    E('flare','Fusée','Part dans toutes les directions et explose en fin de course. Dégâts +30 %.',
+      s=>{s.dmg*=1.3;s.allDir=1;s.explodeEnd=2})]}},
 
 /* 8 */ incin:{nm:'Incinération', ic:'🔥', c:EL.feu, tags:['Feu','Cône','Persistant'], cast:'cone',
-  d:"Projette des flammes devant toi. Très forte à courte portée.",
-  base:{dmg:0.95, cd:2.8, dur:1.6, range:150, arc:0.62, tick:0.16, count:1},
-  ups:[{t:'Portée +25 %',f:s=>s.range*=1.25},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'Durée +50 %',f:s=>s.dur*=1.50},{t:'Cône +30 %',f:s=>s.arc*=1.30},
-       {t:'Cooldown -25 %, +25 % dégâts',f:s=>{s.cd*=0.75;s.dmg*=1.25}},
-       {t:'Portée +40 %, embrase',f:s=>{s.range*=1.4;s.burn=true;s.dmg*=1.3}}]},
+  d:"Projette des flammes devant toi.",
+  base:{dmg:.95, cd:4, dur:1.6, range:150, arc:.62, tick:.16, count:15},
+  evoAt:[7],
+  ups:[U('Nombre +6',s=>s.count+=6), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Taille +20 %',s=>{s.range*=1.2;s.arc*=1.2}), U('Nombre +6',s=>s.count+=6),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('flamestrike','Frappe Ardente','La puissance monte à chaque lancement, jusqu\'à ×4 dégâts et ×1,5 taille. Nombre +25 %.',
+      s=>{s.ramp=4;s.rampSize=1.5;s.count=Math.round(s.count*1.25)}),
+    E('pyromaniac','Pyromane','Génère 2 flammes supplémentaires de même puissance. Recharge -20 %.',
+      s=>{s.extraCones=2;s.cd*=.8}),
+    E('cerberus','Flamme de Cerbère','Tire aussi sur les côtés. Dégâts +30 %, portée +20 %, cône -33 %, nombre -33 %.',
+      s=>{s.dmg*=1.3;s.range*=1.2;s.arc*=.67;s.count=Math.round(s.count*.67);s.sides=1})]}},
 
 /* 9 */ blizzard:{nm:'Blizzard', ic:'❆', c:EL.glace, tags:['Glace','Nature','Zone'], cast:'blizzard',
-  d:"Une tempête de glace s'abat autour de toi. Beaucoup d'éclats, ralentit.",
-  base:{dmg:1.35, cd:6.0, count:14, aoe:26, radius:210, dur:2.6, slow:0.30, slowDur:1.6},
-  ups:[{t:'+6 éclats',f:s=>s.count+=6},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'Cooldown -20 %',f:s=>s.cd*=0.80},{t:'+6 éclats, ralentit +15 %',f:s=>{s.count+=6;s.slow+=0.15}},
-       {t:'Zone +30 %, durée +40 %',f:s=>{s.aoe*=1.3;s.dur*=1.4}},
-       {t:'Sous-Zéro : +8 éclats, gel progressif',f:s=>{s.count+=8;s.slow=0.75;s.slowDur+=1.2;s.dmg*=1.25}}]},
+  d:"Une tempête de glace s'abat autour de toi.",
+  base:{dmg:1.35, cd:6, count:20, aoe:26, radius:210, dur:2.6, slow:.3, slowDur:1.6},
+  evoAt:[7],
+  ups:[U('Nombre +6',s=>s.count+=6), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Recharge -15 %',s=>s.cd*=.85), U('Nombre +6',s=>s.count+=6),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('subzero','Sous-Zéro','Les ennemis ralentissent progressivement pendant le blizzard. Nombre +30 %.',
+      s=>{s.count=Math.round(s.count*1.3);s.slowRamp=1}),
+    E('shootingstar','Étoile Filante','Chute plus lente. Dégâts ×2, taille ×1,35, nombre -50 %.',
+      s=>{s.dmg*=2;s.aoe*=1.35;s.count=Math.round(s.count*.5);s.dur*=2}),
+    E('blaze','Embrasement','Explose immédiatement 2 fois, -10 % de puissance à chaque fois. Ne gèle plus.',
+      s=>{s.burst=2;s.slow=0;s.radius*=.7;s.dur*=.5})]}},
 
 /* 10 */ tsunami:{nm:'Tsunami', ic:'≋', c:EL.nature, tags:['Nature','Vague','Repousse'], cast:'wave',
-  d:"Une vague traverse tout le terrain et repousse ce qu'elle touche.",
-  base:{dmg:4.2, cd:5.4, count:1, width:120, speed:250, knock:130, life:3.2},
-  ups:[{t:'Largeur +30 %',f:s=>s.width*=1.30},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'+1 vague',f:s=>s.count+=1},{t:'Cooldown -22 %',f:s=>s.cd*=0.78},
-       {t:'Largeur +30 %, repousse +50 %',f:s=>{s.width*=1.3;s.knock*=1.5}},
-       {t:'+2 vagues, +40 % dégâts',f:s=>{s.count+=2;s.dmg*=1.40}}]},
+  d:"Des vagues traversent le terrain et repoussent.",
+  base:{dmg:2.45, cd:8.5, count:8, width:120, speed:250, knock:130, life:3.2},
+  evoAt:[7],
+  ups:[U('Nombre +3',s=>s.count+=3), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Recharge -15 %',s=>s.cd*=.85), U('Nombre +3',s=>s.count+=3),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('pole','Pôle','Les vagues partent dans toutes les directions et gèlent les ennemis.',
+      s=>{s.allDir=1;s.freeze=2.2}),
+    E('siren','Chant des Sirènes','Les vagues suivent ta direction. Recharge -50 %, nombre -50 %.',
+      s=>{s.cd*=.5;s.count=Math.max(1,Math.round(s.count*.5));s.aimed=1}),
+    E('greaterupt','Grande Éruption','Rayon d\'apparition élargi. Dégâts ×2, taille +10 %, recharge +30 %.',
+      s=>{s.dmg*=2;s.width*=1.1;s.cd*=1.3;s.spread2=1})]}},
 
 /* 11 */ spirit:{nm:'Esprit', ic:'❂', c:EL.invoc, tags:['Invocation','Énergie'], cast:'spirit',
-  d:"Invoque un esprit qui combat avec toi. Ne profite pas du bonus Nombre global.",
-  base:{dmg:2.2, count:1, cd:1.15, speed:300, size:5},
-  ups:[{t:'+1 esprit',f:s=>s.count+=1},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'Cadence +22 %',f:s=>s.cd*=0.78},{t:'+1 esprit',f:s=>s.count+=1},
-       {t:'Tirs perçants, +25 % dégâts',f:s=>{s.pierce=2;s.size+=2;s.dmg*=1.25}},
-       {t:'+2 esprits',f:s=>{s.count+=2;s.cd*=0.85}}]},
+  d:"Invoque un esprit qui combat avec toi.",
+  base:{dmg:2.3, count:1, cd:.9, speed:300, size:5},
+  evoAt:[7],
+  ups:[U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
+  evos:{7:[
+    E('missile','Missile Magique','La cadence accélère avec le nombre d\'esprits. Recharge -20 %.',
+      s=>{s.cd*=.8;s.perCount=1}),
+    E('blade','Lame Magique','Envoie une lame directement sur la cible. Dégâts ×2,5.',
+      s=>{s.dmg*=2.5;s.bladeShot=1;s.speed*=1.6;s.pierce=2}),
+    E('familiar','Familier','Tous les esprits fusionnent et tirent dans toutes les directions.',
+      s=>{s.familiar=1;s.cd*=5;s.shots=15})]}},
 
 /* 12 */ satellite:{nm:'Satellite', ic:'◍', c:EL.energie, tags:['Énergie','Orbite'], cast:'orbit',
-  d:"Des sphères tournent autour de toi et frappent ce qui s'approche.",
-  base:{dmg:2.0, count:2, radius:64, rot:2.0, tick:0.30, size:8},
-  ups:[{t:'+1 sphère',f:s=>s.count+=1},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'Rotation +25 %',f:s=>s.rot*=1.25},{t:'+1 sphère',f:s=>s.count+=1},
-       {t:'Orbite +20 %, +25 % dégâts',f:s=>{s.radius*=1.2;s.size+=2;s.dmg*=1.25}},
-       {t:'+2 sphères, double orbite',f:s=>{s.count+=2;s.size+=3;s.dual=true}}]},
+  d:"Des sphères tournent autour de toi.",
+  base:{dmg:1.6, count:1, radius:64, rot:2, tick:.3, size:8},
+  evoAt:[7],
+  ups:[U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
+  evos:{7:[
+    E('antigrav','Antigravité','La rotation accélère jusqu\'à ×3 puis retombe, en boucle.', s=>s.rotCycle=3),
+    E('wisp','Feu Follet','Réparti sur deux anneaux. Nombre ×2, rotation +33 %, taille -33 %.',
+      s=>{s.count*=2;s.rot*=1.33;s.size*=.67;s.dual=true}),
+    E('fusion','Fusion Nucléaire','Tous les satellites fusionnent. Dégâts et taille croissent avec leur nombre.',
+      s=>{s.mergeSat=s.count;s.dmg*=1+s.count*.35;s.size*=1+s.count*.18;s.count=1;s.tick=.3})]}},
 
 /* 13 */ ray:{nm:'Rayon Arcanique', ic:'⟶', c:EL.energie, tags:['Énergie','Rayon','Perce'], cast:'ray',
-  d:"Un rayon qui traverse tout. Parfait sur les ennemis alignés.",
-  base:{dmg:1.1, cd:3.2, count:1, len:420, width:16, dur:1.1, tick:0.14, rot:0.5},
-  ups:[{t:'Longueur +30 %',f:s=>s.len*=1.30},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'+1 rayon',f:s=>s.count+=1},{t:'Largeur +40 %',f:s=>s.width*=1.40},
-       {t:'Durée +50 %, cooldown -18 %',f:s=>{s.dur*=1.5;s.cd*=0.82}},
-       {t:'+1 rayon, balayage',f:s=>{s.count+=1;s.rot*=2.4;s.dmg*=1.25}}]},
+  d:"Un rayon qui traverse tout.",
+  base:{dmg:1.1, cd:3.5, count:1, len:420, width:16, dur:.8, tick:.14, rot:.5},
+  evoAt:[7],
+  ups:[U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
+       U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
+  evos:{7:[
+    E('reflect','Réflexion','Un second rayon part à l\'exact opposé. Dégâts +50 %, cadence +50 %.',
+      s=>{s.dmg*=1.5;s.tick*=.5;s.mirror=1}),
+    E('disintegr','Rayon de Désintégration','Le rayon tourne vite autour de toi. Dégâts ×2, recharge +50 %.',
+      s=>{s.dmg*=2;s.rot*=6;s.cd*=1.5;s.dur*=2}),
+    E('emburst','Décharge Électromagnétique','Rayons dans des directions aléatoires, dégâts toutes les 0,5 s, durée ×4.',
+      s=>{s.dur*=4;s.tick=.5;s.rot=0;s.randomDir=1})]}},
 
 /* 14 */ ezone:{nm:'Zone Électrique', ic:'◈', c:EL.foudre, tags:['Foudre','Aura','Persistant'], cast:'aura',
-  d:"Une aura électrique permanente autour de toi. Ravage le corps à corps.",
-  base:{dmg:0.55, radius:82, tick:0.30},
-  ups:[{t:'Rayon +22 %',f:s=>s.radius*=1.22},{t:'+35 % dégâts',f:s=>s.dmg*=1.35},
-       {t:'Fréquence +25 %',f:s=>s.tick*=0.75},{t:'Rayon +22 %',f:s=>s.radius*=1.22},
-       {t:'+40 % dégâts',f:s=>s.dmg*=1.40},
-       {t:'Rayon +30 %, arcs électriques',f:s=>{s.radius*=1.3;s.arcs=true;s.dmg*=1.3}}]},
+  d:"Une aura électrique permanente autour de toi.",
+  base:{dmg:.44, radius:82, tick:.25},
+  evoAt:[7],
+  ups:[U('Taille +15 %',s=>s.radius*=1.15), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Taille +15 %',s=>s.radius*=1.15), U('Taille +20 %',s=>s.radius*=1.2),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('blast','Décharge Électrique','Dégâts +80 %, taille +30 %.', s=>{s.dmg*=1.8;s.radius*=1.3}),
+    E('emp','IEM','Après 4 impacts, l\'ennemi est étourdi. Cadence +10 %.',
+      s=>{s.tick*=.9;s.stunAt=4}),
+    E('fireaura','Aura de Feu','Plus de petits dégâts répétés : la zone s\'étend puis disparaît en cycle. Dégâts ×5.',
+      s=>{s.dmg*=5;s.tick*=3;s.cycle=1;s.arcs=true})]}},
 
 /* 15 */ nova:{nm:'Nova de Givre', ic:'❄', c:EL.glace, tags:['Glace','Nature','Zone','Contrôle'], cast:'nova',
-  d:"Explosion de glace autour de toi. Gèle les ennemis touchés.",
-  base:{dmg:3.0, cd:3.4, aoe:100, slow:0.5, slowDur:2.2},
-  ups:[{t:'Zone +25 %',f:s=>s.aoe*=1.25},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'Gel +15 %, durée +0,6 s',f:s=>{s.slow+=0.15;s.slowDur+=0.6}},
-       {t:'Cooldown -22 %',f:s=>s.cd*=0.78},{t:'Zone +25 %, +30 % dégâts',f:s=>{s.aoe*=1.25;s.dmg*=1.3}},
-       {t:'Gel complet',f:s=>{s.slow=0.95;s.slowDur+=1.2;s.dmg*=1.2}}]},
+  d:"Explosion de glace autour de toi.",
+  base:{dmg:4.2, cd:5.5, aoe:100, slow:.5, slowDur:2.2},
+  evoAt:[7],
+  ups:[U('Taille +15 %',s=>s.aoe*=1.15), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Recharge -15 %',s=>s.cd*=.85), U('Taille +20 %',s=>s.aoe*=1.2),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('abszero','Zéro Absolu','Gèle aussi les ennemis autour de l\'explosion. Durée de gel +25 %.',
+      s=>{s.slowDur*=1.25;s.slow=.95;s.chill=1.6;s.leaveField=1}),
+    E('iceage','Ère Glaciaire','Explose 3 fois, chaque explosion ×1,5 dégâts et taille. Taille -20 %, recharge ×2.',
+      s=>{s.aoe*=.8;s.cd*=2;s.repeatBlast=3}),
+    E('quake','Séisme','Ne gèle plus mais étourdit. Dégâts ×2, taille +25 %.',
+      s=>{s.dmg*=2;s.aoe*=1.25;s.slow=.99;s.slowDur=1.1;s.quake=1})]}},
 
 /* 16 */ lava:{nm:'Zone de Lave', ic:'▣', c:EL.feu, tags:['Feu','Zone','Persistant'], cast:'lava',
-  d:"Une flaque brûlante qui ronge tout ce qui la traverse.",
-  base:{dmg:1.2, cd:4.6, aoe:66, dur:4.5, count:1, tick:0.4},
-  ups:[{t:'Durée +40 %',f:s=>s.dur*=1.40},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'+1 flaque',f:s=>s.count+=1},{t:'Taille +25 %',f:s=>s.aoe*=1.25},
-       {t:'Cooldown -25 %, +25 % dégâts',f:s=>{s.cd*=0.75;s.dmg*=1.25}},
-       {t:'+2 flaques, lave vive',f:s=>{s.count+=2;s.tick*=0.6}}]},
+  d:"Une flaque brûlante qui ronge ce qui la traverse.",
+  base:{dmg:.9, cd:5, aoe:66, dur:6, count:1, tick:.5},
+  evoAt:[7],
+  ups:[U('Nombre +1',s=>s.count+=1), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Taille +20 %',s=>s.aoe*=1.2), U('Nombre +1',s=>s.count+=1),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('melt','Fonte','Chaque impact rend l\'ennemi plus vulnérable (+5 %, max +30 %). Recharge -15 %.',
+      s=>{s.melt=.05;s.cd*=.85}),
+    E('craterlv','Cratère','Nombre ×2, taille -20 %, durée -20 %.',
+      s=>{s.count*=2;s.aoe*=.8;s.dur*=.8}),
+    E('magmaerupt','Éruption de Magma','Toutes les flaques fusionnent. Taille +30 % par flaque, dégâts ×2.',
+      s=>{s.aoe*=1+s.count*.3;s.dmg*=2;s.count=1;s.burn=true})]}},
 
 /* 17 */ flash:{nm:'Éclair Fulgurant', ic:'⚞', c:EL.foudre, tags:['Foudre','Directionnel'], cast:'flash',
-  d:"Une décharge fuse dans la direction de ton déplacement. Ouvre le passage.",
-  base:{dmg:3.4, cd:2.4, count:1, len:300, width:34, speed:900},
-  ups:[{t:'Longueur +30 %',f:s=>s.len*=1.30},{t:'+30 % dégâts',f:s=>s.dmg*=1.30},
-       {t:'+1 décharge',f:s=>s.count+=1},{t:'Largeur +40 %',f:s=>s.width*=1.40},
-       {t:'Cooldown -25 %, +25 % dégâts',f:s=>{s.cd*=0.75;s.dmg*=1.25}},
-       {t:'+2 décharges, longueur +40 %',f:s=>{s.count+=2;s.len*=1.4}}]},
+  d:"Une décharge fuse dans ta direction de déplacement.",
+  base:{dmg:6.3, cd:10, count:1, len:300, width:34, speed:900},
+  evoAt:[7],
+  ups:[U('Taille +15 %',s=>{s.width*=1.15;s.len*=1.15}), U('Dégâts +50 %',s=>s.dmg*=1.5),
+       U('Taille +15 %',s=>{s.width*=1.15;s.len*=1.15}), U('Recharge -20 %',s=>s.cd*=.8),
+       U('Dégâts +50 %',s=>s.dmg*=1.5), null],
+  evos:{7:[
+    E('wipeout','Anéantissement','Le trait central inflige ×10 dégâts. Taille +30 %.',
+      s=>{s.centerBoost=10;s.width*=1.3;s.len*=1.3}),
+    E('ragnarok','Ragnarök','Rayon d\'apparition élargi. Nombre +5, recharge ×2.',
+      s=>{s.count+=5;s.cd*=2;s.scatter=1}),
+    E('nails','Clous de Satan','Apparaissent à des positions et directions aléatoires, avec des traits sur les côtés. Le nombre monte à chaque lancement puis se réinitialise. Dégâts +33 %, taille -50 %.',
+      s=>{s.dmg*=1.33;s.width*=.5;s.scatter=1;s.randomDir=1;s.stack=4})]}},
 
 /* --- FUSIONS (magies de combinaison) — non proposées au level-up ------- */
   cataclysm:{nm:'Cataclysme', ic:'✷', c:EL.fusion, fusion:1, tags:['Feu','Zone','Impact'], cast:'meteor',
     d:"Pluie de météores incandescents qui laissent le sol en feu.",
-    base:{dmg:11.0, cd:3.4, count:5, aoe:96, delay:0.55, leaveLava:1},
-    ups:[{t:'+2 impacts',f:s=>s.count+=2},{t:'+35 % dégâts',f:s=>s.dmg*=1.35},
-         {t:'Taille +25 %',f:s=>s.aoe*=1.25},{t:'Cooldown -25 %',f:s=>s.cd*=0.75},
-         {t:'+2 impacts, +35 % dégâts',f:s=>{s.count+=2;s.dmg*=1.35}},
-         {t:'+4 impacts, brasier permanent',f:s=>{s.count+=4;s.aoe*=1.3}}]},
+    base:{dmg:11, cd:3.4, count:5, aoe:96, delay:.55, leaveLava:1}, evoAt:[],
+    ups:[U('Nombre +2',s=>s.count+=2),U('Dégâts +35 %',s=>s.dmg*=1.35),
+         U('Taille +25 %',s=>s.aoe*=1.25),U('Recharge -25 %',s=>s.cd*=.75),
+         U('Nombre +2, dégâts +35 %',s=>{s.count+=2;s.dmg*=1.35}),
+         U('Nombre +4, taille +30 %',s=>{s.count+=4;s.aoe*=1.3})]},
   judgment:{nm:'Jugement', ic:'፨', c:EL.fusion, fusion:1, tags:['Foudre','Zone','Chaîne'], cast:'storm',
     d:"Des éclairs frappent partout et rebondissent entre les ennemis.",
-    base:{dmg:4.4, cd:1.9, count:8, aoe:38, chains:3, range:120},
-    ups:[{t:'+4 éclairs',f:s=>s.count+=4},{t:'+35 % dégâts',f:s=>s.dmg*=1.35},
-         {t:'+2 rebonds',f:s=>s.chains+=2},{t:'Cooldown -25 %',f:s=>s.cd*=0.75},
-         {t:'+4 éclairs, zone +30 %',f:s=>{s.count+=4;s.aoe*=1.3}},
-         {t:'+6 éclairs, +40 % dégâts',f:s=>{s.count+=6;s.dmg*=1.40}}]},
+    base:{dmg:4.4, cd:1.9, count:8, aoe:38, chains:3, range:120}, evoAt:[],
+    ups:[U('Nombre +4',s=>s.count+=4),U('Dégâts +35 %',s=>s.dmg*=1.35),
+         U('+2 rebonds',s=>s.chains+=2),U('Recharge -25 %',s=>s.cd*=.75),
+         U('Nombre +4, zone +30 %',s=>{s.count+=4;s.aoe*=1.3}),
+         U('Nombre +6, dégâts +40 %',s=>{s.count+=6;s.dmg*=1.4})]},
   absolute:{nm:'Zéro Absolu', ic:'✻', c:EL.fusion, fusion:1, tags:['Glace','Nature','Zone','Contrôle'], cast:'nova',
     d:"Le froid absolu fige tout autour de toi, puis persiste au sol.",
-    base:{dmg:6.5, cd:3.0, aoe:190, slow:0.95, slowDur:3.4, leaveField:1},
-    ups:[{t:'Zone +25 %',f:s=>s.aoe*=1.25},{t:'+35 % dégâts',f:s=>s.dmg*=1.35},
-         {t:'Gel +1,2 s',f:s=>s.slowDur+=1.2},{t:'Cooldown -25 %',f:s=>s.cd*=0.75},
-         {t:'Zone +25 %, +35 % dégâts',f:s=>{s.aoe*=1.25;s.dmg*=1.35}},
-         {t:'Zone +40 %, éclats de glace',f:s=>{s.aoe*=1.4;s.shards=true}}]},
+    base:{dmg:6.5, cd:3, aoe:190, slow:.95, slowDur:3.4, leaveField:1}, evoAt:[],
+    ups:[U('Taille +25 %',s=>s.aoe*=1.25),U('Dégâts +35 %',s=>s.dmg*=1.35),
+         U('Gel +1,2 s',s=>s.slowDur+=1.2),U('Recharge -25 %',s=>s.cd*=.75),
+         U('Taille +25 %, dégâts +35 %',s=>{s.aoe*=1.25;s.dmg*=1.35}),
+         U('Taille +40 %',s=>s.aoe*=1.4)]},
   orbital:{nm:'Canon Orbital', ic:'⊛', c:EL.fusion, fusion:1, tags:['Énergie','Orbite','Rayon'], cast:'orbit',
     d:"Tes satellites tirent des rayons sur tout ce qui passe.",
-    base:{dmg:3.4, count:4, radius:80, rot:2.4, tick:0.22, size:11, beam:1, beamCd:1.1, beamDmg:2.6},
-    ups:[{t:'+2 sphères',f:s=>s.count+=2},{t:'+35 % dégâts',f:s=>{s.dmg*=1.35;s.beamDmg*=1.35}},
-         {t:'Cadence des rayons +30 %',f:s=>s.beamCd*=0.7},{t:'Orbite +25 %',f:s=>s.radius*=1.25},
-         {t:'+2 sphères, +30 % dégâts',f:s=>{s.count+=2;s.dmg*=1.3;s.beamDmg*=1.3}},
-         {t:'Double orbite, +40 % dégâts',f:s=>{s.dual=true;s.dmg*=1.4;s.beamDmg*=1.4}}]},
+    base:{dmg:3.4, count:4, radius:80, rot:2.4, tick:.22, size:11, beam:1, beamCd:1.1, beamDmg:2.6}, evoAt:[],
+    ups:[U('Nombre +2',s=>s.count+=2),U('Dégâts +35 %',s=>{s.dmg*=1.35;s.beamDmg*=1.35}),
+         U('Cadence des rayons +30 %',s=>s.beamCd*=.7),U('Orbite +25 %',s=>s.radius*=1.25),
+         U('Nombre +2, dégâts +30 %',s=>{s.count+=2;s.dmg*=1.3;s.beamDmg*=1.3}),
+         U('Double orbite, dégâts +40 %',s=>{s.dual=true;s.dmg*=1.4;s.beamDmg*=1.4})]},
   legion:{nm:'Légion', ic:'❉', c:EL.fusion, fusion:1, tags:['Invocation','Énergie','Perce'], cast:'spirit',
     d:"Une nuée d'esprits perçants combat à tes côtés.",
-    base:{dmg:3.6, count:5, cd:0.7, speed:400, size:6, pierce:4},
-    ups:[{t:'+2 esprits',f:s=>s.count+=2},{t:'+35 % dégâts',f:s=>s.dmg*=1.35},
-         {t:'Cadence +25 %',f:s=>s.cd*=0.75},{t:'+2 esprits',f:s=>s.count+=2},
-         {t:'+3 pénétrations, +30 % dégâts',f:s=>{s.pierce+=3;s.dmg*=1.3}},
-         {t:'+3 esprits, tirs doublés',f:s=>{s.count+=3;s.cd*=0.8}}]},
+    base:{dmg:3.6, count:5, cd:.7, speed:400, size:6, pierce:4}, evoAt:[],
+    ups:[U('Nombre +2',s=>s.count+=2),U('Dégâts +35 %',s=>s.dmg*=1.35),
+         U('Cadence +25 %',s=>s.cd*=.75),U('Nombre +2',s=>s.count+=2),
+         U('+3 pénétrations, dégâts +30 %',s=>{s.pierce+=3;s.dmg*=1.3}),
+         U('Nombre +3',s=>{s.count+=3;s.cd*=.8})]},
   magma:{nm:'Fleuve de Magma', ic:'⩕', c:EL.fusion, fusion:1, tags:['Feu','Zone','Persistant'], cast:'lava',
     d:"Le sol se fissure sous tes pas et coule en rivières de magma.",
-    base:{dmg:2.6, cd:2.6, aoe:96, dur:7.0, count:4, tick:0.24, burn:true},
-    ups:[{t:'+2 flaques',f:s=>s.count+=2},{t:'+35 % dégâts',f:s=>s.dmg*=1.35},
-         {t:'Durée +50 %',f:s=>s.dur*=1.5},{t:'Taille +30 %',f:s=>s.aoe*=1.3},
-         {t:'+2 flaques, cooldown -25 %',f:s=>{s.count+=2;s.cd*=0.75}},
-         {t:'+3 flaques, +40 % dégâts',f:s=>{s.count+=3;s.dmg*=1.4}}]},
+    base:{dmg:2.6, cd:2.6, aoe:96, dur:7, count:4, tick:.24, burn:true}, evoAt:[],
+    ups:[U('Nombre +2',s=>s.count+=2),U('Dégâts +35 %',s=>s.dmg*=1.35),
+         U('Durée +50 %',s=>s.dur*=1.5),U('Taille +30 %',s=>s.aoe*=1.3),
+         U('Nombre +2, recharge -25 %',s=>{s.count+=2;s.cd*=.75}),
+         U('Nombre +3, dégâts +40 %',s=>{s.count+=3;s.dmg*=1.4})]},
   maelstrom:{nm:'Maelström', ic:'❋', c:EL.fusion, fusion:1, tags:['Nature','Zone','Contrôle','Repousse'], cast:'cyclone',
     d:"Un vortex géant aspire, broie, puis relâche une onde de choc.",
-    base:{dmg:2.8, cd:4.2, count:2, aoe:120, grow:2.6, dur:4.5, tick:0.22, pull:150, burstDmg:6},
-    ups:[{t:'Taille +30 %',f:s=>s.aoe*=1.3},{t:'+35 % dégâts',f:s=>{s.dmg*=1.35;s.burstDmg*=1.35}},
-         {t:'Durée +40 %',f:s=>s.dur*=1.4},{t:'+1 vortex',f:s=>s.count+=1},
-         {t:'Aspiration +60 %, cooldown -20 %',f:s=>{s.pull*=1.6;s.cd*=0.8}},
-         {t:'+1 vortex, +40 % dégâts',f:s=>{s.count+=1;s.dmg*=1.4;s.burstDmg*=1.4}}]},
+    base:{dmg:2.8, cd:4.2, count:2, aoe:120, grow:2.6, dur:4.5, tick:.22, pull:150, burstDmg:6}, evoAt:[],
+    ups:[U('Taille +30 %',s=>s.aoe*=1.3),U('Dégâts +35 %',s=>{s.dmg*=1.35;s.burstDmg*=1.35}),
+         U('Durée +40 %',s=>s.dur*=1.4),U('Nombre +1',s=>s.count+=1),
+         U('Aspiration +60 %, recharge -20 %',s=>{s.pull*=1.6;s.cd*=.8}),
+         U('Nombre +1, dégâts +40 %',s=>{s.count+=1;s.dmg*=1.4;s.burstDmg*=1.4})]},
   overload:{nm:'Surcharge', ic:'⌾', c:EL.fusion, fusion:1, tags:['Foudre','Aura','Directionnel'], cast:'aura',
     d:"Ton aura sature puis se décharge en éclairs dans toutes les directions.",
-    base:{dmg:1.5, radius:135, tick:0.18, arcs:true, discharge:1, dcCd:2.2, dcDmg:4.4, dcCount:8},
-    ups:[{t:'Rayon +25 %',f:s=>s.radius*=1.25},{t:'+35 % dégâts',f:s=>{s.dmg*=1.35;s.dcDmg*=1.35}},
-         {t:'+4 décharges',f:s=>s.dcCount+=4},{t:'Fréquence +30 %',f:s=>s.tick*=0.7},
-         {t:'Rayon +25 %, décharges +30 %',f:s=>{s.radius*=1.25;s.dcCd*=0.7}},
-         {t:'+6 décharges, +40 % dégâts',f:s=>{s.dcCount+=6;s.dmg*=1.4;s.dcDmg*=1.4}}]}
+    base:{dmg:1.5, radius:135, tick:.18, arcs:true, discharge:1, dcCd:2.2, dcDmg:4.4, dcCount:8}, evoAt:[],
+    ups:[U('Rayon +25 %',s=>s.radius*=1.25),U('Dégâts +35 %',s=>{s.dmg*=1.35;s.dcDmg*=1.35}),
+         U('+4 décharges',s=>s.dcCount+=4),U('Cadence +30 %',s=>s.tick*=.7),
+         U('Rayon +25 %, décharges +30 %',s=>{s.radius*=1.25;s.dcCd*=.7}),
+         U('+6 décharges, dégâts +40 %',s=>{s.dcCount+=6;s.dmg*=1.4;s.dcDmg*=1.4})]}
 };
 const OFFENSIVE = Object.keys(SPELLS).filter(k=>!SPELLS[k].fusion);
 const FUSION_OUT = Object.keys(SPELLS).filter(k=>SPELLS[k].fusion);
@@ -490,20 +636,51 @@ const FUSIONS = [
   {a:'ezone',    b:'flash',    out:'overload'}
 ];
 
-/* --- 1.3 MAGIES UTILITAIRES (4) --------------------------------------- */
+/* --- 1.3 MAGIES UTILITAIRES (4) ---------------------------------------
+   Niveau max 5, avec ÉVOLUTION au niveau 5.                              */
 const UTILS = {
   shield:{nm:'Bouclier', ic:'🛡', c:'#9ad4ff', max:5,
     d:'Bloque une attaque. Se recharge après un délai.',
-    cd:l=>18-l*2.2, charges:l=>1+Math.floor((l-1)/2)},
+    base:{cd:33, charges:2},
+    ups:[U('Recharge -10 %',s=>s.cd*=.9),U('Recharge -10 %',s=>s.cd*=.9),
+         U('Recharge -10 %',s=>s.cd*=.9), null],
+    evos:[E('barrier','Barrière','Maximum de boucliers +2.', s=>s.charges+=2),
+          E('reconstruct','Reconstruction','Recharge 2 boucliers d\'un coup, maximum +1. Recharge +20 %.',
+            s=>{s.charges+=1;s.per=2;s.cd*=1.2}),
+          E('destrfield','Champ de Destruction','Un bouclier détruit explose et frappe 4 fois.',
+            s=>s.blast=4)]},
   cloak:{nm:'Voile', ic:'👁', c:'#b8a4ff', max:5,
     d:'Intangible et bien plus rapide pendant un court instant.',
-    cd:l=>26-l*3, dur:l=>1.6+l*0.5},
+    base:{cd:45, dur:2},
+    ups:[U('Durée +30 %',s=>s.dur*=1.3),U('Durée +30 %',s=>s.dur*=1.3),
+         U('Durée +30 %',s=>s.dur*=1.3), null],
+    evos:[E('mirageC','Mirage','Durée +80 %.', s=>s.dur*=1.8),
+          E('warp','Distorsion','Explosion très puissante à la fin du voile.', s=>s.warp=1),
+          E('harvest','Moisson d\'Âmes','Récupère des PV pour chaque ennemi tué pendant le voile. Mana +33 %.',
+            s=>{s.harvest=.001;s.mana=1.33})]},
   circle:{nm:'Cercle Magique', ic:'⊙', c:'#ffc94a', max:5,
-    d:"Élève fortement l'ATK pendant quelques secondes.",
-    cd:l=>24-l*2.4, dur:l=>4+l*0.9, amt:l=>0.30+l*0.14},
+    d:"Élève fortement l'Amplify ATK pendant quelques secondes.",
+    base:{cd:20, dur:5, amt:.25},
+    ups:[U('Amplification +5 %, durée +20 %',s=>{s.amt+=.05;s.dur*=1.2}),
+         U('Amplification +5 %, durée +20 %',s=>{s.amt+=.05;s.dur*=1.2}),
+         U('Amplification +5 %, durée +20 %',s=>{s.amt+=.05;s.dur*=1.2}), null],
+    evos:[E('unleash','Libération de Mana','Tous les cooldowns -15 % pendant le cercle, et son propre cooldown -15 %.',
+            s=>{s.unleash=.15;s.cd*=.85}),
+          E('synth','Synthèse','Fait apparaître 5 objets. Acquisition de mana +15 %.',
+            s=>{s.items=5;s.mana=1.15}),
+          E('greatcircle','Grand Cercle','Effet ×2, durée +33 %, recharge +33 %.',
+            s=>{s.amt*=2;s.dur*=1.33;s.cd*=1.33})]},
   armageddon:{nm:'Armageddon', ic:'☠', c:'#ff4d6d', max:5,
-    d:'Anéantit les ennemis présents à l\'écran.',
-    cd:l=>75-l*7, pct:l=>0.55+l*0.09}
+    d:"Anéantit les ennemis présents à l'écran.",
+    base:{cd:75, pct:.55},
+    ups:[U('Puissance +9 %, recharge -8 %',s=>{s.pct+=.09;s.cd*=.92}),
+         U('Puissance +9 %, recharge -8 %',s=>{s.pct+=.09;s.cd*=.92}),
+         U('Puissance +9 %, recharge -8 %',s=>{s.pct+=.09;s.cd*=.92}), null],
+    /* La fiche ne documente pas les évolutions d'Armageddon : celles-ci sont
+       de mon cru, cohérentes avec le reste du jeu. */
+    evos:[E('extinction','Extinction','Anéantissement total des ennemis non-boss.', s=>s.pct=1),
+          E('rapture','Rédemption','Recharge -40 %, mais puissance -25 %.', s=>{s.cd*=.6;s.pct*=.75}),
+          E('harvestA','Récolte','Les ennemis anéantis laissent leur mana et des cellules.', s=>s.loot=1)]}
 };
 const UTIL_IDS = Object.keys(UTILS);
 
@@ -935,6 +1112,7 @@ function computeStats(){
   /* Faiseuse de Veuves : le multiplicateur suit le taux */
   if(s.widow) s.critMul+=s.crit*1.5;
 
+  if(G.buffs.circle&&G.buffs.circle.unleash) s.cdMul*=1-G.buffs.circle.unleash;
   s.cdMul=clamp(s.cdMul,.22,1);
   s.dmgRed=Math.min(s.dmgRed,.8); s.evade=Math.min(s.evade,.5);
 
@@ -950,8 +1128,19 @@ function tagMul(tags){ let m=1; for(const t of tags){ const v=G.st.tag[t]; if(v)
 function spellStats(id){
   const def=SPELLS[id], inst=G.spells[id], st=G.st;
   const s=Object.assign({},def.base);
-  for(let i=0;i<inst.lv-1;i++) def.ups[i].f(s);
-  if(s.cd){ s.cd*=st.cdMul*(st.sc[id]||1); if(inst.halve) s.cd*=.5; }
+  for(let i=0;i<inst.lv-1;i++){ const u=def.ups[i]; if(u) u.f(s); }
+  /* évolutions choisies (niveau 4 et/ou 7 selon le sort) */
+  if(inst.evo) for(const lvl in inst.evo){
+    if(inst.lv<+lvl) continue;
+    const list=def.evos&&def.evos[lvl];
+    const e=list&&list.find(x=>x.id===inst.evo[lvl]);
+    if(e) e.f(s);
+  }
+  if(s.cd){
+    s.cd*=st.cdMul*(st.sc[id]||1);
+    if(s.cdAdd) s.cd+=s.cdAdd;          /* certaines évolutions ALLONGENT la recharge */
+    if(inst.halve) s.cd*=.5;
+  }
   const sz=st.size*(st.szPct[id]||1), du=st.dur*(st.durPct[id]||1);
   for(const k of ['size','aoe','radius','range','width','len']) if(s[k]) s[k]*=sz;
   for(const k of ['dur','slowDur']) if(s[k]) s[k]*=du;
@@ -980,6 +1169,7 @@ const hpMul =t=>(1+t/60*.35)*Math.pow(1.155,t/60);
 function hurt(e,coef,mul,col,silent){
   const st=G.st;
   let d=st.atk*coef*mul*rnd(.94,1.06);
+  if(e.melt) d*=1+e.melt;                 /* Fonte : vulnérabilité accumulée */
   if(st.vsHealthy && e.hp>e.hpMax*.75) d*=1+st.vsHealthy;
   if(st.hydra) d+=e.hp*Math.min(.30,st.hydra);
   let crit=Math.random()<st.crit;
@@ -1001,6 +1191,8 @@ function killEnemy(e){
   if(e.boom) blast(e.x,e.y,e.boom.r,e.boom.dmg*.6,e.c);
   if(G.st.explodeChance && Math.random()<G.st.explodeChance)
     explode(e.x,e.y,e.r*4.5,0,null,'#ffb84a',e.hpMax*.75);
+  if(G.buffs.cloak&&G.buffs.cloak.harvest)
+    G.p.hp=Math.min(G.st.hpMax*G.st.hpCap,G.p.hp+G.st.hpMax*G.buffs.cloak.harvest);
   const big=e.boss?26:e.elite?8:1;
   for(let i=0;i<big;i++) dropOrb(e.x+rnd(-14,14),e.y+rnd(-14,14),e.xp*(e.boss?2.4:1));
   if(e.elite||e.boss||Math.random()<.02) dropCell(e.x,e.y,e.boss?12:e.elite?3:1);
@@ -1039,6 +1231,8 @@ function damagePlayer(raw){
   const p=G.p,st=G.st;
   if(p.iT>0||G.buffs.invinc||G.buffs.cloak) return;
   if(G.shieldN>0){ G.shieldN--; p.iT=1.2; fx({k:'ring',x:p.x,y:p.y,r0:10,r1:40,t:.35,mt:.35,c:'#9ad4ff'});
+    if(G.shieldBlast) for(let i=0;i<G.shieldBlast;i++)
+      setTimeout0(()=>explode(p.x,p.y,120,6,['Arcane'],'#9ad4ff'),i);
     AU.play(700,.2,'sine',.05); return; }
   if(Math.random()<st.evade){ G.nums.push({x:p.x,y:p.y-16,vy:-30,t:.6,v:'ESQUIVE',crit:false,c:'#8ce8ff'}); return; }
   let red=st.dmgRed*(1-G.defPen);
@@ -1053,6 +1247,8 @@ function damagePlayer(raw){
     p.hp=0; endRun();
   }
 }
+/* petit différé sans setTimeout : on empile des effets à déclencher */
+function setTimeout0(fn,i){ fx({k:'delay',t:.12*i+.01,mt:.12*i+.01,fn}); }
 function killScreen(pct){
   for(const e of G.en){ if(e.dead||e.boss) continue; e.hp-=e.hpMax*pct; if(e.hp<=0) killEnemy(e); }
 }
@@ -1078,7 +1274,11 @@ function flash(c){ if(SAVE.opt.flash){ G.flashT=.16; G.flashC=c; } }
 function unlocked(){ const o=[]; for(const k in ENEMIES) if(G.t>=ENEMIES[k].t) o.push({k,w:ENEMIES[k].w}); return o; }
 function spawnPoint(){ const a=Math.random()*TAU,d=Math.max(W,H)/SCALE*.62+rnd(20,90);
   return {x:clamp(G.p.x+Math.cos(a)*d,-WORLD,WORLD),y:clamp(G.p.y+Math.sin(a)*d,-WORLD,WORLD)}; }
+function enemyCap(){ return SAVE.opt.particles===0?180:SAVE.opt.particles===1?230:290; }
 function spawnEnemy(type,elite,at){
+  /* le plafond vaut AUSSI pour les pondeuses et les renforts du boss,
+     sinon une colonie qui pond en continu fait exploser le compte */
+  if(!elite && G.en.length>=enemyCap()+40) return null;
   const d=ENEMIES[type],p=at||spawnPoint(),st=G.st,em=elite?9:1;
   const e={uid:G.uid++,type,x:p.x,y:p.y,r:d.r*(elite?1.55:1),c:d.c,elite:!!elite,
     dead:false,hitT:0,touched:0,slow:0,slowT:0,burnT:0,burnD:0,burnAcc:0,atkT:0,
@@ -1175,31 +1375,63 @@ const CAST={
     AU.play(620,.08,'sawtooth',.028); },
 
   cone(s,def,id){
-    pushZone({k:'cone',x:G.p.x,y:G.p.y,t:s.dur,mt:s.dur,tick:s.tick,acc:0,
-      coef:s.dmg,mul:s.mul,c:def.c,range:s.range,arc:s.arc,a:Math.atan2(G.p.dy,G.p.dx),
-      burn:s.burn,follow:true});
+    const inst=G.spells[id];
+    let dm=s.dmg, rg=s.range;
+    if(s.ramp){                                     /* Frappe Ardente */
+      inst.ramp=Math.min(s.ramp,(inst.ramp||1)+(s.ramp-1)/6);
+      dm*=inst.ramp;
+      rg*=1+(s.rampSize-1)*(inst.ramp-1)/(s.ramp-1);
+    }
+    const offs=[0];
+    if(s.extraCones) for(let k=1;k<=s.extraCones;k++) offs.push((k%2?1:-1)*.55*Math.ceil(k/2));
+    if(s.sides){ offs.push(Math.PI/2); offs.push(-Math.PI/2); }
+    for(const o of offs)
+      pushZone({k:'cone',x:G.p.x,y:G.p.y,t:s.dur,mt:s.dur,tick:s.tick,acc:0,
+        coef:dm,mul:s.mul,c:def.c,range:rg,arc:s.arc,aOff:o,
+        a:Math.atan2(G.p.dy,G.p.dx)+o,burn:s.burn,follow:true});
     AU.play(240,.3,'sawtooth',.03); },
 
   blizzard(s,def,id){
+    if(s.burst){                                   /* Embrasement */
+      for(let k=0;k<s.burst;k++){
+        const pw=Math.pow(.9,k);
+        for(let i=0;i<Math.max(1,Math.round(s.count/2));i++){
+          const a=Math.random()*TAU,d=Math.sqrt(Math.random())*s.radius;
+          explode(G.p.x+Math.cos(a)*d,G.p.y+Math.sin(a)*d,s.aoe,s.dmg*pw,def.tags,def.c);
+        }
+      }
+      AU.play(880,.2,'sine',.03); return;
+    }
     pushZone({k:'blizzard',x:G.p.x,y:G.p.y,t:s.dur,mt:s.dur,acc:0,
       tick:s.dur/Math.max(1,s.count),coef:s.dmg,mul:s.mul,c:def.c,aoe:s.aoe,
-      radius:s.radius,slow:s.slow,slowDur:s.slowDur,follow:true});
+      radius:s.radius,slow:s.slow,slowDur:s.slowDur,slowRamp:s.slowRamp,follow:true});
     AU.play(880,.2,'sine',.03); },
 
   wave(s,def,id){
     for(let i=0;i<s.count;i++){
       const t=nearest(G.p.x,G.p.y,900);
-      const a=t?Math.atan2(t.y-G.p.y,t.x-G.p.x)+i*.5:rnd(0,TAU);
-      G.waves.push({x:G.p.x,y:G.p.y,a,vx:Math.cos(a)*s.speed,vy:Math.sin(a)*s.speed,
-        w:s.width,coef:s.dmg,mul:s.mul,c:def.c,life:s.life,knock:s.knock,hit:[]}); }
+      let a;
+      if(s.allDir) a=i/s.count*TAU;
+      else if(s.aimed) a=Math.atan2(G.p.dy,G.p.dx)+rnd(-.5,.5);
+      else a=t?Math.atan2(t.y-G.p.y,t.x-G.p.x)+i*.5:rnd(0,TAU);
+      const off=s.spread2?rnd(60,180):0;
+      G.waves.push({x:G.p.x+Math.cos(a)*off,y:G.p.y+Math.sin(a)*off,a,
+        vx:Math.cos(a)*s.speed,vy:Math.sin(a)*s.speed,
+        w:s.width,coef:s.dmg,mul:s.mul,c:def.c,life:s.life,knock:s.knock,
+        freeze:s.freeze,hit:[]}); }
     AU.play(180,.4,'sine',.04); },
 
   ray(s,def,id){
     for(let i=0;i<s.count;i++){
       const t=nearest(G.p.x,G.p.y,900);
-      const a=t?Math.atan2(t.y-G.p.y,t.x-G.p.x)+i*(TAU/s.count):i*(TAU/s.count);
+      let a;
+      if(s.randomDir) a=rnd(0,TAU);
+      else a=t?Math.atan2(t.y-G.p.y,t.x-G.p.x)+i*(TAU/s.count):i*(TAU/s.count);
       G.rays.push({a,rot:s.rot*(i%2?-1:1),len:s.len,w:s.width,t:s.dur,mt:s.dur,
-        acc:0,tick:s.tick,coef:s.dmg,mul:s.mul,c:def.c}); }
+        acc:0,tick:s.tick,coef:s.dmg,mul:s.mul,c:def.c});
+      if(s.mirror)                                  /* Réflexion */
+        G.rays.push({a:a+Math.PI,rot:s.rot*(i%2?-1:1),len:s.len,w:s.width,t:s.dur,mt:s.dur,
+          acc:0,tick:s.tick,coef:s.dmg,mul:s.mul,c:def.c}); }
     AU.play(1100,.25,'sine',.03); },
 
   aura(){}, orbit(){}, spirit(){},
@@ -1216,6 +1448,16 @@ const CAST={
     if(s.leaveField)
       pushZone({k:'field',x:G.p.x,y:G.p.y,r:s.aoe*.85,t:3.2,mt:3.2,tick:.4,acc:0,
         coef:s.dmg*.18,mul:s.mul,c:def.c,slow:s.slow,slowDur:1.2});
+    if(s.chill){                                   /* Zéro Absolu : gèle autour */
+      GRID.query(G.p.x,G.p.y,s.aoe*s.chill,_q);
+      for(let i=0;i<_q.length;i++){ const e=G.en[_q[i]]; if(!e||e.dead) continue;
+        e.slow=Math.max(e.slow,.8); e.slowT=Math.max(e.slowT,s.slowDur); }
+    }
+    if(s.repeatBlast){                             /* Ère Glaciaire : 3 explosions */
+      const inst=G.spells[id];
+      inst.blast=(inst.blast||0)+1;
+      if(inst.blast<s.repeatBlast) inst.t=.32; else inst.blast=0;
+    }
     shake(.12); AU.play(340,.16,'sine',.033); },
 
   lava(s,def,id){
@@ -1223,15 +1465,21 @@ const CAST={
       const t=G.en.length?pick(G.en):null;
       const x=t&&!t.dead?t.x:G.p.x+rnd(-50,50), y=t&&!t.dead?t.y:G.p.y+rnd(-50,50);
       pushZone({k:'lava',x,y,r:s.aoe,t:s.dur,mt:s.dur,tick:s.tick,acc:0,
-        coef:s.dmg,mul:s.mul,c:def.c,burn:s.burn,grow:G.st.lavaGrow?.06:0}); }
+        coef:s.dmg,mul:s.mul,c:def.c,burn:s.burn,melt:s.melt,
+        grow:G.st.lavaGrow?.06:0}); }
     AU.play(200,.2,'sawtooth',.028); },
 
   flash(s,def,id){
+    const inst=G.spells[id];
+    let n=s.count;
+    if(s.stack){ inst.stk=((inst.stk||0)+1)%s.stack; n+=inst.stk; }
     const a=Math.atan2(G.p.dy,G.p.dx);
-    for(let i=0;i<s.count;i++){
-      const ang=a+(i? (i%2? .5*Math.ceil(i/2) : -.5*Math.ceil(i/2)) :0);
-      G.waves.push({x:G.p.x,y:G.p.y,a:ang,vx:Math.cos(ang)*s.speed,vy:Math.sin(ang)*s.speed,
-        w:s.width,coef:s.dmg,mul:s.mul,c:def.c,life:s.len/s.speed,knock:0,hit:[],bolt:true}); }
+    for(let i=0;i<n;i++){
+      const ang=s.randomDir?rnd(0,TAU):a+(i? (i%2? .5*Math.ceil(i/2) : -.5*Math.ceil(i/2)) :0);
+      const ox=s.scatter?rnd(-180,180):0, oy=s.scatter?rnd(-180,180):0;
+      G.waves.push({x:G.p.x+ox,y:G.p.y+oy,a:ang,vx:Math.cos(ang)*s.speed,vy:Math.sin(ang)*s.speed,
+        w:s.width,coef:s.dmg*(i===0&&s.centerBoost?s.centerBoost:1),
+        mul:s.mul,c:def.c,life:s.len/s.speed,knock:0,hit:[],bolt:true}); }
     AU.play(1000,.1,'square',.03); }
 };
 function chainFrom(src,coef,n,range,mul,col,falloff){
@@ -1259,25 +1507,42 @@ function syncOrbit(){
 function syncSpirits(){
   const id=spiritId(); if(!id){ G.spirits.length=0; return; }
   const s=spellStats(id);
+  if(s.familiar) s.count=1;                      /* tous fusionnés en un seul */
   while(G.spirits.length<s.count) G.spirits.push({x:G.p.x,y:G.p.y,a:Math.random()*TAU,cd:rnd(0,.6)});
   G.spirits.length=Math.min(G.spirits.length,s.count);
 }
 
 function pushZone(z){ if(G.zones.length>=40) G.zones.shift(); G.zones.push(z); }
 
+function utilStats(id){
+  const d=UTILS[id], inst=G.utils[id], s=Object.assign({},d.base);
+  for(let i=0;i<inst.lv-1;i++){ const u=d.ups[i]; if(u) u.f(s); }
+  if(inst.evo){ const e=d.evos.find(x=>x.id===inst.evo); if(e) e.f(s); }
+  if(s.cd) s.cd*=G.st.cdMul;
+  return s;
+}
+
 /* --- magies utilitaires ------------------------------------------------ */
 function updateUtils(dt){
   for(const id in G.utils){
-    const u=G.utils[id],d=UTILS[id];
+    const u=G.utils[id], s=utilStats(id);
     u.t-=dt;
-    if(id==='shield'){ if(G.shieldN<d.charges(u.lv)&&u.t<=0){ G.shieldN++; u.t=d.cd(u.lv)*G.st.cdMul; } continue; }
+    if(id==='shield'){
+      G.shieldMax=s.charges;
+      if(G.shieldN<s.charges&&u.t<=0){ G.shieldN=Math.min(s.charges,G.shieldN+(s.per||1)); u.t=s.cd; }
+      G.shieldBlast=s.blast||0; continue;
+    }
     if(u.t>0) continue;
     if(id==='cloak'){ if(G.p.hp<G.st.hpMax*.5||G.en.length>60){
-        G.buffs.cloak={t:d.dur(u.lv)}; u.t=d.cd(u.lv)*G.st.cdMul; AU.play(600,.3,'sine',.04); } }
-    else if(id==='circle'){ G.buffs.circle={t:d.dur(u.lv),amt:d.amt(u.lv)};
-      u.t=d.cd(u.lv)*G.st.cdMul; fx({k:'ring',x:G.p.x,y:G.p.y,r0:10,r1:90,t:.5,mt:.5,c:'#ffc94a'}); }
+        G.buffs.cloak={t:s.dur,warp:s.warp,harvest:s.harvest,mana:s.mana};
+        u.t=s.cd; AU.play(600,.3,'sine',.04); } }
+    else if(id==='circle'){ G.buffs.circle={t:s.dur,amt:s.amt,unleash:s.unleash||0};
+      u.t=s.cd; fx({k:'ring',x:G.p.x,y:G.p.y,r0:10,r1:90,t:.5,mt:.5,c:'#ffc94a'});
+      if(s.items) for(let i=0;i<s.items;i++) dropCell(G.p.x+rnd(-60,60),G.p.y+rnd(-60,60),1);
+      if(s.mana) G.xp+=G.xpNeed*(s.mana-1); }
     else if(id==='armageddon'){ if(G.en.length>28||G.p.hp<G.st.hpMax*.3){
-        killScreen(d.pct(u.lv)); flash('#ff4d6d'); shake(.8); u.t=d.cd(u.lv)*G.st.cdMul; AU.boom(); } }
+        if(s.loot) for(const e of G.en){ if(!e.dead&&!e.boss) dropOrb(e.x,e.y,e.xp); }
+        killScreen(s.pct); flash('#ff4d6d'); shake(.8); u.t=s.cd; AU.boom(); } }
   }
 }
 /* --- artefacts actifs -------------------------------------------------- */
@@ -1303,7 +1568,13 @@ function updateActives(dt){
   if(st.act.philo){ T.ph=(T.ph||0);
     if(T.ph<=0){ T.ph=2.5*st.artCd; for(let i=0;i<3;i++) dropOrb(G.p.x+rnd(-60,60),G.p.y+rnd(-60,60),4); } }
   if(st.act.ether){ G.xp+=G.xpNeed*.01*dt*.35; }
-  for(const k in G.buffs){ G.buffs[k].t-=dt; if(G.buffs[k].t<=0) delete G.buffs[k]; }
+  for(const k in G.buffs){
+    G.buffs[k].t-=dt;
+    if(G.buffs[k].t<=0){
+      if(k==='cloak'&&G.buffs[k].warp){ explode(G.p.x,G.p.y,200,14,['Arcane'],'#b8a4ff'); flash('#b8a4ff'); }
+      delete G.buffs[k];
+    }
+  }
 }
 
 /* =========================================================================
@@ -1362,7 +1633,7 @@ function update(dt){
 
   /* apparitions */
   G.spawnAcc+=dt*(1.0+G.t/60*2.2);
-  const cap=SAVE.opt.particles===0?180:SAVE.opt.particles===1?230:290;
+  const cap=enemyCap();
   while(G.spawnAcc>=1){G.spawnAcc-=1; if(G.en.length<cap) spawnWave();}
   if(G.t>70){G.eliteT-=dt; if(G.eliteT<=0){G.eliteT=24; const l=unlocked(); if(l.length) spawnEnemy(wpick(l).k,true);}}
   if(G.t>=G.nextBoss&&!G.boss){G.nextBoss+=180; spawnBoss();}
@@ -1525,7 +1796,14 @@ function updateZones(dt){
   for(let i=G.zones.length-1;i>=0;i--){
     const z=G.zones[i]; z.t-=dt; z.acc+=dt;
     if(z.follow){z.x=G.p.x;z.y=G.p.y;}
-    if(z.k==='cyclone'){ z.r=Math.min(z.rMax,z.r+z.grow*dt*z.rMax*.35);
+    if(z.k==='cyclone'){
+      if(z.shrink) z.r=Math.max(z.rMax*.2,z.rMax*(z.t/z.mt));
+      else z.r=Math.min(z.rMax,z.r+z.grow*dt*z.rMax*.35);
+      if(z.spit){ z.spitT-=dt;
+        if(z.spitT<=0){ z.spitT=.3;
+          const a=Math.random()*TAU;
+          G.bul.push({x:z.x,y:z.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,a,r:6,
+            coef:z.coef,mul:z.mul,c:z.c,life:1.2,pierce:1,hit:[],kind:'cyclone',aoe:0,born:G.t}); } }
       if(z.acc>=z.tick){ z.acc=0;
         zoneHit(z,z.x,z.y,z.r,z.coef,(e,d,dx,dy)=>{e.x-=dx/d*z.pull*dt*4;e.y-=dy/d*z.pull*dt*4;}); }
       if(z.t<=0&&z.burst) explode(z.x,z.y,z.r*1.2,z.burst,['Nature'],z.c);
@@ -1544,14 +1822,18 @@ function updateZones(dt){
         const a=Math.random()*TAU,d=Math.sqrt(Math.random())*z.radius;
         const x=z.x+Math.cos(a)*d,y=z.y+Math.sin(a)*d;
         fx({k:'ring',x,y,r0:z.aoe*.3,r1:z.aoe,t:.24,mt:.24,c:z.c});
-        zoneHit(z,x,y,z.aoe,z.coef,e=>{e.slow=Math.max(e.slow,z.slow);e.slowT=z.slowDur;}); }
+        zoneHit(z,x,y,z.aoe,z.coef,e=>{
+          if(z.slowRamp){ e.slow=Math.min(.85,(e.slow||0)+.06); e.slowT=Math.max(e.slowT,.9); }
+          else if(z.slow){ e.slow=Math.max(e.slow,z.slow); e.slowT=z.slowDur; } }); }
     } else if(z.k==='field'){
       if(z.acc>=z.tick){ z.acc=0;
         zoneHit(z,z.x,z.y,z.r,z.coef,e=>{e.slow=Math.max(e.slow,z.slow);e.slowT=z.slowDur;}); }
     } else { /* lava */
       if(z.grow) z.r+=z.grow*dt*z.r;
       if(z.acc>=z.tick){ z.acc=0;
-        zoneHit(z,z.x,z.y,z.r,z.coef,e=>{ if(z.burn){e.burnT=2;e.burnD=z.coef*.25;} }); }
+        zoneHit(z,z.x,z.y,z.r,z.coef,e=>{
+          if(z.burn){e.burnT=2;e.burnD=z.coef*.25;}
+          if(z.melt) e.melt=Math.min(.30,(e.melt||0)+z.melt); }); }
     }
     if(z.t<=0) G.zones.splice(i,1);
   }
@@ -1580,6 +1862,7 @@ function updateWaves(dt){
       const dx=e.x-w.x,dy=e.y-w.y;
       if(dx*dx+dy*dy<(w.w+e.r)*(w.w+e.r)){
         w.hit.push(e.uid); hurt(e,w.coef,w.mul,w.c);
+        if(w.freeze&&!e.dead){ e.slow=Math.max(e.slow,.9); e.slowT=w.freeze; }
         if(w.knock&&!e.dead){const d=Math.hypot(dx,dy)||1;e.x+=dx/d*w.knock*.5;e.y+=dy/d*w.knock*.5;} }
     }
     if(G.boss&&!G.boss.dead&&w.hit.indexOf(G.boss.uid)<0){
@@ -1591,8 +1874,10 @@ function updateWaves(dt){
 function updateOrbit(dt){
   const id=orbitId(); if(!id) return;
   const s=spellStats(id),def=SPELLS[id];
+  let rot=s.rot;
+  if(s.rotCycle) rot*=1+(s.rotCycle-1)*(Math.sin(G.t*.9)*.5+.5);   /* Antigravité */
   for(const o of G.sats){
-    o.a+=s.rot*dt*(o.ring?-1:1);
+    o.a+=rot*dt*(o.ring?-1:1);
     const R=s.radius*(o.ring?.62:1);
     o.x=G.p.x+Math.cos(o.a)*R; o.y=G.p.y+Math.sin(o.a)*R;
     o.cd-=dt;
@@ -1622,14 +1907,25 @@ function updateSpiritsSys(dt){
     sp.x=lerp(sp.x,tx,.1); sp.y=lerp(sp.y,ty,.1);
     sp.cd-=dt;
     if(sp.cd<=0){ const t=nearest(sp.x,sp.y,340);
-      if(t){ sp.cd=s.cd; const a=Math.atan2(t.y-sp.y,t.x-sp.x);
-        G.bul.push({x:sp.x,y:sp.y,vx:Math.cos(a)*s.speed,vy:Math.sin(a)*s.speed,a,
-          r:s.size,coef:s.dmg,mul:s.mul,c:def.c,life:2,pierce:s.pierce||0,hit:[],kind:id,aoe:0}); } }
+      if(t){
+        sp.cd=s.perCount ? s.cd/Math.max(1,n) : s.cd;      /* Missile Magique */
+        const shots=s.familiar?(s.shots||15):1;            /* Familier */
+        for(let k=0;k<shots;k++){
+          const a=s.familiar ? k/shots*TAU : Math.atan2(t.y-sp.y,t.x-sp.x);
+          G.bul.push({x:sp.x,y:sp.y,vx:Math.cos(a)*s.speed,vy:Math.sin(a)*s.speed,a,
+            r:s.size*(s.bladeShot?1.8:1),coef:s.dmg,mul:s.mul,c:def.c,life:2,
+            pierce:s.pierce||0,hit:[],kind:id,aoe:0,born:G.t});
+        } } }
   });
 }
 function updateAura(dt){
   const id=auraId(); if(!id) return;
   const s=spellStats(id),def=SPELLS[id],inst=G.spells[id];
+  if(s.cycle){                                     /* Aura de Feu : pulse */
+    inst.cyc=((inst.cyc||0)+dt)%(s.tick*2);
+    s.radius*=.4+1.2*(inst.cyc/(s.tick*2));
+  }
+  G.auraR=s.radius;
   inst.t-=dt;
   if(inst.t<=0){ inst.t=s.tick;
     GRID.query(G.p.x,G.p.y,s.radius+30,_q);
@@ -1637,6 +1933,8 @@ function updateAura(dt){
       const dx=e.x-G.p.x,dy=e.y-G.p.y;
       if(dx*dx+dy*dy<(s.radius+e.r)*(s.radius+e.r)){
         hurt(e,s.dmg,s.mul,def.c,true);
+        if(s.stunAt&&!e.dead){ e.zap=(e.zap||0)+1;
+          if(e.zap>=s.stunAt){ e.zap=0; e.slow=Math.max(e.slow,.95); e.slowT=1.1; } }
         if(s.arcs&&Math.random()<.12&&!e.dead)
           fx({k:'chain',x1:G.p.x,y1:G.p.y,x2:e.x,y2:e.y,t:.12,mt:.12,c:def.c}); } }
     if(G.boss){const b=G.boss,dx=b.x-G.p.x,dy=b.y-G.p.y;
@@ -1686,7 +1984,8 @@ function updateFX(dt){
   for(let i=G.fx.length-1;i>=0;i--){
     const f=G.fx[i]; f.t-=dt;
     if(f.t<=0){
-      if(f.k==='meteor'){ explode(f.x,f.y,f.r,f.coef,f.tags,f.c); flash('#ff7a2e');
+      if(f.k==='delay'){ f.fn(); }
+      else if(f.k==='meteor'){ explode(f.x,f.y,f.r,f.coef,f.tags,f.c); flash('#ff7a2e');
         if(f.lava) pushZone({k:'lava',x:f.x,y:f.y,r:f.lava.r,t:3.5,mt:3.5,
           tick:.4,acc:0,coef:f.lava.dmg,mul:G.st.amp*G.st.allDmg,c:f.lava.c}); }
       else if(f.k==='tele'){ fx({k:'ring',x:f.x,y:f.y,r0:f.r*.3,r1:f.r,t:.3,mt:.3,c:f.c});
@@ -2846,8 +3145,9 @@ function updateHUD(){
 }
 function renderTray(){
   let h='';
-  for(const id in G.spells){ const d=SPELLS[id];
-    h+=`<div class="slot${d.fusion?' fus':''}" style="color:${d.c};border-color:${d.c}66">${d.ic}<i>${G.spells[id].lv}</i></div>`; }
+  for(const id in G.spells){ const d=SPELLS[id], inst=G.spells[id];
+    const ev=inst.evo&&Object.keys(inst.evo).length;
+    h+=`<div class="slot${d.fusion||ev?' fus':''}" style="color:${d.c};border-color:${d.c}66">${d.ic}<i>${inst.lv}</i></div>`; }
   for(const id in G.utils){ const d=UTILS[id];
     h+=`<div class="slot" style="color:${d.c};border-color:${d.c}44">${d.ic}<i>${G.utils[id].lv}</i></div>`; }
   for(const id in G.passives){ const d=PASSIVES[id];
@@ -2866,11 +3166,17 @@ function card(o,i){
   else if(o.k==='snew'){ const d=SPELLS[o.id];
     ic=d.ic;nm=d.nm;dsc=d.d;c=d.c;tags=d.tags;lvl='NOUVELLE MAGIE'; }
   else if(o.k==='sup'){ const d=SPELLS[o.id],lv=G.spells[o.id].lv;
-    ic=d.ic;nm=d.nm;dsc=d.ups[lv-1].t;c=d.c;tags=d.tags;lvl=`NIV ${lv} → ${lv+1}`; }
+    ic=d.ic;nm=d.nm;c=d.c;tags=d.tags;lvl=`NIV ${lv} → ${lv+1}`;
+    const u=d.ups[lv-1];
+    if(u) dsc=u.t;
+    else { dsc='Choisis une évolution parmi trois.'; lvl='ÉVOLUTION'; cls=' fusioncard'; } }
   else if(o.k==='unew'){ const d=UTILS[o.id];
     ic=d.ic;nm=d.nm;dsc=d.d;c=d.c;tags=['Utilitaire'];lvl='MAGIE UTILITAIRE'; }
   else if(o.k==='uup'){ const d=UTILS[o.id],lv=G.utils[o.id].lv;
-    ic=d.ic;nm=d.nm;dsc=d.d;c=d.c;tags=['Utilitaire'];lvl=`NIV ${lv} → ${lv+1}`; }
+    ic=d.ic;nm=d.nm;c=d.c;tags=['Utilitaire'];lvl=`NIV ${lv} → ${lv+1}`;
+    const u=d.ups[lv-1];
+    if(u) dsc=u.t;
+    else { dsc='Choisis une évolution parmi trois.'; lvl='ÉVOLUTION'; cls=' fusioncard'; } }
   else if(o.k==='pas'){ const d=PASSIVES[o.id],lv=G.passives[o.id]||0;
     ic=d.ic;nm=d.nm;dsc=d.d;c=d.c;tags=d.tags;lvl=`NIV ${lv} → ${lv+1}`; }
   else { ic='✚';nm='Souffle vital';dsc='Récupère 40 % de tes points de vie';c='#ff6b8a';
@@ -2894,7 +3200,8 @@ function buildOffers(n){
   const out=[], fu=availableFusion();
   if(fu) out.push(fu);
   const pool=[], owned=Object.keys(G.spells);
-  for(const id of owned) if(G.spells[id].lv<MAX_LV) pool.push({k:'sup',id,w:11});
+  for(const id of owned) if(G.spells[id].lv<MAX_LV)
+    pool.push({k:'sup',id,w:(SPELLS[id].evoAt||[]).indexOf(G.spells[id].lv+1)>=0?26:11});
   if(owned.length<SPELL_SLOTS)
     for(const id of OFFENSIVE) if(!G.spells[id]) pool.push({k:'snew',id,w:14});
   const uown=Object.keys(G.utils);
@@ -2938,14 +3245,59 @@ $('rerollBtn').addEventListener('click',()=>{
 function applyOffer(o){
   if(o.k==='fus'){ delete G.spells[o.a]; delete G.spells[o.b];
     G.spells[o.out]={lv:1,t:0}; flash('#ff5ec7'); AU.play(1200,.5,'sine',.07); }
-  else if(o.k==='snew') G.spells[o.id]={lv:1,t:0};
-  else if(o.k==='sup')  G.spells[o.id].lv++;
+  else if(o.k==='snew') G.spells[o.id]={lv:1,t:0,evo:{}};
+  else if(o.k==='sup'){
+    const inst=G.spells[o.id]; inst.lv++;
+    if((SPELLS[o.id].evoAt||[]).indexOf(inst.lv)>=0){
+      computeStats(); renderTray(); G.pending--;
+      openEvo('spell',o.id,inst.lv); return;
+    }
+  }
   else if(o.k==='unew') G.utils[o.id]={lv:1,t:2};
-  else if(o.k==='uup')  G.utils[o.id].lv++;
+  else if(o.k==='uup'){
+    const inst=G.utils[o.id]; inst.lv++;
+    if(inst.lv>=UTILS[o.id].max){
+      computeStats(); renderTray(); G.pending--;
+      openEvo('util',o.id,inst.lv); return;
+    }
+  }
   else if(o.k==='pas')  G.passives[o.id]=(G.passives[o.id]||0)+1;
   else G.p.hp=Math.min(G.st.hpMax*G.st.hpCap,G.p.hp+G.st.hpMax*.4);
   computeStats(); renderTray();
   G.pending--;
+  if(G.pending>0) openLevelUp(); else { G.phase='run'; show(null); }
+}
+
+/* --- choix d'évolution ------------------------------------------------- */
+let evoCtx=null;
+function openEvo(kind,id,lvl){
+  const def = kind==='spell'?SPELLS[id]:UTILS[id];
+  const list= kind==='spell'?(def.evos[lvl]||[]):def.evos;
+  if(!list||!list.length){ resumeAfter(); return; }
+  evoCtx={kind,id,lvl,list};
+  $('evoName').textContent=def.nm.toUpperCase();
+  $('evoSub').textContent = kind==='spell'
+    ? `Niveau ${lvl} — ce choix est définitif.`
+    : 'Niveau maximum — ce choix est définitif.';
+  $('evoWrap').innerHTML=list.map((e,i)=>`
+    <button class="card fusioncard" data-i="${i}" style="--c:${def.c}">
+      <div class="sig">${def.ic}</div><div class="cbody">
+        <div class="ctop"><span class="cname">${e.nm}</span><span class="clvl">ÉVOLUTION</span></div>
+        <div class="cdesc">${e.d}</div>
+        <div class="tags">${(def.tags||['Utilitaire']).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      </div></button>`).join('');
+  G.phase='evo'; show('evo'); flash('#ff5ec7'); AU.play(1200,.45,'sine',.06);
+}
+$('evoWrap').addEventListener('click',e=>{
+  const b=e.target.closest('.card'); if(!b||!evoCtx) return;
+  const ev=evoCtx.list[+b.dataset.i];
+  if(evoCtx.kind==='spell'){
+    const inst=G.spells[evoCtx.id];
+    inst.evo=inst.evo||{}; inst.evo[evoCtx.lvl]=ev.id;
+  } else G.utils[evoCtx.id].evo=ev.id;
+  evoCtx=null; computeStats(); renderTray(); resumeAfter();
+});
+function resumeAfter(){
   if(G.pending>0) openLevelUp(); else { G.phase='run'; show(null); }
 }
 
@@ -3080,8 +3432,8 @@ function startRun(){
     shakeT:0,flashT:0,_synSeen:{}});
   G.p={x:0,y:0,vx:0,vy:0,hp:1,r:10,hitT:0,iT:1.4,anim:0,dir:1,dx:1,dy:0};
   const cl=CLASSES[G.cls];
-  G.spells.bolt={lv:1,t:0};
-  if(cl.spell==='bolt') G.spells.bolt.lv=2; else G.spells[cl.spell]={lv:1,t:0};
+  G.spells.bolt={lv:1,t:0,evo:{}};
+  if(cl.spell==='bolt') G.spells.bolt.lv=2; else G.spells[cl.spell]={lv:1,t:0,evo:{}};
   const su=SUBJECTS[G.subj];
   if(su&&su.art) G.artifacts.push(su.art);
   computeStats();
@@ -3184,6 +3536,9 @@ function renderCodex(){
   let h='';
   h+=sec('Magies offensives — 17',OFFENSIVE.map(k=>{const d=SPELLS[k];
     return line(d.ic,d.nm,d.tags.join(' · '),d.c);}).join(''));
+  h+=sec('Évolutions',OFFENSIVE.map(k=>{const d=SPELLS[k];
+    const all=[]; for(const lv in (d.evos||{})) for(const e of d.evos[lv]) all.push(e.nm);
+    return line(d.ic,d.nm,all.join(' · '),d.c);}).join(''));
   h+=sec('Fusions — '+FUSIONS.length,FUSIONS.map(f=>{const d=SPELLS[f.out];
     return line(d.ic,d.nm,`${SPELLS[f.a].nm} + ${SPELLS[f.b].nm}`,d.c);}).join(''));
   h+=sec('Magies utilitaires',UTIL_IDS.map(k=>{const d=UTILS[k];

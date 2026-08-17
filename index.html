@@ -2125,6 +2125,10 @@ const QHI=()=>SAVE.opt.particles===2;   /* effets riches seulement en qualité �
    procédural par image : on obtient de vrais pixels, pas un dégradé. */
 const PAL_FIRE=['#c41411','#d84315','#f57f17','#f9a825'];
 const CONE_BUF=[[],[],[],[]];   /* réutilisé chaque image, zéro allocation */
+/* Rampe continue (≠ palette pixel) : sert aux effets rendus en volumes doux
+   — projectiles et impacts. Du cœur incandescent jusqu'à la suie. */
+const RAMP=['#fff6dc','#ffd98a','#f9a825','#f57f17','#e8551a','#c41411','#7a1a08','#2e1206'];
+const ramp=k=>RAMP[Math.max(0,Math.min(RAMP.length-1,Math.round(k*(RAMP.length-1))))];
 const FC=19, FR=32, FE=6, FPX=4, FFRAMES=8, FVAR=3;
 let FLAME=null;
 function nz(a){ const x=Math.sin(a*127.1)*43758.5453; return x-Math.floor(x); }
@@ -2271,14 +2275,26 @@ function drawBulletVFX(b){
   const t=G.t, st=styleOf(b.c);
   ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.a||0);
   if(b.kind==='fireball'||b.kind==='cataclysm'){
-    const back=Math.PI/2;                 /* déjà tourné selon la vitesse */
-    drawGlow(0,0,b.r*4.2,'#f57f17',.55);
-    ctx.globalCompositeOperation='source-over';
-    pixelFlame(0,b.r*.5,b.r*2.4,b.r*4.2,Math.floor(b.x*.05),back,1);
-    pixelFlame(0,b.r*.2,b.r*1.6,b.r*2.2,Math.floor(b.x*.05)+3,back,.9);
-    ctx.fillStyle='#f9a825'; circ(0,0,b.r*.75);
-    ctx.fillStyle='#fff6dc'; circ(0,0,b.r*.4);
-    ctx.globalCompositeOperation='lighter';
+    /* Comète : une queue de volumes qui refroidissent vers l'arrière,
+       une tête à trois couches, et des langues qui vacillent au bord. */
+    const ph=b.x*.07+b.y*.05;
+    const seg=QHI()?9:5;
+    for(let i=seg;i>=1;i--){
+      const k=i/seg;
+      const back=-b.r*(1.1+k*5.4);
+      const sway=Math.sin(t*13-k*4.2+ph)*b.r*.34*k;
+      const sz=b.r*(1.55-k*.95)*(1+Math.sin(t*17-k*4+ph)*.14);
+      drawGlow(back,sway,sz*2.2,ramp(.28+k*.62),(1-k*.82)*.55);
+    }
+    for(let i=0;i<4;i++){                       /* langues au bord de la tête */
+      const a=t*7+i*1.57+ph;
+      const d=b.r*(.75+Math.sin(t*19+i*2.1)*.28);
+      drawGlow(Math.cos(a)*d*.5-b.r*.3,Math.sin(a)*d,b.r*1.15,'#f57f17',.42);
+    }
+    drawGlow(0,0,b.r*3.6,'#e8551a',.55);        /* tête : trois couches */
+    drawGlow(0,0,b.r*2.1,'#f9a825',.75);
+    drawGlow(0,0,b.r*1.05,'#fff6dc',.95);
+    ctx.fillStyle='#fffdf4'; circ(-b.r*.05,0,b.r*.34);
   } else if(b.kind==='energy'||b.kind==='ray'){
     drawGlow(0,0,b.r*4,b.c,.6);
     ctx.strokeStyle=b.c; ctx.lineWidth=b.r*.75;   /* sillage */
@@ -2312,32 +2328,79 @@ function drawZoneVFX(z){
   const t=G.t, fade=Math.min(1,z.t/.5), age=1-z.t/z.mt;
 
   if(z.k==='lava'){
-    const grow=Math.min(1,age/.18), out=Math.min(1,z.t/.6);
-    const rr=z.r*(.35+grow*.65)*(.6+out*.4);
-    drawGlow(z.x,z.y,rr*1.5,'#f57f17',fade*.5*grow);
+    /* Flaque en fusion : contour organique, croûte refroidie sur les bords,
+       plaques qui dérivent en surface, bulles qui gonflent et crèvent.
+       Elle s'étale à l'apparition et se referme sous la croûte à la fin.   */
+    const sd=z.x*.37+z.y*.21;
+    const grow=1-Math.pow(1-Math.min(1,age/.45),3);
+    const out=Math.min(1,z.t/.9);
+    const rr=z.r*(.25+grow*.75);
+    const heat=out;                                  /* refroidit en fin de vie */
+    const outline=(k,wob)=>{
+      ctx.beginPath();
+      const N=20; let px=0,py=0;
+      for(let i=0;i<=N;i++){
+        const a=i/N*TAU;
+        const n=.88+.12*Math.sin(a*3+sd)+.08*Math.sin(a*5-sd*1.7)
+                   +wob*Math.sin(a*4+t*1.1+sd);
+        const nx=z.x+Math.cos(a)*rr*k*n, ny=z.y+Math.sin(a)*rr*k*n*.82;
+        if(i===0) ctx.moveTo(nx,ny);
+        else ctx.quadraticCurveTo(px,py,(px+nx)/2,(py+ny)/2);
+        px=nx; py=ny;
+      }
+      ctx.closePath();
+    };
     ctx.globalCompositeOperation='source-over';
     ctx.globalAlpha=out;
-    ctx.fillStyle='#3a0f06';                        /* croûte refroidie */
-    ctx.beginPath();
-    for(let i=0;i<=14;i++){ const a=i/14*TAU;
-      const q=rr*(1+Math.sin(a*3+t*1.4+z.x)*.09);
-      const px=z.x+Math.cos(a)*q,py=z.y+Math.sin(a)*q*.86;
-      i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle='#c41411'; ctx.globalAlpha=out*.9;
-    circ(z.x,z.y,rr*.82);
-    ctx.fillStyle='#d84315'; circ(z.x,z.y,rr*.58);
-    ctx.globalAlpha=1;
-    const nf=QHI()?4:2;                              /* langues de flamme */
-    for(let i=0;i<nf;i++){
-      const a=i/nf*TAU+t*.5+z.x, d=rr*.45;
-      const s2=(Math.sin(t*5+i*1.9)+1)/2;
-      pixelFlame(z.x+Math.cos(a)*d, z.y+Math.sin(a)*d*.86+rr*.1,
-                 rr*.42, rr*(.5+s2*.45), i+Math.floor(z.x), 0, out);
+    outline(1.06,.05); ctx.fillStyle='#1c0a05'; ctx.fill();      /* croûte froide */
+    outline(1,.04);
+    const g=ctx.createRadialGradient(z.x,z.y-rr*.1,rr*.05,z.x,z.y,rr);
+    g.addColorStop(0,   heat>.5?'#ffe6a8':'#c46a20');            /* cœur */
+    g.addColorStop(.35, heat>.5?'#f9a825':'#a8410f');
+    g.addColorStop(.72, heat>.5?'#e8551a':'#6e2409');
+    g.addColorStop(1,   '#4a1405');
+    ctx.fillStyle=g; ctx.fill();
+    ctx.save(); ctx.clip();                                       /* tout reste dedans */
+    const np=QHI()?6:3;
+    for(let i=0;i<np;i++){                                        /* plaques dérivantes */
+      const a=i/np*TAU+t*.11+sd, d=rr*(.30+((i*53)%10)/22);
+      const cx2=z.x+Math.cos(a)*d, cy2=z.y+Math.sin(a)*d*.82, pr=rr*(.11+((i*31)%7)/60);
+      ctx.fillStyle='#1e0a04'; ctx.globalAlpha=out*.85;
+      ctx.beginPath();
+      for(let j=0;j<7;j++){ const b2=j/7*TAU+i;
+        const q=pr*(.72+nz(sd+i*3.1+j*1.9)*.5);
+        const qx=cx2+Math.cos(b2)*q, qy=cy2+Math.sin(b2)*q*.82;
+        j?ctx.lineTo(qx,qy):ctx.moveTo(qx,qy); }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='#ffb03a'; ctx.globalAlpha=out*.5*heat;     /* fissure lumineuse */
+      ctx.lineWidth=1.4/SCALE*2; ctx.stroke();
     }
+    ctx.globalAlpha=1;
     ctx.globalCompositeOperation='lighter';
-    if(Math.random()<.30) emit(z.x+rnd(-rr*.7,rr*.7),z.y+rnd(-rr*.5,rr*.5),1,
-      {c:'#f9a825',k:'ember',v0:4,v1:22,vy:-38,t0:.5,t1:1.1,r0:1,r1:2.2});
+    const nb=QHI()?5:2;
+    for(let i=0;i<nb;i++){                                        /* bulles */
+      const ph=(t*.5+i*.37+sd)%1;
+      const a=i*2.4+sd, d=rr*(.18+((i*67)%10)/16);
+      const bx=z.x+Math.cos(a)*d, by=z.y+Math.sin(a)*d*.82;
+      if(ph<.82){
+        const sw=Math.sin(ph/.82*Math.PI);
+        drawGlow(bx,by,rr*(.10+sw*.20),'#ffd98a',out*heat*(.35+sw*.5));
+      } else {
+        const k=(ph-.82)/.18;                                      /* éclatement */
+        ctx.globalAlpha=out*(1-k)*.7; ctx.strokeStyle='#ffd98a';
+        ctx.lineWidth=2/SCALE; ctx.beginPath();
+        ctx.ellipse(bx,by,rr*(.12+k*.26),rr*(.10+k*.21),0,0,TAU); ctx.stroke();
+        ctx.globalAlpha=1;
+        if(k<.25) emit(bx,by,1,{c:'#ffd98a',k:'ember',v0:6,v1:30,vy:-46,t0:.5,t1:1,r0:1,r1:2.4});
+      }
+    }
+    ctx.restore();
+    drawGlow(z.x,z.y,rr*1.35,'#e8551a',out*heat*.40);              /* chaleur diffuse */
+    drawGlow(z.x,z.y-rr*.1,rr*.55,'#f9a825',out*heat*.35);
+    ctx.globalAlpha=out*heat*.55; ctx.strokeStyle='#ff8a2e';       /* liseré du bord */
+    ctx.lineWidth=2.4/SCALE; outline(1,.04); ctx.stroke(); ctx.globalAlpha=1;
+    if(Math.random()<.22*heat) emit(z.x+rnd(-rr*.7,rr*.7),z.y+rnd(-rr*.55,rr*.55),1,
+      {c:'#f9a825',k:'ember',v0:4,v1:20,vy:-40,t0:.6,t1:1.2,r0:1,r1:2.2});
     return;
   }
 
@@ -2371,44 +2434,46 @@ function drawZoneVFX(z){
     const grow=Math.min(1,age/.15), out=Math.min(1,z.t/.35);
     const R=z.range*grow*(.40+out*.60);
     if(R<4) return;
-    const cell=Math.max(3,z.range/(QHI()?26:16));
-    const F=Math.floor(t*12);
-    const snake=Math.sin(t*1.6)*.15;                  /* le jet serpente */
-    for(let b=0;b<4;b++) CONE_BUF[b].length=0;
-    const x0=Math.floor((z.x-R)/cell)*cell, x1=z.x+R;
-    const y0=Math.floor((z.y-R)/cell)*cell, y1=z.y+R;
-    const R2=R*R*1.3;
-    for(let cx=x0;cx<=x1;cx+=cell){
-      for(let cy=y0;cy<=y1;cy+=cell){
-        const px=cx+cell*.5-z.x, py=cy+cell*.5-z.y, d2=px*px+py*py;
-        if(d2>R2||d2<1) continue;
-        const u=Math.sqrt(d2)/R;
-        let da=Math.atan2(py,px)-z.a-Math.sin(t*1.6+u*4.2)*.15+snake*0;
-        while(da>Math.PI) da-=TAU; while(da<-Math.PI) da+=TAU;
-        const arcAt=z.arc*(.24+.76*Math.pow(u,.85));
-        const ada=da<0?-da:da;
-        if(ada>arcAt) continue;
-        const v=ada/arcAt;
-        const fr=.74+.26*nz(da*2.6+F*1.9);            /* longueur de la langue */
-        if(u>fr){                                      /* braises détachées */
-          if(u<fr+.09 && nz(cx*.31+cy*.27+F*4.1)>.78) CONE_BUF[0].push(cx,cy);
-          continue;
-        }
-        let sc=Math.max((u/fr)*.94, v*.86)+(nz(cx*.19+cy*.23+F*1.7)-.5)*.13;
-        if(u<.30&&v<.50) sc=Math.min(sc,.10);          /* cœur incandescent */
-        CONE_BUF[sc>.82?0:sc>.56?1:sc>.28?2:3].push(cx,cy);
-      }
-    }
+    const F=t*1.9;
+    /* Le champ est le même qu'en version pixel — longueur de langue propre à
+       chaque direction, axe qui serpente — mais on trace les contours en
+       courbes au lieu de remplir des cases. */
+    const RB=[1,.87,.68,.44], AB=[1,.91,.76,.55];
+    const N=38;
     ctx.globalCompositeOperation='source-over';
     ctx.globalAlpha=out;
     for(let b=0;b<4;b++){
-      const a=CONE_BUF[b]; if(!a.length) continue;
+      const arcB=z.arc*AB[b];
       ctx.fillStyle=PAL_FIRE[b];
-      for(let i=0;i<a.length;i+=2) ctx.fillRect(a[i],a[i+1],cell,cell);
+      const ph=b*17.3;          /* chaque teinte a son propre bord */
+      ctx.beginPath(); ctx.moveTo(z.x,z.y);
+      let px=0,py=0;
+      for(let i=0;i<=N;i++){
+        const da=-arcB+(i/N)*arcB*2;
+        const tongue=.80+.20*nz(da*6.5+F+ph)*(.5+.5*nz(da*2.1-F*.6+ph));
+        const taper=1-Math.pow(Math.abs(da)/arcB,3)*.18;   /* bout large, pas pointu */
+        const L=R*RB[b]*tongue*taper;
+        const bend=Math.sin(t*1.6+(L/R)*4.2)*.15;   /* le jet serpente */
+        const a=z.a+da+bend;
+        const nx=z.x+Math.cos(a)*L, ny=z.y+Math.sin(a)*L;
+        if(i===0) ctx.lineTo(nx,ny);
+        else ctx.quadraticCurveTo(px,py,(px+nx)/2,(py+ny)/2);  /* lissage */
+        px=nx; py=ny;
+      }
+      ctx.lineTo(px,py); ctx.closePath(); ctx.fill();
     }
     ctx.globalAlpha=1;
     ctx.globalCompositeOperation='lighter';
-    drawGlow(z.x+Math.cos(z.a)*R*.3,z.y+Math.sin(z.a)*R*.3,R*.34,'#f57f17',out*.35);
+    for(let i=0;i<(QHI()?5:2);i++){                   /* langues qui lèchent */
+      const k=(t*1.1+i*.2+z.x*.01)%1;
+      const da=(nz(i*7.3+Math.floor(t*1.1+i*.2))-.5)*z.arc*1.5;
+      const L=R*(.35+k*.72);
+      const a=z.a+da+Math.sin(t*1.6+(L/R)*4.2)*.15;
+      drawGlow(z.x+Math.cos(a)*L,z.y+Math.sin(a)*L,R*.20*(1-k*.5),
+               ramp(.18+k*.55),(1-k)*.55);
+    }
+    drawGlow(z.x+Math.cos(z.a)*R*.16,z.y+Math.sin(z.a)*R*.16,R*.30,'#ffd98a',out*.55);
+    drawGlow(z.x+Math.cos(z.a)*R*.45,z.y+Math.sin(z.a)*R*.45,R*.42,'#f57f17',out*.30);
     emit(z.x+Math.cos(z.a)*R*.6,z.y+Math.sin(z.a)*R*.6,1,
       {c:'#f9a825',k:'ember',a:z.a,spread:z.arc,v0:40,v1:150,t0:.2,t1:.5,j:R*.16});
     if(Math.random()<.35) emit(z.x+Math.cos(z.a)*R*.9,z.y+Math.sin(z.a)*R*.9,1,
@@ -2606,10 +2671,31 @@ function drawFXVFX(f){
     ctx.restore(); ctx.globalAlpha=1;
     /* le bloc en chute */
     const d=(1-k)*230, mx=f.x+d*.45, my=f.y-d;
-    ctx.globalCompositeOperation='source-over';
-    pixelFlame(mx,my,26+k*10,74+k*26,Math.floor(f.x),Math.atan2(-d,d*.45)+Math.PI/2,1);
+    /* sillage : volumes qui refroidissent en remontant la trajectoire */
+    const ux=.45,uy=-1,ul=Math.hypot(ux,uy),nxx=ux/ul,nyy=uy/ul;
+    const seg=QHI()?11:6;
+    for(let i=seg;i>=1;i--){
+      const kk=i/seg, dd=(26+k*16)*kk*2.5;
+      const sw=Math.sin(t*11-kk*6+f.x)*dd*.13;
+      drawGlow(mx+nxx*dd-nyy*sw, my+nyy*dd+nxx*sw,
+               (17+k*11)*(1.25-kk*.55), ramp(.22+kk*.70), (1-kk*.85)*.6);
+    }
+    drawGlow(mx,my,34+k*20,'#e8551a',.65);       /* enveloppe incandescente */
+    drawGlow(mx,my,20+k*12,'#f9a825',.85);
+    ctx.globalCompositeOperation='source-over';  /* le bloc lui-même */
+    ctx.fillStyle='#2a1108';
+    ctx.beginPath();
+    for(let i=0;i<9;i++){ const a=i/9*TAU+f.x*.1;
+      const rr=(9.5+k*5.5)*(.72+nz(f.x*.3+i*1.7)*.5);
+      const px=mx+Math.cos(a)*rr, py=my+Math.sin(a)*rr;
+      i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+    ctx.closePath(); ctx.fill();
     ctx.globalCompositeOperation='lighter';
-    drawGlow(mx,my,20+k*16,'#f57f17',.9);
+    ctx.fillStyle='#c41411'; ctx.globalAlpha=.55;
+    ctx.beginPath();                              /* face avant chauffée à blanc */
+    ctx.arc(mx-nxx*3,my-nyy*3,(9+k*5),Math.atan2(-nyy,-nxx)-1.25,Math.atan2(-nyy,-nxx)+1.25);
+    ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
+    drawGlow(mx-nxx*6,my-nyy*6,12+k*7,'#ffd98a',.9);
     ctx.fillStyle='#3a1608';
     ctx.beginPath();
     for(let i=0;i<7;i++){ const a=i/7*TAU+t*3;
@@ -2662,20 +2748,19 @@ function drawFXVFX(f){
     drawGlow(f.x2,f.y2,11,f.c,k*.75); ctx.globalAlpha=1;
     return;
   }
-  if(f.k==='fireburst'){                               /* explosion de feu */
-    const k=1-f.t/f.mt, ring=f.r*(.35+k*.75);
-    ctx.globalCompositeOperation='source-over';
-    const n=QHI()?9:5;
-    for(let i=0;i<n;i++){
-      const a=i/n*TAU+f.x*.01;
-      const d=ring*(.35+k*.55);
-      const sc=(1-k)*(1-k*.35);
-      pixelFlame(f.x+Math.cos(a)*d, f.y+Math.sin(a)*d*.9+f.r*.12,
-                 f.r*.42*sc, f.r*.78*sc, i*4+Math.floor(f.x), 0, 1-k*.15);
+  if(f.k==='fireburst'){                               /* impact enflammé */
+    const k=1-f.t/f.mt, ease=1-Math.pow(1-k,2.4);
+    const R=f.r*(.30+ease*.85);
+    const n=QHI()?10:5;
+    for(let i=0;i<n;i++){                              /* bouffées en couronne */
+      const a=i/n*TAU+f.x*.02+k*.5;
+      const d=R*(.42+ease*.42)*(.75+nz(f.x+i*3.3)*.5);
+      const sz=f.r*(.44-k*.16)*(.8+nz(f.x*.5+i*2.1)*.5);
+      drawGlow(f.x+Math.cos(a)*d, f.y+Math.sin(a)*d*.88, sz*2.1,
+               ramp(.12+k*.72), (1-k)*.75);
     }
-    pixelFlame(f.x,f.y+f.r*.15,f.r*(.6-k*.35),f.r*(1.1-k*.6),77,0,1-k*.2);
-    ctx.globalCompositeOperation='lighter';
-    drawGlow(f.x,f.y,ring,'#f57f17',(1-k)*.5);
+    drawGlow(f.x,f.y,R*1.15,ramp(.05+k*.55),(1-k)*.85);
+    drawGlow(f.x,f.y,R*(.5-k*.28),'#fff6dc',(1-k*1.6)*.95);
     return;
   }
   if(f.k==='tele'){                                    /* zone dangereuse du boss */

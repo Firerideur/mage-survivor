@@ -1014,6 +1014,7 @@ function explode(x,y,r,coef,tags,col,flat){
   const c=col||'#ff7a2e';
   fx({k:'ring',x,y,r0:r*.25,r1:r,t:.34,mt:.34,c});
   const kind=(c===EL.glace)?'ice':(c===EL.foudre)?'spark':'ember';
+  if(kind==='ember') fx({k:'fireburst',x,y,r,t:.46,mt:.46,c});
   burst(x,y,c,Math.min(26,8+r*.16),1.1+r*.006,kind);
   if(kind==='ember'){
     emit(x,y,Math.min(8,3+r*.05),{c:'#000',k:'smoke',v0:6,v1:38,t0:.5,t1:1.1,r0:5,r1:11,j:r*.3});
@@ -1559,7 +1560,7 @@ function updateRays(dt){
   for(let i=G.rays.length-1;i>=0;i--){
     const r=G.rays[i]; r.t-=dt; r.a+=r.rot*dt; r.acc+=dt;
     r.x=G.p.x; r.y=G.p.y;
-    if(r.acc>=r.tick){ r.acc=0;
+    if(r.t>0 && r.acc>=r.tick){ r.acc=0;
       const ca=Math.cos(r.a),sa=Math.sin(r.a);
       const steps=Math.ceil(r.len/40);
       for(let s=1;s<=steps;s++){
@@ -1567,7 +1568,7 @@ function updateRays(dt){
         zoneHit(r,x,y,r.w,r.coef);
       }
     }
-    if(r.t<=0) G.rays.splice(i,1);
+    if(r.t<=-0.30) G.rays.splice(i,1);
   }
 }
 function updateWaves(dt){
@@ -2116,6 +2117,82 @@ function drawPickup(k){
    ========================================================================= */
 const QHI=()=>SAVE.opt.particles===2;   /* effets riches seulement en qualité élevée */
 
+/* --- flamme pixel-art ---------------------------------------------------
+   Palette relevée sur la référence : 4 teintes, pas une de plus.
+   Les images sont générées UNE FOIS au chargement (silhouette à langues,
+   puis érosion successive pour imbriquer les teintes), puis simplement
+   collées. C'est à la fois plus rapide et plus fidèle qu'un dessin
+   procédural par image : on obtient de vrais pixels, pas un dégradé. */
+const PAL_FIRE=['#c41411','#d84315','#f57f17','#f9a825'];
+const FC=19, FR=32, FE=6, FPX=4, FFRAMES=8, FVAR=3;
+let FLAME=null;
+function nz(a){ const x=Math.sin(a*127.1)*43758.5453; return x-Math.floor(x); }
+
+function makeFlame(seed,frame){
+  const cvs=document.createElement('canvas');
+  cvs.width=FC*FPX; cvs.height=(FR+FE)*FPX;
+  const c=cvs.getContext('2d');
+  const F=seed*31+frame*7+1;
+  const tong=[[-.58,.30+nz(F+1)*.26,.13],[-.24,.46+nz(F+5)*.26,.11],
+              [ .06,.72+nz(F+2)*.28,.13],[ .38,.40+nz(F+7)*.30,.11],
+              [ .66,.24+nz(F+3)*.24,.10]];
+  const h=[];
+  for(let i=0;i<FC;i++){
+    const xc=(i-(FC-1)/2)/((FC-1)/2);
+    let v=FR*.27*Math.sqrt(Math.max(0,1-xc*xc*.96));
+    for(const [p,amp,sig] of tong) v+=FR*amp*Math.exp(-((xc-p)*(xc-p))/(2*sig*sig));
+    v+=(nz(F*.53+i*1.9)-.5)*FR*.07;
+    h.push(v);
+  }
+  const at=(m,i,j)=>(i<0||i>=FC||j<0||j>=FR)?0:m[i*FR+j];
+  let cur=new Uint8Array(FC*FR);
+  for(let i=0;i<FC;i++) for(let j=0;j<FR;j++) cur[i*FR+j]=j<h[i]?1:0;
+  const mask=cur.slice(), dist=new Uint8Array(FC*FR);
+  for(let step=1;step<=12;step++){
+    const nxt=new Uint8Array(FC*FR); let any=false;
+    for(let i=0;i<FC;i++) for(let j=0;j<FR;j++){
+      if(!cur[i*FR+j]) continue;
+      dist[i*FR+j]=step;
+      const ok=at(cur,i+1,j)&&at(cur,i-1,j)&&at(cur,i,j+1)&&at(cur,i,j-1);
+      nxt[i*FR+j]=ok?1:0; if(ok) any=true;
+    }
+    if(!any) break; cur=nxt;
+  }
+  for(let i=0;i<FC;i++) for(let j=0;j<FR;j++){
+    if(!mask[i*FR+j]) continue;
+    let band=Math.floor((dist[i*FR+j]-1)/1.6) - Math.floor(j/FR*3.7);
+    band=Math.max(0,Math.min(3,band));
+    c.fillStyle=PAL_FIRE[band];
+    c.fillRect(i*FPX,(FR+FE-1-j)*FPX,FPX,FPX);
+  }
+  c.fillStyle=PAL_FIRE[0];                       /* braises détachées */
+  for(let k=0;k<4;k++){
+    if(nz(F*.91+k*5.3)<.55) continue;
+    const ex=Math.floor(nz(F*.71+k*2.7)*FC);
+    const ey=FR+Math.floor(nz(F*.43+k*3.9)*(FE-1));
+    c.fillRect(ex*FPX,(FR+FE-1-ey)*FPX,FPX,FPX);
+  }
+  return cvs;
+}
+function buildFlames(){
+  FLAME=[];
+  for(let v=0;v<FVAR;v++){ const a=[];
+    for(let f=0;f<FFRAMES;f++) a.push(makeFlame(v+1,f));
+    FLAME.push(a); }
+}
+/* x,y = base de la flamme ; ang oriente le « haut » de la flamme */
+function pixelFlame(x,y,w,h,seed,ang,alpha){
+  if(!FLAME) return;
+  const set=FLAME[((seed%FVAR)+FVAR)%FVAR];
+  const img=set[(Math.floor(G.t*12)+seed)%FFRAMES|0];
+  const H=h*(FR+FE)/FR;
+  ctx.save(); ctx.translate(x,y); if(ang) ctx.rotate(ang);
+  ctx.globalAlpha=alpha===undefined?1:alpha;
+  const sm=ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(img,-w/2,-H,w,H);
+  ctx.imageSmoothingEnabled=sm; ctx.globalAlpha=1; ctx.restore();
+}
+
 function styleOf(c){
   switch(c){
     case EL.feu:    return 'fire';
@@ -2128,6 +2205,7 @@ function styleOf(c){
     default:        return 'arcane';
   }
 }
+
 /* particules typées ----------------------------------------------------- */
 function emit(x,y,n,cfg){
   const q=SAVE.opt.particles; if(!q) return;
@@ -2192,17 +2270,14 @@ function drawBulletVFX(b){
   const t=G.t, st=styleOf(b.c);
   ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.a||0);
   if(b.kind==='fireball'||b.kind==='cataclysm'){
-    const pl=1+Math.sin(t*22+b.x)*.14;
-    drawGlow(0,0,b.r*4.4*pl,'#ff9a3c',.85);
-    drawGlow(0,0,b.r*2.2*pl,'#ffd27a',.9);
-    for(let i=0;i<3;i++){                       /* langues de flamme */
-      const a=t*9+i*2.09, l=b.r*(1.5+Math.sin(t*15+i*2)*.5);
-      ctx.fillStyle='rgba(255,150,50,.75)';
-      ctx.beginPath(); ctx.moveTo(-b.r*.4,0);
-      ctx.quadraticCurveTo(-b.r*1.4,Math.sin(a)*b.r*.9,-b.r*1.2-l,Math.sin(a)*b.r*.4);
-      ctx.quadraticCurveTo(-b.r*1.2,Math.sin(a)*b.r*.2,-b.r*.4,0); ctx.fill();
-    }
-    ctx.fillStyle='#fff6dc'; circ(0,0,b.r*.62*pl);
+    const back=Math.PI/2;                 /* déjà tourné selon la vitesse */
+    drawGlow(0,0,b.r*4.2,'#f57f17',.55);
+    ctx.globalCompositeOperation='source-over';
+    pixelFlame(0,b.r*.5,b.r*2.4,b.r*4.2,Math.floor(b.x*.05),back,1);
+    pixelFlame(0,b.r*.2,b.r*1.6,b.r*2.2,Math.floor(b.x*.05)+3,back,.9);
+    ctx.fillStyle='#f9a825'; circ(0,0,b.r*.75);
+    ctx.fillStyle='#fff6dc'; circ(0,0,b.r*.4);
+    ctx.globalCompositeOperation='lighter';
   } else if(b.kind==='energy'||b.kind==='ray'){
     drawGlow(0,0,b.r*4,b.c,.6);
     ctx.strokeStyle=b.c; ctx.lineWidth=b.r*.75;   /* sillage */
@@ -2236,31 +2311,32 @@ function drawZoneVFX(z){
   const t=G.t, fade=Math.min(1,z.t/.5), age=1-z.t/z.mt;
 
   if(z.k==='lava'){
-    drawGlow(z.x,z.y,z.r*1.5,'#ff5a1a',fade*.55);
+    const grow=Math.min(1,age/.18), out=Math.min(1,z.t/.6);
+    const rr=z.r*(.35+grow*.65)*(.6+out*.4);
+    drawGlow(z.x,z.y,rr*1.5,'#f57f17',fade*.5*grow);
     ctx.globalCompositeOperation='source-over';
-    ctx.fillStyle=`rgba(48,14,6,${fade*.85})`;      /* croûte */
+    ctx.globalAlpha=out;
+    ctx.fillStyle='#3a0f06';                        /* croûte refroidie */
     ctx.beginPath();
     for(let i=0;i<=14;i++){ const a=i/14*TAU;
-      const rr=z.r*(1+Math.sin(a*3+t*1.6+z.x)*.09);
-      const px=z.x+Math.cos(a)*rr,py=z.y+Math.sin(a)*rr*.86;
+      const q=rr*(1+Math.sin(a*3+t*1.4+z.x)*.09);
+      const px=z.x+Math.cos(a)*q,py=z.y+Math.sin(a)*q*.86;
       i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
     ctx.closePath(); ctx.fill();
-    ctx.globalCompositeOperation='lighter';
-    for(let i=0;i<(QHI()?6:2);i++){                  /* bulles de magma */
-      const a=i*1.05+t*.6+z.x, d=z.r*(.2+((i*37)%10)/16);
-      const bx=z.x+Math.cos(a)*d, by=z.y+Math.sin(a)*d*.86;
-      const s=(Math.sin(t*3+i*1.7)+1)/2;
-      drawGlow(bx,by,z.r*(.16+s*.16),'#ffb03a',fade*(.5+s*.5));
+    ctx.fillStyle='#c41411'; ctx.globalAlpha=out*.9;
+    circ(z.x,z.y,rr*.82);
+    ctx.fillStyle='#d84315'; circ(z.x,z.y,rr*.58);
+    ctx.globalAlpha=1;
+    const nf=QHI()?4:2;                              /* langues de flamme */
+    for(let i=0;i<nf;i++){
+      const a=i/nf*TAU+t*.5+z.x, d=rr*.45;
+      const s2=(Math.sin(t*5+i*1.9)+1)/2;
+      pixelFlame(z.x+Math.cos(a)*d, z.y+Math.sin(a)*d*.86+rr*.1,
+                 rr*.42, rr*(.5+s2*.45), i+Math.floor(z.x), 0, out);
     }
-    ctx.globalAlpha=fade*.8; ctx.strokeStyle='#ff8a2e'; ctx.lineWidth=3/SCALE;
-    ctx.beginPath();
-    for(let i=0;i<=14;i++){ const a=i/14*TAU;
-      const rr=z.r*(1+Math.sin(a*3+t*1.6+z.x)*.09);
-      const px=z.x+Math.cos(a)*rr,py=z.y+Math.sin(a)*rr*.86;
-      i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
-    ctx.closePath(); ctx.stroke(); ctx.globalAlpha=1;
-    if(Math.random()<.30) emit(z.x+rnd(-z.r*.7,z.r*.7),z.y+rnd(-z.r*.5,z.r*.5),1,
-      {c:'#ffb03a',k:'ember',v0:4,v1:22,vy:-34,t0:.5,t1:1.1,r0:1,r1:2.2});
+    ctx.globalCompositeOperation='lighter';
+    if(Math.random()<.30) emit(z.x+rnd(-rr*.7,rr*.7),z.y+rnd(-rr*.5,rr*.5),1,
+      {c:'#f9a825',k:'ember',v0:4,v1:22,vy:-38,t0:.5,t1:1.1,r0:1,r1:2.2});
     return;
   }
 
@@ -2291,21 +2367,28 @@ function drawZoneVFX(z){
   }
 
   if(z.k==='cone'){                                    /* lance-flammes */
-    const n=QHI()?5:3;
-    for(let i=n;i>0;i--){
-      const k=i/n, rr=z.range*k;
-      const flick=.72+Math.sin(t*17+i*1.6)*.28;
-      ctx.globalAlpha=fade*(.10+(1-k)*.34)*flick;
-      ctx.fillStyle=i>3?'#ff5a1a':i>1?'#ff9a3c':'#ffe9a8';
-      ctx.beginPath(); ctx.moveTo(z.x,z.y);
-      ctx.arc(z.x,z.y,rr,z.a-z.arc*(0.35+k*0.65),z.a+z.arc*(0.35+k*0.65));
-      ctx.closePath(); ctx.fill();
+    const grow=Math.min(1,age/.15), out=Math.min(1,z.t/.35);
+    const reach=z.range*grow*(.35+out*.65);
+    ctx.globalCompositeOperation='source-over';
+    const n=QHI()?7:4;
+    for(let i=0;i<n;i++){                              /* jets étagés */
+      const k=(i+.5)/n;
+      const spread=z.arc*(.25+k*.85);
+      const off=(nz(Math.floor(G.t*12)+i*3.7)-.5)*spread*1.4;
+      const a=z.a+off;
+      const d=reach*k;
+      const fw=z.range*(.16+k*.28), fh=z.range*(.24+k*.34);
+      pixelFlame(z.x+Math.cos(a)*d, z.y+Math.sin(a)*d,
+                 fw, fh, i*3+Math.floor(z.x*.1), a+Math.PI/2, out);
     }
-    ctx.globalAlpha=1;
-    drawGlow(z.x+Math.cos(z.a)*z.range*.28,z.y+Math.sin(z.a)*z.range*.28,z.range*.30,'#ff8a2e',fade*.5);
-    emit(z.x+Math.cos(z.a)*z.range*.5,z.y+Math.sin(z.a)*z.range*.5,1,
-      {c:'#ffb03a',k:'ember',a:z.a,spread:z.arc,v0:40,v1:150,t0:.2,t1:.5,j:z.range*.2});
-    if(Math.random()<.4) emit(z.x+Math.cos(z.a)*z.range*.75,z.y+Math.sin(z.a)*z.range*.75,1,
+    pixelFlame(z.x+Math.cos(z.a)*reach*.12, z.y+Math.sin(z.a)*reach*.12,
+               z.range*.20, z.range*.30, 91, z.a+Math.PI/2, out);
+    ctx.globalCompositeOperation='lighter';
+    drawGlow(z.x+Math.cos(z.a)*reach*.35,z.y+Math.sin(z.a)*reach*.35,
+             z.range*.30,'#f57f17',out*.45);
+    emit(z.x+Math.cos(z.a)*reach*.6,z.y+Math.sin(z.a)*reach*.6,1,
+      {c:'#f9a825',k:'ember',a:z.a,spread:z.arc,v0:40,v1:150,t0:.2,t1:.5,j:z.range*.16});
+    if(Math.random()<.4) emit(z.x+Math.cos(z.a)*reach*.85,z.y+Math.sin(z.a)*reach*.85,1,
       {c:'#000',k:'smoke',a:z.a,spread:z.arc,v0:10,v1:40,t0:.5,t1:1,r0:4,r1:8});
     return;
   }
@@ -2366,23 +2449,58 @@ function drawAuraVFX(x,y,r,c){
   ctx.globalAlpha=1;
 }
 
-/* --- rayons ------------------------------------------------------------- */
+/* --- rayons -------------------------------------------------------------
+   Trois temps nets : la gerbe se concentre à la bouche, le faisceau jaillit
+   et se stabilise, puis il se rétracte en un fil avant de disparaître.     */
+const PAL_RAY=[['#a864c8',.22,1.75],['#b888d8',.40,1.15],
+               ['#c8a8f8',.62,.72],['#e8ccf8',.85,.40]];
 function drawRayVFX(r){
-  const t=G.t, k=Math.min(1,r.t/.25), ex=r.x+Math.cos(r.a)*r.len, ey=r.y+Math.sin(r.a)*r.len;
-  ctx.globalAlpha=k*.32; ctx.strokeStyle=r.c; ctx.lineWidth=r.w*2.4;
-  ctx.beginPath(); ctx.moveTo(r.x,r.y); ctx.lineTo(ex,ey); ctx.stroke();
-  ctx.globalAlpha=k*.85; ctx.lineWidth=r.w*1.05;
-  ctx.beginPath(); ctx.moveTo(r.x,r.y); ctx.lineTo(ex,ey); ctx.stroke();
-  ctx.globalAlpha=k; ctx.strokeStyle='#ffffff'; ctx.lineWidth=r.w*.36;
-  ctx.beginPath(); ctx.moveTo(r.x,r.y); ctx.lineTo(ex,ey); ctx.stroke();
-  for(let i=0;i<4;i++){                                  /* impulsions */
-    const p=((t*1.5+i*.25)%1);
-    const px=lerp(r.x,ex,p), py=lerp(r.y,ey,p);
-    drawGlow(px,py,r.w*1.9,'#ffffff',k*.5*(1-p));
+  const t=G.t, age=r.mt-r.t;
+  const IN=.22, OUT=.30;
+  const kIn=clamp(age/IN,0,1), kOut=clamp((r.t+OUT)/OUT,0,1);
+  const ease=1-Math.pow(1-kIn,3);
+  const width=r.w*(kIn<1 ? ease*(1+.35*Math.sin(kIn*Math.PI)) : 1)*kOut;
+  const len=r.len*(1-Math.pow(1-clamp(age/.14,0,1),4));
+  if(width<=.2||len<=1) return;
+
+  ctx.save(); ctx.translate(r.x,r.y); ctx.rotate(r.a);
+  const tail=len*.78;
+  for(const [col,al,hw] of PAL_RAY){                  /* bandes violettes */
+    const g=ctx.createLinearGradient(0,0,len,0);
+    g.addColorStop(0,col); g.addColorStop(tail/len,col);
+    g.addColorStop(1,'rgba(168,100,200,0)');
+    ctx.globalAlpha=al*kOut; ctx.fillStyle=g;
+    ctx.fillRect(0,-width*hw,len,width*hw*2);
   }
-  drawGlow(r.x,r.y,r.w*3.2,r.c,k*.9);
-  drawGlow(ex,ey,r.w*2.2,r.c,k*.6);
-  ctx.globalAlpha=1;
+  const gc=ctx.createLinearGradient(0,0,len,0);       /* cœur blanc */
+  gc.addColorStop(0,'#fdfefd'); gc.addColorStop(.82,'#f8ecf8');
+  gc.addColorStop(1,'rgba(253,254,253,0)');
+  ctx.globalAlpha=kOut; ctx.fillStyle=gc;
+  ctx.fillRect(0,-width*.17,len,width*.34);
+
+  for(let i=0;i<3;i++){                                /* impulsions filantes */
+    const p=((t*1.9+i*.33)%1);
+    ctx.globalAlpha=kOut*.5*(1-p);
+    ctx.fillStyle='#fdfefd';
+    ctx.fillRect(len*p,-width*.34,len*.07,width*.68);
+  }
+
+  const fan=QHI()?11:6;                                /* gerbe à la bouche */
+  const conv=1-kIn;
+  for(let i=0;i<fan;i++){
+    const k=(i/(fan-1))-.5;
+    const a=k*2.35*(1-conv*.55);
+    const L=width*(1.6+nz(Math.floor(t*14)+i*2.3)*1.9)*(kIn<1?ease:1)*kOut;
+    ctx.globalAlpha=kOut*(.85-Math.abs(k)*.5);
+    ctx.fillStyle='#fdfefd';
+    ctx.beginPath(); ctx.moveTo(0,0);
+    ctx.lineTo(-Math.cos(a)*L, Math.sin(a)*L-width*.16);
+    ctx.lineTo(-Math.cos(a)*L*.82, Math.sin(a)*L*.82+width*.16);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha=1; ctx.restore();
+  drawGlow(r.x,r.y,width*3.4,'#c8a8f8',kOut*.9);
+  drawGlow(r.x+Math.cos(r.a)*len*.5,r.y+Math.sin(r.a)*len*.5,width*2,'#a864c8',kOut*.30);
 }
 
 /* --- vagues et éclairs directionnels ------------------------------------ */
@@ -2465,10 +2583,10 @@ function drawFXVFX(f){
     ctx.restore(); ctx.globalAlpha=1;
     /* le bloc en chute */
     const d=(1-k)*230, mx=f.x+d*.45, my=f.y-d;
-    ctx.globalAlpha=.55; ctx.strokeStyle='#ff7a2e'; ctx.lineWidth=9/SCALE;
-    ctx.beginPath(); ctx.moveTo(mx+d*.16,my-d*.36); ctx.lineTo(mx,my); ctx.stroke();
-    ctx.globalAlpha=1;
-    drawGlow(mx,my,20+k*16,'#ff9a3c',.9);
+    ctx.globalCompositeOperation='source-over';
+    pixelFlame(mx,my,26+k*10,74+k*26,Math.floor(f.x),Math.atan2(-d,d*.45)+Math.PI/2,1);
+    ctx.globalCompositeOperation='lighter';
+    drawGlow(mx,my,20+k*16,'#f57f17',.9);
     ctx.fillStyle='#3a1608';
     ctx.beginPath();
     for(let i=0;i<7;i++){ const a=i/7*TAU+t*3;
@@ -2519,6 +2637,22 @@ function drawFXVFX(f){
     ctx.globalAlpha=k; ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.4/SCALE;
     ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.stroke();
     drawGlow(f.x2,f.y2,11,f.c,k*.75); ctx.globalAlpha=1;
+    return;
+  }
+  if(f.k==='fireburst'){                               /* explosion de feu */
+    const k=1-f.t/f.mt, ring=f.r*(.35+k*.75);
+    ctx.globalCompositeOperation='source-over';
+    const n=QHI()?9:5;
+    for(let i=0;i<n;i++){
+      const a=i/n*TAU+f.x*.01;
+      const d=ring*(.35+k*.55);
+      const sc=(1-k)*(1-k*.35);
+      pixelFlame(f.x+Math.cos(a)*d, f.y+Math.sin(a)*d*.9+f.r*.12,
+                 f.r*.42*sc, f.r*.78*sc, i*4+Math.floor(f.x), 0, 1-k*.15);
+    }
+    pixelFlame(f.x,f.y+f.r*.15,f.r*(.6-k*.35),f.r*(1.1-k*.6),77,0,1-k*.2);
+    ctx.globalCompositeOperation='lighter';
+    drawGlow(f.x,f.y,ring,'#f57f17',(1-k)*.5);
     return;
   }
   if(f.k==='tele'){                                    /* zone dangereuse du boss */
@@ -2981,7 +3115,7 @@ function frame(now){
   render(); updateHUD();
 }
 (async function init(){
-  resize(); await Store.load();
+  resize(); buildFlames(); await Store.load();
   G.p={x:0,y:0,vx:0,vy:0,hp:100,r:10,hitT:0,iT:0,anim:0,dir:1,dx:1,dy:0};
   G.cls=SAVE.cls; G.subj=SAVE.subj;
   computeStats();

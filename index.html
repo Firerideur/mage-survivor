@@ -1283,17 +1283,63 @@ function nearest(x,y,maxR){
   return b;
 }
 function fire(x,y,ang,s,def,id){
-  G.bul.push({x,y,vx:Math.cos(ang)*s.speed,vy:Math.sin(ang)*s.speed,a:ang,
-    r:s.size||5,coef:s.dmg,mul:s.mul,c:def.c,life:2.4,pierce:s.pierce||0,
-    hit:[],kind:id,aoe:s.aoe||0,burn:s.burn});
+  const b={x,y,vx:Math.cos(ang)*s.speed,vy:Math.sin(ang)*s.speed,a:ang,
+    r:s.size||5,coef:s.dmg,mul:s.mul,c:def.c,life:s.life||2.4,pierce:s.pierce||0,
+    hit:[],kind:id,aoe:s.aoe||0,burn:s.burn,born:G.t};
+  G.bul.push(b); return b;
+}
+function splitBullet(b){            /* Fireworks : éclate en trois */
+  for(let k=0;k<(b.split||3);k++){
+    const a=b.a+(k-1)*.8;
+    G.bul.push({x:b.x,y:b.y,vx:Math.cos(a)*260,vy:Math.sin(a)*260,a,
+      r:b.r*.7,coef:b.coef*.55,mul:b.mul,c:b.c,life:.8,pierce:0,hit:[],
+      kind:b.kind,aoe:b.aoe||30,born:G.t});
+  }
 }
 const CAST={
-  proj(s,def,id){ const t=nearest(G.p.x,G.p.y,620); if(!t) return;
-    const base=Math.atan2(t.y-G.p.y,t.x-G.p.x);
-    for(let i=0;i<s.count;i++) fire(G.p.x,G.p.y,base+rnd(-(s.spread||0),s.spread||0),s,def,id);
+  proj(s,def,id){
+    const targets=[];
+    const t=nearest(G.p.x,G.p.y,620);
+    if(!t&&!s.randomDir&&!s.allDir) return;
+    if(t) targets.push(t);
+    if(s.extraT){                                   /* Fission : cibles en plus */
+      const seen=[t&&t.uid];
+      for(let k=0;k<s.extraT;k++){
+        let best=null,bd=1e9;
+        for(const e of G.en){ if(e.dead||seen.indexOf(e.uid)>=0) continue;
+          const dx=e.x-G.p.x,dy=e.y-G.p.y,d=dx*dx+dy*dy; if(d<bd){bd=d;best=e;} }
+        if(!best) break; seen.push(best.uid); targets.push(best);
+      }
+    }
+    /* Fission tire la salve complète sur CHAQUE cible, elle n'étale pas
+       la même salve sur plusieurs ennemis. */
+    const per=Math.max(1,Math.round(s.count));
+    const n=s.extraT?per*targets.length:per;
+    for(let i=0;i<n;i++){
+      let a;
+      if(s.allDir||s.randomDir) a=i/n*TAU+rnd(0,.4);
+      else { const tg=targets[i%targets.length];
+        a=Math.atan2(tg.y-G.p.y,tg.x-G.p.x)+rnd(-(s.spread||0),s.spread||0); }
+      let px=G.p.x, py=G.p.y;
+      if(s.wander){ px+=rnd(-160,160); py+=rnd(-160,160); }   /* Constellation */
+      const b=fire(px,py,a,s,def,id);
+      if(s.firstBig&&i===0){ b.coef*=s.firstBig; b.r*=s.firstBig;
+        if(b.aoe) b.aoe*=s.firstBig; }
+      if(s.split) b.split=s.split;
+      if(s.returns) b.returns=1;
+      if(s.explodeEnd){ b.explodeEnd=s.explodeEnd; b.aoe=b.aoe||(s.size||6)*4; }
+      if(s.reHit) b.reHit=s.reHit;
+      if(s.hits) b.hits=s.hits;
+      if(s.expand) b.expand=1;
+      if(s.wander){ b.wander=1; b.life=2.8; }
+    }
     AU.cast(); },
 
   storm(s,def,id){ let n=0;
+    if(s.repeat){ const inst=G.spells[id];             /* A Bolt from the Blue */
+      inst.rep=(inst.rep||0)+1;
+      if(inst.rep<=s.repeat) inst.t=.28; else inst.rep=0;
+    }
     for(let i=0;i<s.count;i++){
       const t=G.en.length?pick(G.en):null; if(!t||t.dead) continue;
       fx({k:'bolt',x:t.x,y:t.y,t:.22,mt:.22,c:def.c,r:s.aoe,sp:'storm'});
@@ -1303,6 +1349,14 @@ const CAST={
     if(n) AU.play(760,.09,'square',.028); },
 
   meteor(s,def,id){
+    if(s.merge){                                       /* Asteroid */
+      const t=G.en.length?pick(G.en):null;
+      const x=t&&!t.dead?t.x:G.p.x+rnd(-90,90), y=t&&!t.dead?t.y:G.p.y+rnd(-90,90);
+      fx({k:'meteor',x,y,r:s.aoe*(1+s.count*.5),t:s.delay,mt:s.delay,
+          coef:s.dmg*s.count,tags:def.tags,c:def.c,
+          lava:s.leaveLava?{r:s.aoe*.8,dmg:s.dmg*.14,c:def.c}:null});
+      AU.cast(); return;
+    }
     for(let i=0;i<s.count;i++){
       const t=G.en.length?pick(G.en):null;
       const x=t&&!t.dead?t.x+rnd(-30,30):G.p.x+rnd(-110,110);
@@ -1312,18 +1366,25 @@ const CAST={
     AU.cast(); },
 
   cyclone(s,def,id){
-    for(let i=0;i<s.count;i++)
-      pushZone({k:'cyclone',x:G.p.x,y:G.p.y,r:s.aoe*.4,rMax:s.aoe,grow:s.grow,
+    for(let i=0;i<s.count;i++){
+      const sx=s.scatter?G.p.x+rnd(-220,220):G.p.x;    /* Void */
+      const sy=s.scatter?G.p.y+rnd(-220,220):G.p.y;
+      pushZone({k:'cyclone',x:sx,y:sy,r:s.aoe*.4,rMax:s.aoe,grow:s.grow,
         t:s.dur,mt:s.dur,tick:s.tick,acc:0,coef:s.dmg,mul:s.mul,c:def.c,pull:s.pull,
-        burst:s.burstDmg||0,follow:i===0});
+        burst:s.burstDmg||0,follow:(i===0&&!s.scatter),shrink:s.shrink,spit:s.spit,
+        spitT:0,tags:def.tags});
+    }
     AU.play(300,.3,'sine',.03); },
 
   shock(s,def,id){
     for(let c=0;c<s.count;c++){
       const t=nearest(G.p.x,G.p.y,s.range*2.4); if(!t) return;
       fx({k:'chain',x1:G.p.x,y1:G.p.y,x2:t.x,y2:t.y,t:.16,mt:.16,c:def.c,sp:'shock'});
-      hurt(t,s.dmg,s.mul,def.c);
-      chainFrom(t,s.dmg*s.falloff,s.chains,s.range,s.mul,def.c,s.falloff);
+      let dm=s.dmg;
+      if(s.roll&&Math.random()<.5) dm*=s.roll;          /* High Output */
+      hurt(t,dm,s.mul,def.c);
+      if(s.chains) chainFrom(t,dm*s.falloff,s.chains,s.range,s.mul,def.c,s.falloff);
+      if(s.serial) chainFrom(t,dm,2,s.range,s.mul,def.c,1);   /* Superconductivity */
     }
     AU.play(620,.08,'sawtooth',.028); },
 
@@ -1371,7 +1432,7 @@ const CAST={
       G.waves.push({x:G.p.x+Math.cos(a)*off,y:G.p.y+Math.sin(a)*off,a,
         vx:Math.cos(a)*s.speed,vy:Math.sin(a)*s.speed,
         w:s.width,coef:s.dmg,mul:s.mul,c:def.c,life:s.life,knock:s.knock,
-        freeze:s.freeze,hit:[]}); }
+        freeze:s.freeze,hit:[],born:G.t}); }
     AU.play(180,.4,'sine',.04); },
 
   ray(s,def,id){
@@ -1389,6 +1450,7 @@ const CAST={
 
   aura(){}, orbit(){}, spirit(){},
   nova(s,def,id){
+    fx({k:'implode',x:G.p.x,y:G.p.y,r:s.aoe*.9,t:.2,mt:.2,c:def.c});
     fx({k:'ring',x:G.p.x,y:G.p.y,r0:10,r1:s.aoe,t:.4,mt:.4,c:def.c,sp:'nova'});
     GRID.query(G.p.x,G.p.y,s.aoe+30,_q);
     for(let i=0;i<_q.length;i++){ const e=G.en[_q[i]]; if(!e||e.dead) continue;
@@ -1432,7 +1494,7 @@ const CAST={
       const ox=s.scatter?rnd(-180,180):0, oy=s.scatter?rnd(-180,180):0;
       G.waves.push({x:G.p.x+ox,y:G.p.y+oy,a:ang,vx:Math.cos(ang)*s.speed,vy:Math.sin(ang)*s.speed,
         w:s.width,coef:s.dmg*(i===0&&s.centerBoost?s.centerBoost:1),
-        mul:s.mul,c:def.c,life:s.len/s.speed,knock:0,hit:[],bolt:true}); }
+        mul:s.mul,c:def.c,life:s.len/s.speed,knock:0,hit:[],bolt:true,born:G.t}); }
     AU.play(1000,.1,'square',.03); }
 };
 function chainFrom(src,coef,n,range,mul,col,falloff){
@@ -1455,13 +1517,15 @@ function syncOrbit(){
   const s=spellStats(id); G.sats.length=0;
   const rings=s.dual?2:1;
   for(let r=0;r<rings;r++) for(let i=0;i<s.count;i++)
-    G.sats.push({a:(i/s.count)*TAU+r*Math.PI/s.count,ring:r,cd:0,bcd:rnd(0,1),x:0,y:0});
+    G.sats.push({a:(i/s.count)*TAU+r*Math.PI/s.count,ring:r,cd:0,bcd:rnd(0,1),
+      x:G.p.x,y:G.p.y,born:G.t+i*.07});
 }
 function syncSpirits(){
   const id=spiritId(); if(!id){ G.spirits.length=0; return; }
   const s=spellStats(id);
   if(s.familiar) s.count=1;                      /* tous fusionnés en un seul */
-  while(G.spirits.length<s.count) G.spirits.push({x:G.p.x,y:G.p.y,a:Math.random()*TAU,cd:rnd(0,.6)});
+  while(G.spirits.length<s.count)
+    G.spirits.push({x:G.p.x,y:G.p.y,a:Math.random()*TAU,cd:rnd(0,.6),born:G.t});
   G.spirits.length=Math.min(G.spirits.length,s.count);
 }
 
@@ -1615,6 +1679,8 @@ function update(dt){
     if(inst.t<=0){ const s=spellStats(id); inst.t=Math.max(s.cd,.08);
       if(s.cd>.5) p.castT=.17;        /* le corps se ramasse avant de lâcher */
       CAST[def.cast](s,def,id);
+      fx({k:'muzzle',x:p.x,y:p.y,t:.19,mt:.19,c:def.c,
+          r:12+Math.min(22,(s.aoe||s.radius||s.size||10)*.18)});
       if(G.st.creation){ inst.n=(inst.n||0)+1; inst.halve=(inst.n%5===0); } }
   }
   updateOrbit(dt); updateSpiritsSys(dt); updateAura(dt);
@@ -1713,7 +1779,14 @@ function updateBullets(dt){
   for(let i=G.bul.length-1;i>=0;i--){
     const b=G.bul[i];
     b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
-    if(b.life<=0){G.bul.splice(i,1);continue;}
+    if(b.wander){ b.vx*=.985; b.vy*=.985;              /* Constellation : traîne */
+      b.vx+=(G.p.x-b.x)*.35*dt; b.vy+=(G.p.y-b.y)*.35*dt; }
+    if(b.returns&&!b.turned&&G.t-b.born>1.05){         /* Charged Particles */
+      b.turned=1; b.vx*=-1; b.vy*=-1; b.a+=Math.PI; b.hit.length=0; }
+    if(b.life<=0){
+      if(b.explodeEnd) explode(b.x,b.y,b.aoe*b.explodeEnd,b.coef,SPELLS[b.kind].tags,b.c);
+      G.bul.splice(i,1); continue;
+    }
     if(SAVE.opt.particles&&G.parts.length<600) trailFor(b);
     let done=false;
     GRID.query(b.x,b.y,b.r+36,_q);
@@ -1722,10 +1795,18 @@ function updateBullets(dt){
       const dx=e.x-b.x,dy=e.y-b.y,rr=e.r+b.r;
       if(dx*dx+dy*dy<rr*rr){
         b.hit.push(e.uid);
-        if(b.aoe){ explode(b.x,b.y,b.aoe,b.coef,SPELLS[b.kind].tags,b.c);
-          if(b.burn&&!e.dead){e.burnT=2.4;e.burnD=b.coef*.16;} done=true; break; }
+        if(b.aoe){
+          const rounds=b.hits||1;                       /* Poison Gas : 3 passes */
+          for(let h=0;h<rounds;h++)
+            explode(b.x,b.y,b.aoe*(b.expand?1+h*.35:1),b.coef/rounds,
+                    SPELLS[b.kind].tags,b.c);
+          if(b.burn&&!e.dead){e.burnT=2.4;e.burnD=b.coef*.16;}
+          if(b.split) splitBullet(b);
+          done=true; break; }
         hurt(e,b.coef,b.mul,b.c);
         if(!e.dead) knock(e,b.vx,b.vy,4.5);      /* recul dans l'axe du tir */
+        if(b.split){ splitBullet(b); done=true; break; }
+        if(b.reHit) b.hit.length=0;                     /* Spark : refrappe */
         if(b.burn&&!e.dead){e.burnT=2.4;e.burnD=b.coef*.16;}
         emit(b.x,b.y,4,{c:b.c,k:'spark',a:Math.atan2(b.vy,b.vx)+Math.PI,spread:1.1,
           v0:50,v1:180,t0:.12,t1:.3,r0:1,r1:2.4});
@@ -1914,7 +1995,7 @@ function updateAura(dt){
     if(inst.dc<=0){ inst.dc=s.dcCd*G.st.cdMul;
       for(let i=0;i<s.dcCount;i++){ const a=i/s.dcCount*TAU+rnd(0,.4);
         G.waves.push({x:G.p.x,y:G.p.y,a,vx:Math.cos(a)*760,vy:Math.sin(a)*760,w:22,
-          coef:s.dcDmg,mul:s.mul,c:def.c,life:.42,knock:0,hit:[],bolt:true}); }
+          coef:s.dcDmg,mul:s.mul,c:def.c,life:.42,knock:0,hit:[],bolt:true,born:G.t}); }
       AU.play(900,.14,'square',.03); } }
 }
 function updateOrbs(dt){
@@ -2811,7 +2892,18 @@ function drawParticles(){
 }
 
 /* --- projectiles -------------------------------------------------------- */
+/* Enveloppe commune : tout projectile naît en dépassant sa taille et se
+   rétracte s'il expire sans toucher. Aucun sort n'apparaît plus « allumé ». */
 function drawBulletVFX(b){
+  const age=G.t-(b.born||0);
+  let sc=1;
+  if(age<.09) sc=eBack(clamp(age/.09,0,1));
+  if(b.life<.15) sc*=Math.max(.06,b.life/.15);
+  if(sc!==1){ ctx.save(); scaleAround(b.x,b.y,sc,sc); }
+  drawBulletBody(b);
+  if(sc!==1) ctx.restore();
+}
+function drawBulletBody(b){
   const o=sfxNow();                       /* animation propre au style ? */
   if(o&&o.bullet&&o.bullet[b.kind]){ o.bullet[b.kind](b); return; }
   const t=G.t, st=styleOf(b.c);
@@ -3142,6 +3234,16 @@ function drawRayVFX(r){
 /* --- vagues et éclairs directionnels ------------------------------------ */
 function drawWaveVFX(w){
   const t=G.t;
+  const age=G.t-(w.born||0);
+  let ws=1;
+  if(age<.11) ws=eBack(clamp(age/.11,0,1));
+  if(w.life<.13) ws*=Math.max(.08,w.life/.13);
+  const w0=w.w; w.w*=ws;                    /* largeur animée, restaurée ensuite */
+  drawWaveBody(w);
+  w.w=w0;
+}
+function drawWaveBody(w){
+  const t=G.t;
   const o=sfxNow();
   if(w.bolt&&o&&o.wave&&o.wave.bolt){ o.wave.bolt(w); return; }
   if(w.bolt){                                            /* Éclair Fulgurant */
@@ -3264,6 +3366,13 @@ function drawFXVFX(f){
   }
   if(f.k==='bolt'){                                   /* éclair d'Orage */
     const k=f.t/f.mt;
+    if(k>.72){                                         /* charge : l'air se resserre */
+      const c=(1-k)/.28;
+      ctx.globalAlpha=.8; ctx.strokeStyle=f.c; ctx.lineWidth=2.4/SCALE;
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(2.2-c*1.5),0,TAU); ctx.stroke();
+      drawGlow(f.x,f.y,f.r*c*1.2,f.c,c*.8); ctx.globalAlpha=1;
+      return;
+    }
     const seg=7, top=f.y-230;
     const pts=[[f.x+rnd(-6,6),top]];
     for(let i=1;i<seg;i++) pts.push([f.x+rnd(-16,16)*(1-i/seg),lerp(top,f.y,i/seg)]);
@@ -3319,6 +3428,27 @@ function drawFXVFX(f){
     drawGlow(f.x,f.y,R*(.5-k*.28),'#fff6dc',(1-k*1.6)*.95);
     return;
   }
+  if(f.k==='muzzle'){                                  /* départ du sort */
+    const k=1-f.t/f.mt, e=eOut(k);
+    ctx.globalAlpha=(1-k)*.9; ctx.strokeStyle=f.c; ctx.lineWidth=3.2/SCALE;
+    ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(.3+e*1.9),0,TAU); ctx.stroke();
+    drawGlow(f.x,f.y,f.r*(1.5-k*.8),f.c,(1-k)*.85);
+    ctx.globalAlpha=(1-k)*.7; ctx.fillStyle='#ffffff';
+    circ(f.x,f.y,f.r*.32*(1-k)); ctx.globalAlpha=1;
+    return;
+  }
+  if(f.k==='implode'){                                 /* charge : tout se resserre */
+    const k=1-f.t/f.mt, e=eIn(k);
+    ctx.globalAlpha=(1-k*.4)*.8; ctx.strokeStyle=f.c; ctx.lineWidth=4/SCALE;
+    ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(1.15-e),0,TAU); ctx.stroke();
+    for(let i=0;i<8;i++){ const a=i/8*TAU+G.t*2;
+      const d0=f.r*(1.15-e), d1=d0*.62;
+      ctx.beginPath();
+      ctx.moveTo(f.x+Math.cos(a)*d0,f.y+Math.sin(a)*d0);
+      ctx.lineTo(f.x+Math.cos(a)*d1,f.y+Math.sin(a)*d1); ctx.stroke(); }
+    drawGlow(f.x,f.y,f.r*(.25+e*.5),f.c,e*.9); ctx.globalAlpha=1;
+    return;
+  }
   if(f.k==='tele'){                                    /* zone dangereuse du boss */
     const k=1-f.t/f.mt;
     ctx.globalAlpha=.2+k*.5; ctx.strokeStyle=f.c; ctx.lineWidth=4/SCALE;
@@ -3335,6 +3465,9 @@ function drawFXVFX(f){
 
 /* --- satellites et esprits --------------------------------------------- */
 function drawSatVFX(o,size,c,beam){
+  const age=G.t-(o.born||0);
+  if(age<.42){ const k=eBack(clamp(age/.42,0,1)); size*=k;
+    if(size<.4) return; }
   const sf=sfxNow();
   if(sf&&sf.sat){ sf.sat(o,size,c,beam); return; }
   const t=G.t;
@@ -3352,6 +3485,17 @@ function drawSatVFX(o,size,c,beam){
     drawGlow(o.x,o.y,size*4.4,'#ffffff',.35); ctx.globalAlpha=1; }
 }
 function drawSpiritVFX(sp,c){
+  const age=G.t-(sp.born||0);
+  if(age<.45){ const k=eBack(clamp(age/.45,0,1));
+    if(k<.05) return;
+    ctx.save(); scaleAround(sp.x,sp.y,k,k);
+    const sf0=sfxNow();
+    if(sf0&&sf0.spirit) sf0.spirit(sp,c); else drawSpiritBody(sp,c);
+    ctx.restore(); return;
+  }
+  drawSpiritBody(sp,c);
+}
+function drawSpiritBody(sp,c){
   const sf=sfxNow();
   if(sf&&sf.spirit){ sf.spirit(sp,c); return; }
   const t=G.t, w=Math.sin(t*4+sp.a*3)*3;

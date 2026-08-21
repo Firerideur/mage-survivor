@@ -249,6 +249,8 @@ h2{font-size:15px;font-weight:700;letter-spacing:.26em;margin-bottom:10px}
   <button class="toggle" id="tParticles">Particules <b>ÉLEVÉ</b></button>
   <button class="toggle" id="tBloom">Halo lumineux <b>OUI</b></button>
   <button class="toggle" id="tHitstop">Impact appuyé <b>OUI</b></button>
+  <button class="toggle" id="tDof">Profondeur de champ <b>OUI</b></button>
+  <button class="toggle" id="tGrade">Étalonnage filmique <b>OUI</b></button>
   <button class="toggle" id="tShake">Secousse d'écran <b>OUI</b></button>
   <button class="toggle" id="tFlash">Flashs lumineux <b>OUI</b></button>
   <button class="toggle" id="tSound">Son <b>OUI</b></button>
@@ -938,7 +940,7 @@ const DEFAULT_SAVE=()=>({
   shards:0, bestTime:0, bestLevel:0, runs:0, cls:'wizard', subj:'novice', style:'arcane',
   subjects:['novice'],
   research:{offense:0,amplify:0,defense:0,magic:0,utility:0,survival:0,loot:0,fortune:0},
-  opt:{particles:2, shake:1, flash:1, sound:1, dmgnum:1, bloom:1, hitstop:1}
+  opt:{particles:2, shake:1, flash:1, sound:1, dmgnum:1, bloom:1, hitstop:1, dof:1, grade:1}
 });
 let SAVE=DEFAULT_SAVE();
 const Store={
@@ -1002,7 +1004,7 @@ const G={
   nextMerchant:150, nextRune:55, uid:1, defPen:0,
   p:{x:0,y:0,vx:0,vy:0,hp:100,r:10,hitT:0,iT:0,anim:0,dir:1,dx:1,dy:0},
   spells:{}, utils:{}, passives:{}, artifacts:[], synergies:[], cls:'wizard', subj:'novice',
-  en:[], bul:[], ebul:[], orbs:[], zones:[], sats:[], spirits:[], rays:[], waves:[],
+  en:[], corpses:[], bul:[], ebul:[], orbs:[], zones:[], sats:[], spirits:[], rays:[], waves:[],
   pickups:[], fx:[], parts:[], nums:[], boss:null,
   buffs:{}, timers:{}, shieldN:0, shieldT:0, revives:0, critCount:0,
   st:null, shakeT:0, flashT:0, flashC:'#fff', freeze:0, sqx:1, sqy:1, hitFrom:null
@@ -1117,15 +1119,21 @@ function hurt(e,coef,mul,col,silent){
   if(!e.touched && st.firstKill && Math.random()<st.firstKill && !e.boss){ e.hp=0; }
   e.touched=1;
   if(crit) d*=st.critMul;
-  e.hp-=d; e.hitT=.09;
+  e.hp-=d; e.hitT=.055;      /* court mais franc : plus lisible qu'un flash mou */
   if(st.execute>0 && e.hp>0 && !e.boss && e.hp<e.hpMax*st.execute) e.hp=0;
   if(SAVE.opt.dmgnum && !silent && G.nums.length<40)
-    G.nums.push({x:e.x+rnd(-5,5),y:e.y-e.r,vy:-34,t:.62,v:Math.round(d),crit,c:col||'#fff'});
+    G.nums.push({x:e.x+rnd(-5,5),y:e.y-e.r,vx:rnd(-40,40),vy:crit?-92:-74,
+      t:.62,mt:.62,v:Math.round(d),crit,c:col||'#fff'});
   if(e.hp<=0) killEnemy(e);
   return d;
 }
 function killEnemy(e){
   if(e.dead) return; e.dead=true; G.kills++;
+  /* la dépouille survit à l'ennemi : elle s'aplatit, blanchit et se dissout */
+  if(G.corpses.length<70)
+    G.corpses.push({e:{x:e.x,y:e.y,r:e.r,c:e.c,type:e.type,elite:e.elite,boss:e.boss,
+      ph:e.ph,slow:0,burnT:0,hitT:0,grow:e.grow,gas:e.gas,phase:e.phase,born:-99},
+      t:e.boss?.5:.26, mt:e.boss?.5:.26});
   burst(e.x,e.y,e.c,e.boss?46:e.elite?22:8,e.boss?3:1.2,'spark');
   if(e.boom) blast(e.x,e.y,e.boom.r,e.boom.dmg*.6,e.c);
   if(G.st.explodeChance && Math.random()<G.st.explodeChance)
@@ -1234,7 +1242,7 @@ function spawnEnemy(type,elite,at){
     shoot:d.shoot?Object.assign({t:rnd(0,2)},d.shoot):null,
     spawner:d.spawner?Object.assign({t:rnd(0,2)},d.spawner):null,
     gas:d.gas||null, growth:d.growth||0, phaseThru:!!d.phase, dim:!!d.dim};
-  e.hp=e.hpMax; G.en.push(e); return e;
+  e.hp=e.hpMax; e.born=G.t; G.en.push(e); return e;
 }
 function spawnWave(){
   const l=unlocked(); if(!l.length) return;
@@ -1249,7 +1257,7 @@ function spawnBoss(){
     hitT:0,touched:0,slow:0,slowT:0,burnT:0,burnD:0,burnAcc:0,ph:0,atkT:2.4,atkT2:0,
     hpMax:(820+n*1000)*hpMul(G.t)*.55*G.st.enemyHp, dmg:26*dmgMul(G.t), spd:44,
     xp:70+n*34, phase:1};
-  b.hp=b.hpMax; G.boss=b; G.en.push(b); flash('#ff4d6d'); shake(.5); AU.boom();
+  b.hp=b.hpMax; b.born=G.t; G.boss=b; G.en.push(b); flash('#ff4d6d'); shake(.5); AU.boom();
 }
 function dropOrb(x,y,v){
   if(G.orbs.length>640) return;
@@ -1566,7 +1574,15 @@ function update(dt){
   if(Math.abs(p.vx)>4) p.dir=p.vx>0?1:-1;
   p.anim+=dt*(Math.hypot(p.vx,p.vy)>10?9:3);
   const spd2=Math.hypot(p.vx,p.vy)/Math.max(1,st.spd);
-  p.sqx=lerp(p.sqx||1,1-spd2*.07,.18); p.sqy=lerp(p.sqy||1,1+spd2*.10,.18);
+  if(p.castT>0){
+    p.castT-=dt;
+    const k=1-p.castT/.17;
+    if(k<.42){ p.sqx=lerp(p.sqx,1.14,.5); p.sqy=lerp(p.sqy,.86,.5); }   /* ramassé */
+    else { const u=eOut((k-.42)/.58);                                     /* détente */
+      p.sqx=lerp(.86,1,u); p.sqy=lerp(1.18,1,u); }
+  } else {
+    p.sqx=lerp(p.sqx||1,1-spd2*.07,.18); p.sqy=lerp(p.sqy||1,1+spd2*.10,.18);
+  }
   if(p.iT>0)p.iT-=dt; if(p.hitT>0)p.hitT-=dt;
   if(st.regen) p.hp=clamp(p.hp+st.regen*dt,0,st.hpMax*st.hpCap);
 
@@ -1597,6 +1613,7 @@ function update(dt){
     if(def.cast==='orbit'||def.cast==='spirit'||def.cast==='aura') continue;
     inst.t-=dt;
     if(inst.t<=0){ const s=spellStats(id); inst.t=Math.max(s.cd,.08);
+      if(s.cd>.5) p.castT=.17;        /* le corps se ramasse avant de lâcher */
       CAST[def.cast](s,def,id);
       if(G.st.creation){ inst.n=(inst.n||0)+1; inst.halve=(inst.n%5===0); } }
   }
@@ -1643,6 +1660,9 @@ function update(dt){
 
   updateBullets(dt); updateEBullets(dt); updateZones(dt); updateRays(dt); updateWaves(dt);
   updateOrbs(dt); updatePickups(dt); updateFX(dt); updateParts(dt); updateNums(dt);
+  for(let i=G.corpses.length-1;i>=0;i--){
+    G.corpses[i].t-=dt; if(G.corpses[i].t<=0) G.corpses.splice(i,1);
+  }
 
   let w=0; for(let i=0;i<G.en.length;i++){const e=G.en[i]; if(!e.dead) G.en[w++]=e;} G.en.length=w;
 }
@@ -1950,8 +1970,13 @@ function updateParts(dt){
     p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.92;p.vy*=.92; if(p.t<=0)G.parts.splice(i,1);}
 }
 function updateNums(dt){
-  for(let i=G.nums.length-1;i>=0;i--){const n=G.nums[i];n.t-=dt;n.y+=n.vy*dt;n.vy*=.94;
-    if(n.t<=0)G.nums.splice(i,1);}
+  for(let i=G.nums.length-1;i>=0;i--){
+    const n=G.nums[i]; n.t-=dt;
+    n.x+=(n.vx||0)*dt; n.y+=n.vy*dt;
+    n.vy+=220*dt;                    /* gravité : le chiffre décrit un arc */
+    n.vx=(n.vx||0)*.96;
+    if(n.t<=0) G.nums.splice(i,1);
+  }
 }
 function xpNeed(lv){
   if(lv<10) return 5+lv*4;
@@ -1973,7 +1998,7 @@ function gainXP(v){
    plat — et c'est là que nos sorts lumineux gagnent le plus.
    ========================================================================= */
 const SCREEN = cv.getContext('2d',{alpha:false});
-let SCENE=null, SCTX=null, B1=null, B1C=null, B2=null, B2C=null;
+let SCENE=null, SCTX=null, B1=null, B1C=null, B2=null, B2C=null, TS=null, TSC=null, TSM=null;
 
 function initBuffers(){
   const w=cv.width, h=cv.height;
@@ -1985,6 +2010,15 @@ function initBuffers(){
   B1C=B1.getContext('2d',{alpha:false});
   B2=document.createElement('canvas'); B2.width=Math.max(1,s1>>1); B2.height=Math.max(1,t1>>1);
   B2C=B2.getContext('2d',{alpha:false});
+  const hw=Math.max(1,w>>1), hh=Math.max(1,h>>1);
+  TS=document.createElement('canvas'); TS.width=hw; TS.height=hh;
+  TSC=TS.getContext('2d');
+  TSM=document.createElement('canvas'); TSM.width=hw; TSM.height=hh;
+  const m=TSM.getContext('2d');
+  const gm=m.createLinearGradient(0,0,0,hh);        /* net au centre, flou aux bords */
+  gm.addColorStop(0,'rgba(0,0,0,1)');   gm.addColorStop(.24,'rgba(0,0,0,0)');
+  gm.addColorStop(.72,'rgba(0,0,0,0)'); gm.addColorStop(1,'rgba(0,0,0,.92)');
+  m.fillStyle=gm; m.fillRect(0,0,hw,hh);
   ctx=SCTX;
 }
 function bloomOn(){ return SAVE.opt.bloom!==0 && SAVE.opt.particles!==0; }
@@ -2015,12 +2049,40 @@ function composite(){
     SCREEN.globalAlpha=.34; SCREEN.drawImage(B1,0,0,cv.width,cv.height);
     SCREEN.globalAlpha=1;
   }
+  /* profondeur de champ : haut et bas légèrement flous, comme en HD-2D.
+     C'est ce qui donne l'impression d'une maquette éclairée plutôt que
+     d'un plan plat — et ça ne coûte que trois copies en demi-résolution. */
+  if(SAVE.opt.dof!==0 && TS){
+    TSC.globalCompositeOperation='source-over'; TSC.globalAlpha=1;
+    TSC.clearRect(0,0,TS.width,TS.height);
+    TSC.imageSmoothingEnabled=true;
+    TSC.drawImage(SCENE,0,0,TS.width,TS.height);
+    TSC.drawImage(B1,0,0,TS.width,TS.height);       /* adoucit encore */
+    TSC.globalCompositeOperation='destination-in';
+    TSC.drawImage(TSM,0,0);
+    SCREEN.globalCompositeOperation='source-over';
+    SCREEN.globalAlpha=.9; SCREEN.drawImage(TS,0,0,cv.width,cv.height);
+    SCREEN.globalAlpha=1;
+  }
   /* étalonnage : on relève les ombres vers le violet, on refroidit les bords */
   SCREEN.globalCompositeOperation='source-over';
   if(!GRADE || GRADE.width!==cv.width || GRADE.height!==cv.height) makeGrade();
   SCREEN.drawImage(GRADE,0,0);
+  /* courbe filmique : un peu de contraste et de densité de couleur.
+     Non supporté par tous les navigateurs, donc silencieusement ignoré. */
+  if(SAVE.opt.grade!==0 && FILTER_OK){
+    try{
+      SCREEN.filter='contrast(1.07) saturate(1.12)';
+      SCREEN.globalCompositeOperation='copy';
+      SCREEN.drawImage(SCREEN.canvas,0,0);
+      SCREEN.filter='none'; SCREEN.globalCompositeOperation='source-over';
+    }catch(e){ FILTER_OK=false; SCREEN.filter='none';
+      SCREEN.globalCompositeOperation='source-over'; }
+  }
 }
 let GRADE=null;
+let FILTER_OK=(()=>{ try{ const c=document.createElement('canvas').getContext('2d');
+  c.filter='contrast(1.1)'; return c.filter!=='none' && c.filter!==undefined; }catch(e){ return false; } })();
 function makeGrade(){
   GRADE=document.createElement('canvas'); GRADE.width=cv.width; GRADE.height=cv.height;
   const g=GRADE.getContext('2d');
@@ -2109,6 +2171,47 @@ function drawGroundTextured(v){
 }
 
 /* =========================================================================
+   17bis. VOLUME — ombre portée douce et modelé des silhouettes
+   Une forme remplie à plat reste un aplat. Deux arcs suffisent à lui donner
+   du relief : un liseré clair en haut à gauche, un assombrissement en bas à
+   droite. Coût : deux tracés par entité, contre un dégradé par entité.
+   ========================================================================= */
+let SHADOW=null;
+function buildShadow(){
+  const S=64; SHADOW=document.createElement('canvas'); SHADOW.width=SHADOW.height=S;
+  const g=SHADOW.getContext('2d');
+  const gr=g.createRadialGradient(S/2,S/2,0,S/2,S/2,S/2);
+  gr.addColorStop(0,'rgba(0,0,0,.62)'); gr.addColorStop(.5,'rgba(0,0,0,.34)');
+  gr.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=gr; g.fillRect(0,0,S,S);
+}
+function softShadow(x,y,r,squash){
+  if(!SHADOW) buildShadow();
+  const w=r*2.5, h=r*(squash||.9);
+  ctx.drawImage(SHADOW,x-w/2+r*.18,y+r*.55-h/2,w,h);
+}
+function modelVolume(x,y,r,lit,dark){
+  ctx.lineWidth=Math.max(.8,r*.17);
+  ctx.strokeStyle=lit||'rgba(255,255,255,.20)';
+  ctx.beginPath(); ctx.arc(x,y,r*.82,-2.55,-.75); ctx.stroke();
+  ctx.strokeStyle=dark||'rgba(0,0,0,.34)';
+  ctx.beginPath(); ctx.arc(x,y,r*.82,.35,2.1); ctx.stroke();
+}
+
+/* =========================================================================
+   17ter. COURBES D'ANIMATION
+   Une animation, c'est une fonction du temps normalisé (0 → 1), jamais une
+   valeur qu'on incrémente. Et ce temps passe par une courbe : le linéaire
+   est exactement ce qui fait « animé par un programmeur ».
+   ========================================================================= */
+const eOut  = k=>1-Math.pow(1-k,3);          /* part vite, s'arrête en douceur */
+const eIn   = k=>k*k;                         /* démarre lentement */
+const eBack = k=>{ const c=2.0;               /* dépasse la cible puis revient */
+  return 1+(c+1)*Math.pow(k-1,3)+c*Math.pow(k-1,2); };
+const ePop  = k=>k<.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2;
+function scaleAround(x,y,sx,sy){ ctx.translate(x,y); ctx.scale(sx,sy); ctx.translate(-x,-y); }
+
+/* =========================================================================
    18. GAME FEEL — arrêt sur image, recul, écrasement
    ========================================================================= */
 function hitStop(d){ if(SAVE.opt.hitstop!==0) G.freeze=Math.max(G.freeze||0,d); }
@@ -2134,6 +2237,17 @@ function eyes(x,y,sp,r,col,dir){
 
 function drawEnemy(e){
   const flash=e.hitT>0, t=G.t, dir=Math.atan2(G.p.y-e.y,G.p.x-e.x);
+  /* apparition : jaillit du sol avec un léger dépassement */
+  const age=t-(e.born||0);
+  let popped=false;
+  if(age<.34){
+    const k=eBack(clamp(age/.34,0,1));
+    ctx.save(); scaleAround(e.x,e.y+e.r*.8,k,k); popped=true;
+  } else if(e.atkT>0&&e.atkT<.16&&!e.boss){
+    /* télégraphe : se ramasse juste avant de frapper */
+    const w=1-e.atkT/.16;
+    ctx.save(); scaleAround(e.x,e.y+e.r*.8,1-w*.16,1+w*.20); popped=true;
+  }
   const r=e.r, dark=shade(e.c,.34), mid=shade(e.c,.62), lit=e.c;
   const body=flash?'#ffffff':dark, edge=flash?'#ffffff':mid;
 
@@ -2143,8 +2257,7 @@ function drawEnemy(e){
   else if(e.elite) drawGlow(e.x,e.y,r*2.1,e.c,.42);
   else drawGlow(e.x,e.y,r*1.5,e.c,.13);
   ctx.globalCompositeOperation='source-over';
-  ctx.fillStyle='rgba(0,0,0,.38)';
-  ctx.beginPath(); ctx.ellipse(e.x,e.y+r*.82,r*.8,r*.3,0,0,TAU); ctx.fill();
+  softShadow(e.x,e.y,r,e.boss?1.1:.9);
 
   ctx.save(); ctx.translate(e.x,e.y);
 
@@ -2345,6 +2458,7 @@ function drawEnemy(e){
   }
   ctx.restore();
 
+  if(!flash) modelVolume(e.x,e.y,r);        /* relief */
   if(e.elite&&!e.boss){ ctx.strokeStyle='#ffffff'; ctx.lineWidth=1.5;
     ctx.globalAlpha=.45+Math.sin(t*5)*.22;
     ctx.beginPath(); ctx.arc(e.x,e.y,r*1.4,0,TAU); ctx.stroke(); ctx.globalAlpha=1; }
@@ -2352,12 +2466,24 @@ function drawEnemy(e){
     drawGlow(e.x,e.y,r*1.5,'#8ce8ff',.3); ctx.globalCompositeOperation='source-over'; }
   if(e.burnT>0){ ctx.globalCompositeOperation='lighter';
     drawGlow(e.x,e.y-r*.7,r*1.2,'#ff7a2e',.42); ctx.globalCompositeOperation='source-over'; }
+  if(flash){                                  /* halo bref au moment du coup */
+    ctx.globalCompositeOperation='lighter';
+    drawGlow(e.x,e.y,r*2.2,'#ffffff',.55); ctx.globalCompositeOperation='source-over';
+  }
+  if(popped) ctx.restore();
 }
 
+const DEPTH=[];
+function drawPlayerLayer(){          /* esprits + personnage, dans l'ordre */
+  ctx.globalCompositeOperation='lighter';
+  const sid=spiritId(), sc=sid?SPELLS[sid].c:'#ffc94a';
+  for(const sp of G.spirits) drawSpiritVFX(sp,sc);
+  ctx.globalCompositeOperation='source-over';
+  drawPlayer();
+}
 function drawPlayer(){
   const p=G.p,bob=Math.sin(p.anim)*1.3,y=p.y+bob,hurtF=p.hitT>0;
-  ctx.fillStyle='rgba(0,0,0,.45)';
-  ctx.beginPath(); ctx.ellipse(p.x,p.y+9,8,3.2,0,0,TAU); ctx.fill();
+  softShadow(p.x,p.y+2,10,.75);
   const sty=styleNow();
   ctx.globalCompositeOperation='lighter';
   drawGlow(p.x,y,30,G.buffs.frenzy?'#ff6b8a':sty.accent,p.iT>0?.55:.3);
@@ -2379,23 +2505,14 @@ function drawPlayer(){
 }
 
 function render(){
+  initBuffers(); ctx=SCTX;              /* on dessine dans le tampon de scène */
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.fillStyle='#08060f'; ctx.fillRect(0,0,W,H);
   const cx=cam.x+cam.sx,cy=cam.y+cam.sy;
   ctx.setTransform(SCALE*DPR,0,0,SCALE*DPR,(W/2-cx*SCALE)*DPR,(H/2-cy*SCALE)*DPR);
   const v=view();
 
-  /* sol */
-  const s=64; ctx.lineWidth=1/SCALE; ctx.strokeStyle='#171340'; ctx.beginPath();
-  for(let x=Math.floor(v.x0/s)*s;x<v.x1;x+=s){ctx.moveTo(x,v.y0);ctx.lineTo(x,v.y1);}
-  for(let y=Math.floor(v.y0/s)*s;y<v.y1;y+=s){ctx.moveTo(v.x0,y);ctx.lineTo(v.x1,y);}
-  ctx.stroke();
-  ctx.fillStyle='#221b52';
-  for(let x=Math.floor(v.x0/(s*4))*s*4;x<v.x1;x+=s*4)
-    for(let y=Math.floor(v.y0/(s*4))*s*4;y<v.y1;y+=s*4)
-      if((((x*73856093)^(y*19349663))&7)<3) ctx.fillRect(x-1.5,y-1.5,3,3);
-  ctx.strokeStyle='rgba(139,108,255,.55)'; ctx.lineWidth=3/SCALE;
-  ctx.strokeRect(-WORLD,-WORLD,WORLD*2,WORLD*2);
+  drawGroundTextured(v);
 
   /* zones, rayons, vagues, aura */
   ctx.globalCompositeOperation='lighter';
@@ -2420,14 +2537,28 @@ function render(){
     ctx.fillStyle='#fff'; circ(b.x,b.y,b.r*.5);
   }
 
-  for(const e of G.en){ if(e.x<v.x0||e.x>v.x1||e.y<v.y0||e.y>v.y1) continue; drawEnemy(e); }
+  /* dépouilles : elles s'écrasent au sol et se dissolvent */
+  for(const c of G.corpses){
+    const k=1-c.t/c.mt, e=c.e;
+    e.hitT = k<.35 ? 1 : 0;                   /* blanchiment initial */
+    ctx.save();
+    scaleAround(e.x,e.y+e.r*.8, 1+eOut(k)*.7, Math.max(.04,1-eOut(k)*.97));
+    drawEnemy(e);
+    ctx.restore();
+  }
 
-  /* esprits, joueur, satellites */
-  ctx.globalCompositeOperation='lighter';
-  const sid=spiritId(), sc=sid?SPELLS[sid].c:'#ffc94a';
-  for(const sp of G.spirits) drawSpiritVFX(sp,sc);
-  ctx.globalCompositeOperation='source-over';
-  drawPlayer();
+  /* tri par profondeur : les entités du bas passent devant celles du haut */
+  DEPTH.length=0;
+  for(const e of G.en){ if(e.x<v.x0||e.x>v.x1||e.y<v.y0||e.y>v.y1) continue; DEPTH.push(e); }
+  DEPTH.sort((a,b)=>a.y-b.y);
+  let drawnPlayer=false;
+  for(const e of DEPTH){
+    if(!drawnPlayer && e.y>G.p.y){ drawPlayerLayer(); drawnPlayer=true; }
+    drawEnemy(e);
+  }
+  if(!drawnPlayer) drawPlayerLayer();
+
+  /* satellites */
   const oid=orbitId();
   if(oid){ const os=spellStats(oid),oc=SPELLS[oid].c;
     ctx.globalCompositeOperation='lighter';
@@ -2443,9 +2574,15 @@ function render(){
 
   if(SAVE.opt.dmgnum){
     ctx.textAlign='center';
-    for(const n of G.nums){ ctx.globalAlpha=Math.min(1,n.t*2.2);
-      ctx.font=`700 ${n.crit?12:9}px ui-monospace,monospace`;
-      ctx.fillStyle=n.crit?'#ffe27a':n.c; ctx.fillText(n.v,n.x,n.y); }
+    for(const n of G.nums){
+      const k=1-n.t/(n.mt||.62);
+      ctx.globalAlpha=Math.min(1,n.t*2.6);
+      const pop=k<.16 ? 1+(1-k/.16)*.5 : 1;   /* petit sursaut à l'apparition */
+      ctx.font=`700 ${(n.crit?12:9)*pop}px ui-monospace,monospace`;
+      ctx.lineWidth=3; ctx.strokeStyle='rgba(6,4,14,.85)';
+      ctx.strokeText(n.v,n.x,n.y);
+      ctx.fillStyle=n.crit?'#ffe27a':n.c; ctx.fillText(n.v,n.x,n.y);
+    }
     ctx.globalAlpha=1; ctx.textAlign='left';
   }
 
@@ -2469,6 +2606,7 @@ function render(){
     ctx.strokeRect(2,2,W-4,H-4); ctx.globalAlpha=1; }
   if(G.flashT>0){ ctx.globalAlpha=G.flashT*1.6; ctx.fillStyle=G.flashC;
     ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+  composite();                          /* halo, étalonnage, vignette → écran */
 }
 
 function drawPickup(k){
@@ -4338,7 +4476,7 @@ function startRun(){
     nextRune:55,uid:1,defPen:0,critCount:0,shieldN:0,nexusOn:null,
     spells:{},utils:{},passives:{},artifacts:[],synergies:[],
     cls:SAVE.cls,subj:SAVE.subj,
-    en:[],bul:[],ebul:[],orbs:[],zones:[],sats:[],spirits:[],rays:[],waves:[],
+    en:[],corpses:[],bul:[],ebul:[],orbs:[],zones:[],sats:[],spirits:[],rays:[],waves:[],
     pickups:[],fx:[],parts:[],nums:[],boss:null,buffs:{},timers:{},st:null,
     shakeT:0,flashT:0,_synSeen:{}});
   G.p={x:0,y:0,vx:0,vy:0,hp:1,r:10,hitT:0,iT:1.4,anim:0,dir:1,dx:1,dy:0};
@@ -4472,6 +4610,7 @@ function renderCodex(){
 }
 const OPTS=[['tParticles','particles',['AUCUNE','RÉDUIT','ÉLEVÉ'],3],
             ['tBloom','bloom',['NON','OUI'],2],['tHitstop','hitstop',['NON','OUI'],2],
+            ['tDof','dof',['NON','OUI'],2],['tGrade','grade',['NON','OUI'],2],
             ['tShake','shake',['NON','OUI'],2],['tFlash','flash',['NON','OUI'],2],
             ['tSound','sound',['NON','OUI'],2],['tDmgNum','dmgnum',['NON','OUI'],2]];
 function renderSettings(){ for(const [el,key,labels] of OPTS) $(el).querySelector('b').textContent=labels[SAVE.opt[key]]; }
@@ -4501,7 +4640,7 @@ function frame(now){
   render(); updateHUD();
 }
 (async function init(){
-  resize(); initBuffers(); buildGround(); buildFlames();
+  resize(); initBuffers(); buildGround(); buildShadow(); buildFlames();
   await Store.load(); applyStyle(SAVE.style);
   G.p={x:0,y:0,vx:0,vy:0,hp:100,r:10,hitT:0,iT:0,anim:0,dir:1,dx:1,dy:0};
   G.cls=SAVE.cls; G.subj=SAVE.subj;

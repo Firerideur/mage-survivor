@@ -1,7 +1,7 @@
 /* Mage Survivor — service worker
    index.html : réseau d'abord (tu reçois la dernière version dès qu'elle est en ligne),
    cache en repli si hors connexion. Le reste : cache d'abord.            */
-const V = 'mage-survivor-48b6ada8';
+const V = 'mage-survivor-66b5a455';
 const ASSETS = ['./','./index.html','./manifest.webmanifest',
                 './icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 

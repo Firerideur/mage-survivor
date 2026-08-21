@@ -146,7 +146,7 @@ h2{font-size:15px;font-weight:700;letter-spacing:.26em;margin-bottom:10px}
   <div class="hudrow">
     <span>NIV <b id="lvTxt">1</b> · <span id="hpTxt">100/100</span></span>
     <span id="tmr">00:00</span>
-    <span><b id="killTxt">0</b> ÂMES · ◈<b id="cellTxt">0</b></span>
+    <span><b id="killTxt">0</b> <span id="soulTxt">ÂMES</span> · ◈<b id="cellTxt">0</b></span>
   </div>
   <div id="buffs"></div>
   <div id="bossWrap"><div class="nm" id="bossName">GARDIEN</div>
@@ -172,7 +172,12 @@ h2{font-size:15px;font-weight:700;letter-spacing:.26em;margin-bottom:10px}
 
 <div class="ovl" id="loadout">
   <div class="eyebrow">Préparation</div>
-  <h2 style="margin-top:6px">CLASSE</h2>
+  <h2 style="margin-top:6px">STYLE</h2>
+  <div class="sub">Habillage complet : silhouette, noms des magies, ennemis, couleurs.
+    Aucun effet sur les mécaniques.</div>
+  <div id="styleWrap"></div>
+  <div class="hr"></div>
+  <h2>CLASSE</h2>
   <div class="sub">Détermine ta magie de départ et tes bonus de partie.</div>
   <div id="clsWrap"></div>
   <div class="hr"></div>
@@ -242,6 +247,8 @@ h2{font-size:15px;font-weight:700;letter-spacing:.26em;margin-bottom:10px}
   <div class="eyebrow">Confort de jeu</div>
   <h2 style="margin-top:6px">PARAMÈTRES</h2>
   <button class="toggle" id="tParticles">Particules <b>ÉLEVÉ</b></button>
+  <button class="toggle" id="tBloom">Halo lumineux <b>OUI</b></button>
+  <button class="toggle" id="tHitstop">Impact appuyé <b>OUI</b></button>
   <button class="toggle" id="tShake">Secousse d'écran <b>OUI</b></button>
   <button class="toggle" id="tFlash">Flashs lumineux <b>OUI</b></button>
   <button class="toggle" id="tSound">Son <b>OUI</b></button>
@@ -296,26 +303,26 @@ const E=(id,nm,d,f)=>({id,nm,d,f});
 const U=(t,f)=>({t,f});
 
 const SPELLS = {
-/* 1 */ bolt:{nm:'Trait Magique', ic:'✦', c:EL.arcane, tags:['Arcane','Projectile'], cast:'proj',
+/* 1 */ bolt:{nm:'Magic Bolt', ic:'✦', c:EL.arcane, tags:['Arcane','Projectile'], cast:'proj',
   d:"Le projectile de base. Tire sur l'ennemi le plus proche.",
   base:{dmg:1.75, cd:.75, count:1, speed:310, pierce:0, size:5, spread:.18},
   evoAt:[4,7],
   ups:[U('Nombre +1',s=>s.count+=1), U('Dégâts +50 %',s=>s.dmg*=1.5), null,
        U('Nombre +1',s=>s.count+=1), U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{4:[
-    E('arrow','Flèche Magique','Traverse tous les ennemis. Dégâts +80 %, taille et vitesse +180 %.',
+    E('arrow','Magic Arrow','Traverse tous les ennemis. Dégâts +80 %, taille et vitesse +180 %.',
       s=>{s.pierce=99;s.dmg*=1.8;s.size*=2.8;s.speed*=2.8}),
-    E('fireworks','Feu d\'Artifice','Les projectiles se divisent en 3 et explosent. Dégâts +50 %, recharge +2 s.',
+    E('fireworks','Fireworks','Les projectiles se divisent en 3 et explosent. Dégâts +50 %, recharge +2 s.',
       s=>{s.dmg*=1.5;s.cdAdd=(s.cdAdd||0)+2;s.split=3;s.aoe=34}),
     E('fission','Fission','Tire aussi vers 2 cibles supplémentaires.', s=>s.extraT=2)],
    7:[
-    E('chaincast','Incantation Enchaînée','Nombre +1, recharge -20 %.', s=>{s.count+=1;s.cd*=.8}),
-    E('firewill','Tir à Volonté','Tire dans des directions aléatoires. Nombre ×5, dégâts +50 %, recharge +3 s.',
+    E('chaincast','Chain Casting','Nombre +1, recharge -20 %.', s=>{s.count+=1;s.cd*=.8}),
+    E('firewill','Fire at Will','Tire dans des directions aléatoires. Nombre ×5, dégâts +50 %, recharge +3 s.',
       s=>{s.count*=5;s.dmg*=1.5;s.cdAdd=(s.cdAdd||0)+3;s.randomDir=1}),
-    E('doppel','Doppelgänger','Remplacé par 3 mirages qui tirent à ta place. Recharge +50 %.',
+    E('doppel','Doppelganger','Remplacé par 3 mirages qui tirent à ta place. Recharge +50 %.',
       s=>{s.mirage=3;s.cd*=1.5})]}},
 
-/* 2 */ fireball:{nm:'Boule de Feu', ic:'◉', c:EL.feu, tags:['Feu','Projectile','Explosion'], cast:'proj',
+/* 2 */ fireball:{nm:'Fireball', ic:'◉', c:EL.feu, tags:['Feu','Projectile','Explosion'], cast:'proj',
   d:"Projectile explosif. Profite énormément de la taille de magie.",
   base:{dmg:2.45, cd:1.5, count:1, speed:230, aoe:46, size:8, spread:.28, pierce:0},
   evoAt:[7],
@@ -325,12 +332,12 @@ const SPELLS = {
   evos:{7:[
     E('bigbang','Big Bang','Le premier projectile a ×1,5 dégâts et taille. Dégâts +80 %.',
       s=>{s.dmg*=1.8;s.firstBig=1.5}),
-    E('poison','Gaz Toxique','L\'explosion s\'étend et frappe 3 fois. Dégâts -30 %.',
+    E('poison','Poison Gas','L\'explosion s\'étend et frappe 3 fois. Dégâts -30 %.',
       s=>{s.dmg*=.7;s.hits=3;s.expand=1}),
     E('constellation','Constellation','Envoyé à un endroit aléatoire, ralentit et te suit. Pénétration +1.',
       s=>{s.pierce+=1;s.wander=1})]}},
 
-/* 3 */ storm:{nm:'Orage', ic:'⚡', c:EL.foudre, tags:['Foudre','Zone'], cast:'storm',
+/* 3 */ storm:{nm:'Thunderstorm', ic:'⚡', c:EL.foudre, tags:['Foudre','Zone'], cast:'storm',
   d:"Des éclairs frappent les ennemis proches.",
   base:{dmg:5.25, cd:2, count:1, aoe:32},
   evoAt:[7],
@@ -340,13 +347,13 @@ const SPELLS = {
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
   evos:{7:[
-    E('bluebolt','Coup de Tonnerre','Les orages tombent en continu, 1 à 3 fois de suite.', s=>s.repeat=3),
-    E('overcharge','Surtension','Chaque éclair rebondit 2 fois. Dégâts +40 %.',
+    E('bluebolt','A Bolt from the Blue','Les orages tombent en continu, 1 à 3 fois de suite.', s=>s.repeat=3),
+    E('overcharge','Overcharge','[hors fiche] Chaque éclair rebondit 2 fois. Dégâts +40 %.',
       s=>{s.chains=2;s.range=130;s.dmg*=1.4}, ),
-    E('thunderhead','Front Orageux','Zone +60 %, dégâts +60 %, recharge +25 %.',
+    E('thunderhead','Thunderhead','[hors fiche] Zone +60 %, dégâts +60 %, recharge +25 %.',
       s=>{s.aoe*=1.6;s.dmg*=1.6;s.cd*=1.25})]}},
 
-/* 4 */ meteor:{nm:'Météore', ic:'☄', c:EL.feu, tags:['Feu','Zone','Impact'], cast:'meteor',
+/* 4 */ meteor:{nm:'Meteor', ic:'☄', c:EL.feu, tags:['Feu','Zone','Impact'], cast:'meteor',
   d:"Des météores tombent à des positions aléatoires.",
   base:{dmg:5.25, cd:4.5, count:1, aoe:74, delay:.85},
   evoAt:[7],
@@ -354,11 +361,11 @@ const SPELLS = {
        U('Taille +20 %',s=>s.aoe*=1.2), U('Nombre +1',s=>s.count+=1),
        U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{7:[
-    E('volcanic','Éruption Volcanique','Laisse un cratère qui inflige 25 % des dégâts par seconde pendant 3 s.',
+    E('volcanic','Volcanic Eruption','Laisse un cratère qui inflige 25 % des dégâts par seconde pendant 3 s.',
       s=>s.leaveLava=1),
-    E('shower','Pluie de Météores','Nombre ×3, chute -30 %, dégâts -25 %, taille -25 %.',
+    E('shower','Meteor Shower','Nombre ×3, chute -30 %, dégâts -25 %, taille -25 %.',
       s=>{s.count*=3;s.delay*=.7;s.dmg*=.75;s.aoe*=.75}),
-    E('asteroid','Astéroïde','Les météores fusionnent. Taille +50 % par météore, dégâts ×3, recharge ×2.',
+    E('asteroid','Asteroid','Les météores fusionnent. Taille +50 % par météore, dégâts ×3, recharge ×2.',
       s=>{s.merge=1;s.dmg*=3;s.cd*=2})]}},
 
 /* 5 */ cyclone:{nm:'Cyclone', ic:'🌀', c:EL.nature, tags:['Nature','Zone','Contrôle'], cast:'cyclone',
@@ -369,13 +376,13 @@ const SPELLS = {
        U('Durée +30 %',s=>s.dur*=1.3), U('Nombre +1',s=>s.count+=1),
        U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{7:[
-    E('extreme','Intempéries','Nombre +2, recharge -10 %.', s=>{s.count+=2;s.cd*=.9}),
-    E('eorb','Orbe Électrique','Rétrécit et tire dans toutes les directions. Dégâts ×2, taille +30 %.',
+    E('extreme','Extreme Weather','Nombre +2, recharge -10 %.', s=>{s.count+=2;s.cd*=.9}),
+    E('eorb','Electric Orb','Rétrécit et tire dans toutes les directions. Dégâts ×2, taille +30 %.',
       s=>{s.dmg*=2;s.aoe*=1.3;s.shrink=1;s.spit=1}),
-    E('void','Vide','Apparaît successivement à des positions aléatoires et reste sur place. Expansion ×9, durée -50 %, recharge ×2.',
+    E('void','Void','Apparaît successivement à des positions aléatoires et reste sur place. Expansion ×9, durée -50 %, recharge ×2.',
       s=>{s.grow*=9;s.dur*=.5;s.cd*=2;s.scatter=1;s.follow=0})]}},
 
-/* 6 */ shock:{nm:'Décharge Électrique', ic:'⌁', c:EL.foudre, tags:['Foudre','Chaîne'], cast:'shock',
+/* 6 */ shock:{nm:'Electric Shock', ic:'⌁', c:EL.foudre, tags:['Foudre','Chaîne'], cast:'shock',
   d:"Une décharge part vers l'ennemi le plus proche.",
   base:{dmg:1.75, cd:2, chains:0, range:140, count:2, falloff:.86},
   evoAt:[7],
@@ -385,14 +392,14 @@ const SPELLS = {
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
   evos:{7:[
-    E('chainlight','Chaîne d\'Éclairs','Les éclairs rebondissent 1 à 3 fois. Dégâts +50 %.',
+    E('chainlight','Chain Lightning','Les éclairs rebondissent 1 à 3 fois. Dégâts +50 %.',
       s=>{s.chains+=3;s.dmg*=1.5}),
-    E('highout','Haute Tension','50 % de chance d\'infliger ×2,5. Recharge -15 %.',
+    E('highout','High Output','50 % de chance d\'infliger ×2,5. Recharge -15 %.',
       s=>{s.roll=2.5;s.cd*=.85}),
-    E('supercond','Supraconductivité','Les éclairs jaillissent en série vers les ennemis proches. Dégâts ×3, taille ×2.',
+    E('supercond','Superconductivity','Les éclairs jaillissent en série vers les ennemis proches. Dégâts ×3, taille ×2.',
       s=>{s.dmg*=3;s.range*=2;s.serial=1})]}},
 
-/* 7 */ energy:{nm:"Trait d'Énergie", ic:'➤', c:EL.energie, tags:['Énergie','Projectile','Perce'], cast:'proj',
+/* 7 */ energy:{nm:'Energy Bolt', ic:'➤', c:EL.energie, tags:['Énergie','Projectile','Perce'], cast:'proj',
   d:"Salve de traits pénétrants.",
   base:{dmg:2.6, cd:3.3, count:5, speed:410, pierce:3, size:6, spread:.5, life:1.1},
   evoAt:[7],
@@ -402,14 +409,14 @@ const SPELLS = {
        U('Dégâts +20 %, Nombre +2',s=>{s.dmg*=1.2;s.count+=2}),
        U('Dégâts +20 %, Nombre +2',s=>{s.dmg*=1.2;s.count+=2}), null],
   evos:{7:[
-    E('charged','Particules Chargées','Les traits reviennent vers toi en fin de course. Nombre +35 %, vitesse +35 %.',
+    E('charged','Charged Particles','Les traits reviennent vers toi en fin de course. Nombre +35 %, vitesse +35 %.',
       s=>{s.count=Math.round(s.count*1.35);s.speed*=1.35;s.returns=1}),
-    E('spark','Étincelle','Frappe toutes les 0,3 s. Durée ×2,5, taille +25 %, dégâts -25 %.',
+    E('spark','Spark','Frappe toutes les 0,3 s. Durée ×2,5, taille +25 %, dégâts -25 %.',
       s=>{s.life*=2.5;s.size*=1.25;s.dmg*=.75;s.pierce=99;s.reHit=.3}),
-    E('flare','Fusée','Part dans toutes les directions et explose en fin de course. Dégâts +30 %.',
+    E('flare','Flare','Part dans toutes les directions et explose en fin de course. Dégâts +30 %.',
       s=>{s.dmg*=1.3;s.allDir=1;s.explodeEnd=2})]}},
 
-/* 8 */ incin:{nm:'Incinération', ic:'🔥', c:EL.feu, tags:['Feu','Cône','Persistant'], cast:'cone',
+/* 8 */ incin:{nm:'Incineration', ic:'🔥', c:EL.feu, tags:['Feu','Cône','Persistant'], cast:'cone',
   d:"Projette des flammes devant toi.",
   base:{dmg:.95, cd:4, dur:1.6, range:150, arc:.62, tick:.16, count:15},
   evoAt:[7],
@@ -417,11 +424,11 @@ const SPELLS = {
        U('Taille +20 %',s=>{s.range*=1.2;s.arc*=1.2}), U('Nombre +6',s=>s.count+=6),
        U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{7:[
-    E('flamestrike','Frappe Ardente','La puissance monte à chaque lancement, jusqu\'à ×4 dégâts et ×1,5 taille. Nombre +25 %.',
+    E('flamestrike','Flame Strike','La puissance monte à chaque lancement, jusqu\'à ×4 dégâts et ×1,5 taille. Nombre +25 %.',
       s=>{s.ramp=4;s.rampSize=1.5;s.count=Math.round(s.count*1.25)}),
-    E('pyromaniac','Pyromane','Génère 2 flammes supplémentaires de même puissance. Recharge -20 %.',
+    E('pyromaniac','Pyromaniac','Génère 2 flammes supplémentaires de même puissance. Recharge -20 %.',
       s=>{s.extraCones=2;s.cd*=.8}),
-    E('cerberus','Flamme de Cerbère','Tire aussi sur les côtés. Dégâts +30 %, portée +20 %, cône -33 %, nombre -33 %.',
+    E('cerberus','Cerberus Flame','Tire aussi sur les côtés. Dégâts +30 %, portée +20 %, cône -33 %, nombre -33 %.',
       s=>{s.dmg*=1.3;s.range*=1.2;s.arc*=.67;s.count=Math.round(s.count*.67);s.sides=1})]}},
 
 /* 9 */ blizzard:{nm:'Blizzard', ic:'❆', c:EL.glace, tags:['Glace','Nature','Zone'], cast:'blizzard',
@@ -432,11 +439,11 @@ const SPELLS = {
        U('Recharge -15 %',s=>s.cd*=.85), U('Nombre +6',s=>s.count+=6),
        U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{7:[
-    E('subzero','Sous-Zéro','Les ennemis ralentissent progressivement pendant le blizzard. Nombre +30 %.',
+    E('subzero','Sub-Zero','Les ennemis ralentissent progressivement pendant le blizzard. Nombre +30 %.',
       s=>{s.count=Math.round(s.count*1.3);s.slowRamp=1}),
-    E('shootingstar','Étoile Filante','Chute plus lente. Dégâts ×2, taille ×1,35, nombre -50 %.',
+    E('shootingstar','Shooting Star','Chute plus lente. Dégâts ×2, taille ×1,35, nombre -50 %.',
       s=>{s.dmg*=2;s.aoe*=1.35;s.count=Math.round(s.count*.5);s.dur*=2}),
-    E('blaze','Embrasement','Explose immédiatement 2 fois, -10 % de puissance à chaque fois. Ne gèle plus.',
+    E('blaze','Blaze','Explose immédiatement 2 fois, -10 % de puissance à chaque fois. Ne gèle plus.',
       s=>{s.burst=2;s.slow=0;s.radius*=.7;s.dur*=.5})]}},
 
 /* 10 */ tsunami:{nm:'Tsunami', ic:'≋', c:EL.nature, tags:['Nature','Vague','Repousse'], cast:'wave',
@@ -447,14 +454,14 @@ const SPELLS = {
        U('Recharge -15 %',s=>s.cd*=.85), U('Nombre +3',s=>s.count+=3),
        U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{7:[
-    E('pole','Pôle','Les vagues partent dans toutes les directions et gèlent les ennemis.',
+    E('pole','Pole','Les vagues partent dans toutes les directions et gèlent les ennemis.',
       s=>{s.allDir=1;s.freeze=2.2}),
-    E('siren','Chant des Sirènes','Les vagues suivent ta direction. Recharge -50 %, nombre -50 %.',
+    E('siren','Siren Song','Les vagues suivent ta direction. Recharge -50 %, nombre -50 %.',
       s=>{s.cd*=.5;s.count=Math.max(1,Math.round(s.count*.5));s.aimed=1}),
-    E('greaterupt','Grande Éruption','Rayon d\'apparition élargi. Dégâts ×2, taille +10 %, recharge +30 %.',
+    E('greaterupt','Great Eruption','Rayon d\'apparition élargi. Dégâts ×2, taille +10 %, recharge +30 %.',
       s=>{s.dmg*=2;s.width*=1.1;s.cd*=1.3;s.spread2=1})]}},
 
-/* 11 */ spirit:{nm:'Esprit', ic:'❂', c:EL.invoc, tags:['Invocation','Énergie'], cast:'spirit',
+/* 11 */ spirit:{nm:'Spirit', ic:'❂', c:EL.invoc, tags:['Invocation','Énergie'], cast:'spirit',
   d:"Invoque un esprit qui combat avec toi.",
   base:{dmg:2.3, count:1, cd:.9, speed:300, size:5},
   evoAt:[7],
@@ -464,11 +471,11 @@ const SPELLS = {
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
   evos:{7:[
-    E('missile','Missile Magique','La cadence accélère avec le nombre d\'esprits. Recharge -20 %.',
+    E('missile','Magic Missile','La cadence accélère avec le nombre d\'esprits. Recharge -20 %.',
       s=>{s.cd*=.8;s.perCount=1}),
-    E('blade','Lame Magique','Envoie une lame directement sur la cible. Dégâts ×2,5.',
+    E('blade','Magic Blade','Envoie une lame directement sur la cible. Dégâts ×2,5.',
       s=>{s.dmg*=2.5;s.bladeShot=1;s.speed*=1.6;s.pierce=2}),
-    E('familiar','Familier','Tous les esprits fusionnent et tirent dans toutes les directions.',
+    E('familiar','Familiar','Tous les esprits fusionnent et tirent dans toutes les directions.',
       s=>{s.familiar=1;s.cd*=5;s.shots=15})]}},
 
 /* 12 */ satellite:{nm:'Satellite', ic:'◍', c:EL.energie, tags:['Énergie','Orbite'], cast:'orbit',
@@ -481,13 +488,13 @@ const SPELLS = {
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
   evos:{7:[
-    E('antigrav','Antigravité','La rotation accélère jusqu\'à ×3 puis retombe, en boucle.', s=>s.rotCycle=3),
-    E('wisp','Feu Follet','Réparti sur deux anneaux. Nombre ×2, rotation +33 %, taille -33 %.',
+    E('antigrav','Anti-Gravity','La rotation accélère jusqu\'à ×3 puis retombe, en boucle.', s=>s.rotCycle=3),
+    E('wisp',"Will o' the Wisp",'Réparti sur deux anneaux. Nombre ×2, rotation +33 %, taille -33 %.',
       s=>{s.count*=2;s.rot*=1.33;s.size*=.67;s.dual=true}),
-    E('fusion','Fusion Nucléaire','Tous les satellites fusionnent. Dégâts et taille croissent avec leur nombre.',
+    E('fusion','Nuclear Fusion','Tous les satellites fusionnent. Dégâts et taille croissent avec leur nombre.',
       s=>{s.mergeSat=s.count;s.dmg*=1+s.count*.35;s.size*=1+s.count*.18;s.count=1;s.tick=.3})]}},
 
-/* 13 */ ray:{nm:'Rayon Arcanique', ic:'⟶', c:EL.energie, tags:['Énergie','Rayon','Perce'], cast:'ray',
+/* 13 */ ray:{nm:'Arcane Ray', ic:'⟶', c:EL.energie, tags:['Énergie','Rayon','Perce'], cast:'ray',
   d:"Un rayon qui traverse tout.",
   base:{dmg:1.1, cd:3.5, count:1, len:420, width:16, dur:.8, tick:.14, rot:.5},
   evoAt:[7],
@@ -497,14 +504,14 @@ const SPELLS = {
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}),
        U('Dégâts +20 %, Nombre +1',s=>{s.dmg*=1.2;s.count+=1}), null],
   evos:{7:[
-    E('reflect','Réflexion','Un second rayon part à l\'exact opposé. Dégâts +50 %, cadence +50 %.',
+    E('reflect','Reflect','Un second rayon part à l\'exact opposé. Dégâts +50 %, cadence +50 %.',
       s=>{s.dmg*=1.5;s.tick*=.5;s.mirror=1}),
-    E('disintegr','Rayon de Désintégration','Le rayon tourne vite autour de toi. Dégâts ×2, recharge +50 %.',
+    E('disintegr','Disintegration Ray','Le rayon tourne vite autour de toi. Dégâts ×2, recharge +50 %.',
       s=>{s.dmg*=2;s.rot*=6;s.cd*=1.5;s.dur*=2}),
-    E('emburst','Décharge Électromagnétique','Rayons dans des directions aléatoires, dégâts toutes les 0,5 s, durée ×4.',
+    E('emburst','Electromagnetic Burst','Rayons dans des directions aléatoires, dégâts toutes les 0,5 s, durée ×4.',
       s=>{s.dur*=4;s.tick=.5;s.rot=0;s.randomDir=1})]}},
 
-/* 14 */ ezone:{nm:'Zone Électrique', ic:'◈', c:EL.foudre, tags:['Foudre','Aura','Persistant'], cast:'aura',
+/* 14 */ ezone:{nm:'Electric Zone', ic:'◈', c:EL.foudre, tags:['Foudre','Aura','Persistant'], cast:'aura',
   d:"Une aura électrique permanente autour de toi.",
   base:{dmg:.44, radius:82, tick:.25},
   evoAt:[7],
@@ -512,13 +519,13 @@ const SPELLS = {
        U('Taille +15 %',s=>s.radius*=1.15), U('Taille +20 %',s=>s.radius*=1.2),
        U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{7:[
-    E('blast','Décharge Électrique','Dégâts +80 %, taille +30 %.', s=>{s.dmg*=1.8;s.radius*=1.3}),
-    E('emp','IEM','Après 4 impacts, l\'ennemi est étourdi. Cadence +10 %.',
+    E('blast','Electricity Blast','Dégâts +80 %, taille +30 %.', s=>{s.dmg*=1.8;s.radius*=1.3}),
+    E('emp','EMP','Après 4 impacts, l\'ennemi est étourdi. Cadence +10 %.',
       s=>{s.tick*=.9;s.stunAt=4}),
-    E('fireaura','Aura de Feu','Plus de petits dégâts répétés : la zone s\'étend puis disparaît en cycle. Dégâts ×5.',
+    E('fireaura','Fire Aura','Plus de petits dégâts répétés : la zone s\'étend puis disparaît en cycle. Dégâts ×5.',
       s=>{s.dmg*=5;s.tick*=3;s.cycle=1;s.arcs=true})]}},
 
-/* 15 */ nova:{nm:'Nova de Givre', ic:'❄', c:EL.glace, tags:['Glace','Nature','Zone','Contrôle'], cast:'nova',
+/* 15 */ nova:{nm:'Frost Nova', ic:'❄', c:EL.glace, tags:['Glace','Nature','Zone','Contrôle'], cast:'nova',
   d:"Explosion de glace autour de toi.",
   base:{dmg:4.2, cd:5.5, aoe:100, slow:.5, slowDur:2.2},
   evoAt:[7],
@@ -526,14 +533,14 @@ const SPELLS = {
        U('Recharge -15 %',s=>s.cd*=.85), U('Taille +20 %',s=>s.aoe*=1.2),
        U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{7:[
-    E('abszero','Zéro Absolu','Gèle aussi les ennemis autour de l\'explosion. Durée de gel +25 %.',
+    E('abszero','Absolute Zero','Gèle aussi les ennemis autour de l\'explosion. Durée de gel +25 %.',
       s=>{s.slowDur*=1.25;s.slow=.95;s.chill=1.6;s.leaveField=1}),
-    E('iceage','Ère Glaciaire','Explose 3 fois, chaque explosion ×1,5 dégâts et taille. Taille -20 %, recharge ×2.',
+    E('iceage','Ice Age','Explose 3 fois, chaque explosion ×1,5 dégâts et taille. Taille -20 %, recharge ×2.',
       s=>{s.aoe*=.8;s.cd*=2;s.repeatBlast=3}),
-    E('quake','Séisme','Ne gèle plus mais étourdit. Dégâts ×2, taille +25 %.',
+    E('quake','Earthquake','Ne gèle plus mais étourdit. Dégâts ×2, taille +25 %.',
       s=>{s.dmg*=2;s.aoe*=1.25;s.slow=.99;s.slowDur=1.1;s.quake=1})]}},
 
-/* 16 */ lava:{nm:'Zone de Lave', ic:'▣', c:EL.feu, tags:['Feu','Zone','Persistant'], cast:'lava',
+/* 16 */ lava:{nm:'Lava Zone', ic:'▣', c:EL.feu, tags:['Feu','Zone','Persistant'], cast:'lava',
   d:"Une flaque brûlante qui ronge ce qui la traverse.",
   base:{dmg:.9, cd:5, aoe:66, dur:6, count:1, tick:.5},
   evoAt:[7],
@@ -541,14 +548,14 @@ const SPELLS = {
        U('Taille +20 %',s=>s.aoe*=1.2), U('Nombre +1',s=>s.count+=1),
        U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{7:[
-    E('melt','Fonte','Chaque impact rend l\'ennemi plus vulnérable (+5 %, max +30 %). Recharge -15 %.',
+    E('melt','Melt','Chaque impact rend l\'ennemi plus vulnérable (+5 %, max +30 %). Recharge -15 %.',
       s=>{s.melt=.05;s.cd*=.85}),
-    E('craterlv','Cratère','Nombre ×2, taille -20 %, durée -20 %.',
+    E('craterlv','Crater','Nombre ×2, taille -20 %, durée -20 %.',
       s=>{s.count*=2;s.aoe*=.8;s.dur*=.8}),
-    E('magmaerupt','Éruption de Magma','Toutes les flaques fusionnent. Taille +30 % par flaque, dégâts ×2.',
+    E('magmaerupt','Magma Eruption','Toutes les flaques fusionnent. Taille +30 % par flaque, dégâts ×2.',
       s=>{s.aoe*=1+s.count*.3;s.dmg*=2;s.count=1;s.burn=true})]}},
 
-/* 17 */ flash:{nm:'Éclair Fulgurant', ic:'⚞', c:EL.foudre, tags:['Foudre','Directionnel'], cast:'flash',
+/* 17 */ flash:{nm:'Flash Shock', ic:'⚞', c:EL.foudre, tags:['Foudre','Directionnel'], cast:'flash',
   d:"Une décharge fuse dans ta direction de déplacement.",
   base:{dmg:6.3, cd:10, count:1, len:300, width:34, speed:900},
   evoAt:[7],
@@ -556,119 +563,49 @@ const SPELLS = {
        U('Taille +15 %',s=>{s.width*=1.15;s.len*=1.15}), U('Recharge -20 %',s=>s.cd*=.8),
        U('Dégâts +50 %',s=>s.dmg*=1.5), null],
   evos:{7:[
-    E('wipeout','Anéantissement','Le trait central inflige ×10 dégâts. Taille +30 %.',
+    E('wipeout','Wipeout','Le trait central inflige ×10 dégâts. Taille +30 %.',
       s=>{s.centerBoost=10;s.width*=1.3;s.len*=1.3}),
-    E('ragnarok','Ragnarök','Rayon d\'apparition élargi. Nombre +5, recharge ×2.',
+    E('ragnarok','Ragnarok','Rayon d\'apparition élargi. Nombre +5, recharge ×2.',
       s=>{s.count+=5;s.cd*=2;s.scatter=1}),
-    E('nails','Clous de Satan','Apparaissent à des positions et directions aléatoires, avec des traits sur les côtés. Le nombre monte à chaque lancement puis se réinitialise. Dégâts +33 %, taille -50 %.',
+    E('nails',"Satan's Nails",'Apparaissent à des positions et directions aléatoires, avec des traits sur les côtés. Le nombre monte à chaque lancement puis se réinitialise. Dégâts +33 %, taille -50 %.',
       s=>{s.dmg*=1.33;s.width*=.5;s.scatter=1;s.randomDir=1;s.stack=4})]}},
 
-/* --- FUSIONS (magies de combinaison) — non proposées au level-up ------- */
-  cataclysm:{nm:'Cataclysme', ic:'✷', c:EL.fusion, fusion:1, tags:['Feu','Zone','Impact'], cast:'meteor',
-    d:"Pluie de météores incandescents qui laissent le sol en feu.",
-    base:{dmg:11, cd:3.4, count:5, aoe:96, delay:.55, leaveLava:1}, evoAt:[],
-    ups:[U('Nombre +2',s=>s.count+=2),U('Dégâts +35 %',s=>s.dmg*=1.35),
-         U('Taille +25 %',s=>s.aoe*=1.25),U('Recharge -25 %',s=>s.cd*=.75),
-         U('Nombre +2, dégâts +35 %',s=>{s.count+=2;s.dmg*=1.35}),
-         U('Nombre +4, taille +30 %',s=>{s.count+=4;s.aoe*=1.3})]},
-  judgment:{nm:'Jugement', ic:'፨', c:EL.fusion, fusion:1, tags:['Foudre','Zone','Chaîne'], cast:'storm',
-    d:"Des éclairs frappent partout et rebondissent entre les ennemis.",
-    base:{dmg:4.4, cd:1.9, count:8, aoe:38, chains:3, range:120}, evoAt:[],
-    ups:[U('Nombre +4',s=>s.count+=4),U('Dégâts +35 %',s=>s.dmg*=1.35),
-         U('+2 rebonds',s=>s.chains+=2),U('Recharge -25 %',s=>s.cd*=.75),
-         U('Nombre +4, zone +30 %',s=>{s.count+=4;s.aoe*=1.3}),
-         U('Nombre +6, dégâts +40 %',s=>{s.count+=6;s.dmg*=1.4})]},
-  absolute:{nm:'Zéro Absolu', ic:'✻', c:EL.fusion, fusion:1, tags:['Glace','Nature','Zone','Contrôle'], cast:'nova',
-    d:"Le froid absolu fige tout autour de toi, puis persiste au sol.",
-    base:{dmg:6.5, cd:3, aoe:190, slow:.95, slowDur:3.4, leaveField:1}, evoAt:[],
-    ups:[U('Taille +25 %',s=>s.aoe*=1.25),U('Dégâts +35 %',s=>s.dmg*=1.35),
-         U('Gel +1,2 s',s=>s.slowDur+=1.2),U('Recharge -25 %',s=>s.cd*=.75),
-         U('Taille +25 %, dégâts +35 %',s=>{s.aoe*=1.25;s.dmg*=1.35}),
-         U('Taille +40 %',s=>s.aoe*=1.4)]},
-  orbital:{nm:'Canon Orbital', ic:'⊛', c:EL.fusion, fusion:1, tags:['Énergie','Orbite','Rayon'], cast:'orbit',
-    d:"Tes satellites tirent des rayons sur tout ce qui passe.",
-    base:{dmg:3.4, count:4, radius:80, rot:2.4, tick:.22, size:11, beam:1, beamCd:1.1, beamDmg:2.6}, evoAt:[],
-    ups:[U('Nombre +2',s=>s.count+=2),U('Dégâts +35 %',s=>{s.dmg*=1.35;s.beamDmg*=1.35}),
-         U('Cadence des rayons +30 %',s=>s.beamCd*=.7),U('Orbite +25 %',s=>s.radius*=1.25),
-         U('Nombre +2, dégâts +30 %',s=>{s.count+=2;s.dmg*=1.3;s.beamDmg*=1.3}),
-         U('Double orbite, dégâts +40 %',s=>{s.dual=true;s.dmg*=1.4;s.beamDmg*=1.4})]},
-  legion:{nm:'Légion', ic:'❉', c:EL.fusion, fusion:1, tags:['Invocation','Énergie','Perce'], cast:'spirit',
-    d:"Une nuée d'esprits perçants combat à tes côtés.",
-    base:{dmg:3.6, count:5, cd:.7, speed:400, size:6, pierce:4}, evoAt:[],
-    ups:[U('Nombre +2',s=>s.count+=2),U('Dégâts +35 %',s=>s.dmg*=1.35),
-         U('Cadence +25 %',s=>s.cd*=.75),U('Nombre +2',s=>s.count+=2),
-         U('+3 pénétrations, dégâts +30 %',s=>{s.pierce+=3;s.dmg*=1.3}),
-         U('Nombre +3',s=>{s.count+=3;s.cd*=.8})]},
-  magma:{nm:'Fleuve de Magma', ic:'⩕', c:EL.fusion, fusion:1, tags:['Feu','Zone','Persistant'], cast:'lava',
-    d:"Le sol se fissure sous tes pas et coule en rivières de magma.",
-    base:{dmg:2.6, cd:2.6, aoe:96, dur:7, count:4, tick:.24, burn:true}, evoAt:[],
-    ups:[U('Nombre +2',s=>s.count+=2),U('Dégâts +35 %',s=>s.dmg*=1.35),
-         U('Durée +50 %',s=>s.dur*=1.5),U('Taille +30 %',s=>s.aoe*=1.3),
-         U('Nombre +2, recharge -25 %',s=>{s.count+=2;s.cd*=.75}),
-         U('Nombre +3, dégâts +40 %',s=>{s.count+=3;s.dmg*=1.4})]},
-  maelstrom:{nm:'Maelström', ic:'❋', c:EL.fusion, fusion:1, tags:['Nature','Zone','Contrôle','Repousse'], cast:'cyclone',
-    d:"Un vortex géant aspire, broie, puis relâche une onde de choc.",
-    base:{dmg:2.8, cd:4.2, count:2, aoe:120, grow:2.6, dur:4.5, tick:.22, pull:150, burstDmg:6}, evoAt:[],
-    ups:[U('Taille +30 %',s=>s.aoe*=1.3),U('Dégâts +35 %',s=>{s.dmg*=1.35;s.burstDmg*=1.35}),
-         U('Durée +40 %',s=>s.dur*=1.4),U('Nombre +1',s=>s.count+=1),
-         U('Aspiration +60 %, recharge -20 %',s=>{s.pull*=1.6;s.cd*=.8}),
-         U('Nombre +1, dégâts +40 %',s=>{s.count+=1;s.dmg*=1.4;s.burstDmg*=1.4})]},
-  overload:{nm:'Surcharge', ic:'⌾', c:EL.fusion, fusion:1, tags:['Foudre','Aura','Directionnel'], cast:'aura',
-    d:"Ton aura sature puis se décharge en éclairs dans toutes les directions.",
-    base:{dmg:1.5, radius:135, tick:.18, arcs:true, discharge:1, dcCd:2.2, dcDmg:4.4, dcCount:8}, evoAt:[],
-    ups:[U('Rayon +25 %',s=>s.radius*=1.25),U('Dégâts +35 %',s=>{s.dmg*=1.35;s.dcDmg*=1.35}),
-         U('+4 décharges',s=>s.dcCount+=4),U('Cadence +30 %',s=>s.tick*=.7),
-         U('Rayon +25 %, décharges +30 %',s=>{s.radius*=1.25;s.dcCd*=.7}),
-         U('+6 décharges, dégâts +40 %',s=>{s.dcCount+=6;s.dmg*=1.4;s.dcDmg*=1.4})]}
 };
-const OFFENSIVE = Object.keys(SPELLS).filter(k=>!SPELLS[k].fusion);
-const FUSION_OUT = Object.keys(SPELLS).filter(k=>SPELLS[k].fusion);
-
-/* --- 1.2 RECETTES DE FUSION ------------------------------------------- */
-const FUSIONS = [
-  {a:'fireball', b:'meteor',   out:'cataclysm'},
-  {a:'storm',    b:'shock',    out:'judgment'},
-  {a:'nova',     b:'blizzard', out:'absolute'},
-  {a:'satellite',b:'ray',      out:'orbital'},
-  {a:'spirit',   b:'energy',   out:'legion'},
-  {a:'lava',     b:'incin',    out:'magma'},
-  {a:'cyclone',  b:'tsunami',  out:'maelstrom'},
-  {a:'ezone',    b:'flash',    out:'overload'}
-];
+const OFFENSIVE = Object.keys(SPELLS);
 
 /* --- 1.3 MAGIES UTILITAIRES (4) ---------------------------------------
    Niveau max 5, avec ÉVOLUTION au niveau 5.                              */
 const UTILS = {
-  shield:{nm:'Bouclier', ic:'🛡', c:'#9ad4ff', max:5,
+  shield:{nm:'Shield', ic:'🛡', c:'#9ad4ff', max:5,
     d:'Bloque une attaque. Se recharge après un délai.',
     base:{cd:33, charges:2},
     ups:[U('Recharge -10 %',s=>s.cd*=.9),U('Recharge -10 %',s=>s.cd*=.9),
          U('Recharge -10 %',s=>s.cd*=.9), null],
-    evos:[E('barrier','Barrière','Maximum de boucliers +2.', s=>s.charges+=2),
-          E('reconstruct','Reconstruction','Recharge 2 boucliers d\'un coup, maximum +1. Recharge +20 %.',
+    evos:[E('barrier','Barrier','Maximum de boucliers +2.', s=>s.charges+=2),
+          E('reconstruct','Reconstruct','Recharge 2 boucliers d\'un coup, maximum +1. Recharge +20 %.',
             s=>{s.charges+=1;s.per=2;s.cd*=1.2}),
-          E('destrfield','Champ de Destruction','Un bouclier détruit explose et frappe 4 fois.',
+          E('destrfield','Destruction Field','Un bouclier détruit explose et frappe 4 fois.',
             s=>s.blast=4)]},
-  cloak:{nm:'Voile', ic:'👁', c:'#b8a4ff', max:5,
+  cloak:{nm:'Cloaking', ic:'👁', c:'#b8a4ff', max:5,
     d:'Intangible et bien plus rapide pendant un court instant.',
     base:{cd:45, dur:2},
     ups:[U('Durée +30 %',s=>s.dur*=1.3),U('Durée +30 %',s=>s.dur*=1.3),
          U('Durée +30 %',s=>s.dur*=1.3), null],
     evos:[E('mirageC','Mirage','Durée +80 %.', s=>s.dur*=1.8),
-          E('warp','Distorsion','Explosion très puissante à la fin du voile.', s=>s.warp=1),
-          E('harvest','Moisson d\'Âmes','Récupère des PV pour chaque ennemi tué pendant le voile. Mana +33 %.',
+          E('warp','Space Warp','Explosion très puissante à la fin du voile.', s=>s.warp=1),
+          E('harvest','Soul Harvest','Récupère des PV pour chaque ennemi tué pendant le voile. Mana +33 %.',
             s=>{s.harvest=.001;s.mana=1.33})]},
-  circle:{nm:'Cercle Magique', ic:'⊙', c:'#ffc94a', max:5,
+  circle:{nm:'Magic Circle', ic:'⊙', c:'#ffc94a', max:5,
     d:"Élève fortement l'Amplify ATK pendant quelques secondes.",
     base:{cd:20, dur:5, amt:.25},
     ups:[U('Amplification +5 %, durée +20 %',s=>{s.amt+=.05;s.dur*=1.2}),
          U('Amplification +5 %, durée +20 %',s=>{s.amt+=.05;s.dur*=1.2}),
          U('Amplification +5 %, durée +20 %',s=>{s.amt+=.05;s.dur*=1.2}), null],
-    evos:[E('unleash','Libération de Mana','Tous les cooldowns -15 % pendant le cercle, et son propre cooldown -15 %.',
+    evos:[E('unleash','Unleash Mana','Tous les cooldowns -15 % pendant le cercle, et son propre cooldown -15 %.',
             s=>{s.unleash=.15;s.cd*=.85}),
-          E('synth','Synthèse','Fait apparaître 5 objets. Acquisition de mana +15 %.',
+          E('synth','Material Synthesis','Fait apparaître 5 objets. Acquisition de mana +15 %.',
             s=>{s.items=5;s.mana=1.15}),
-          E('greatcircle','Grand Cercle','Effet ×2, durée +33 %, recharge +33 %.',
+          E('greatcircle','Great Magic Circle','Effet ×2, durée +33 %, recharge +33 %.',
             s=>{s.amt*=2;s.dur*=1.33;s.cd*=1.33})]},
   armageddon:{nm:'Armageddon', ic:'☠', c:'#ff4d6d', max:5,
     d:"Anéantit les ennemis présents à l'écran.",
@@ -678,9 +615,9 @@ const UTILS = {
          U('Puissance +9 %, recharge -8 %',s=>{s.pct+=.09;s.cd*=.92}), null],
     /* La fiche ne documente pas les évolutions d'Armageddon : celles-ci sont
        de mon cru, cohérentes avec le reste du jeu. */
-    evos:[E('extinction','Extinction','Anéantissement total des ennemis non-boss.', s=>s.pct=1),
-          E('rapture','Rédemption','Recharge -40 %, mais puissance -25 %.', s=>{s.cd*=.6;s.pct*=.75}),
-          E('harvestA','Récolte','Les ennemis anéantis laissent leur mana et des cellules.', s=>s.loot=1)]}
+    evos:[E('extinction','Extinction','[hors fiche] Anéantissement total des ennemis non-boss.', s=>s.pct=1),
+          E('rapture','Rapture','[hors fiche] Recharge -40 %, mais puissance -25 %.', s=>{s.cd*=.6;s.pct*=.75}),
+          E('harvestA','Harvest','[hors fiche] Les ennemis anéantis laissent leur mana et des cellules.', s=>s.loot=1)]}
 };
 const UTIL_IDS = Object.keys(UTILS);
 
@@ -705,16 +642,16 @@ const PASSIVES = {
     d:'Portée de récupération +33 %', f:(s,l)=>s.pickup*=1+0.33*l},
   /* passives spéciales : +25 % sur un groupe de magies, via les tags */
   lordfire:{nm:'Seigneur du Feu', ic:'♨', c:EL.feu, max:3, tags:['Spéciale','Feu'], spec:'Feu',
-    d:'Dégâts de Feu +25 % (Boule de Feu, Météore, Incinération, Lave)',
+    d:'Dégâts de Feu +25 % (Fireball, Meteor, Incineration, Lava Zone)',
     f:(s,l)=>s.tag.Feu=(s.tag.Feu||1)*(1+0.25*l)},
   stormy:{nm:"Nuées d'Orage", ic:'☈', c:EL.foudre, max:3, tags:['Spéciale','Foudre'], spec:'Foudre',
-    d:'Dégâts de Foudre +25 % (Orage, Décharge, Zone Élec., Éclair)',
+    d:'Dégâts de Foudre +25 % (Thunderstorm, Electric Shock, Electric Zone, Flash Shock)',
     f:(s,l)=>s.tag.Foudre=(s.tag.Foudre||1)*(1+0.25*l)},
   wrath:{nm:'Colère de la Nature', ic:'☘', c:EL.nature, max:3, tags:['Spéciale','Nature'], spec:'Nature',
-    d:'Dégâts de Nature +25 % (Cyclone, Blizzard, Tsunami, Nova)',
+    d:'Dégâts de Nature +25 % (Cyclone, Blizzard, Tsunami, Frost Nova)',
     f:(s,l)=>s.tag.Nature=(s.tag.Nature||1)*(1+0.25*l)},
   engineer:{nm:'Ingénierie Énergétique', ic:'⚙', c:EL.energie, max:3, tags:['Spéciale','Énergie'], spec:'Énergie',
-    d:"Dégâts d'Énergie +25 % (Trait, Rayon, Esprit, Satellite)",
+    d:"Dégâts d'Énergie +25 % (Energy Bolt, Arcane Ray, Spirit, Satellite)",
     f:(s,l)=>s.tag['Énergie']=(s.tag['Énergie']||1)*(1+0.25*l)},
   arcana:{nm:'Arcana', ic:'✧', c:EL.arcane, max:3, tags:['Spéciale'],
     d:'Tous les dégâts de magie +8 %', f:(s,l)=>s.allDmg*=1+0.08*l},
@@ -768,36 +705,36 @@ const ARTIFACTS = {
   mortarboard:ART('rare','Toque','▲','+33 % de chance d\'avoir un 4ᵉ choix de magie', s=>s.fourth+=0.33),
   dragonscale:ART('rare','Écaille de Dragon','⬢','Dégâts subis -30 %', s=>s.dmgRed+=0.30),
   manashield: ART('rare','Bouclier de Mana','◐','Réduit les dégâts selon ta barre de mana', s=>s.manaShield=true),
-  mirror    : ART('rare','Miroir','◫','+1 Nombre : Trait d\'Énergie, Rayon, Esprit, Satellite',
+  mirror    : ART('rare','Miroir','◫','+1 Nombre : Energy Bolt, Arcane Ray, Spirit, Satellite',
                   s=>{for(const k of ['energy','ray','spirit','satellite']) s.sn[k]=(s.sn[k]||0)+1}),
-  freeshoot : ART('rare','Franc-Tireur','✦','Dégâts du Trait Magique +100 %', s=>s.sd.bolt=(s.sd.bolt||1)*2),
-  torch     : ART('rare','Torche','🔦','Cooldown Boule de Feu et Incinération -15 %',
+  freeshoot : ART('rare','Franc-Tireur','✦','Dégâts de Magic Bolt +100 %', s=>s.sd.bolt=(s.sd.bolt||1)*2),
+  torch     : ART('rare','Torche','🔦','Cooldown Fireball et Incineration -15 %',
                   s=>{s.sc.fireball=(s.sc.fireball||1)*0.85; s.sc.incin=(s.sc.incin||1)*0.85}),
-  candle    : ART('rare','Chandelier','🕯','+1 Nombre : Boule de Feu et Météore',
+  candle    : ART('rare','Chandelier','🕯','+1 Nombre : Fireball et Meteor',
                   s=>{s.sn.fireball=(s.sn.fireball||0)+1; s.sn.meteor=(s.sn.meteor||0)+1}),
-  lrod      : ART('rare','Paratonnerre','⚡','Cooldown Orage et Décharge -15 %',
+  lrod      : ART('rare','Paratonnerre','⚡','Cooldown Thunderstorm et Electric Shock -15 %',
                   s=>{s.sc.storm=(s.sc.storm||1)*0.85; s.sc.shock=(s.sc.shock||1)*0.85}),
-  totem     : ART('rare','Totem','🗿','Dégâts Cyclone +30 %, cooldown -10 %',
+  totem     : ART('rare','Totem','🗿','Dégâts de Cyclone +30 %, cooldown -10 %',
                   s=>{s.sd.cyclone=(s.sd.cyclone||1)*1.3; s.sc.cyclone=(s.sc.cyclone||1)*0.9}),
   glassorb  : ART('rare','Orbe de Verre','◍','+2 Satellites', s=>s.sn.satellite=(s.sn.satellite||0)+2),
-  prism     : ART('rare','Prisme','◈','+2 Rayons Arcaniques', s=>s.sn.ray=(s.sn.ray||0)+2),
+  prism     : ART('rare','Prisme','◈','+2 Arcane Ray', s=>s.sn.ray=(s.sn.ray||0)+2),
 /* --- Épique --- */
   diamond   : ART('epic','Diamant','♢','ATK +10 %, PV +20 %, cooldown -3 %',
                   s=>{s.atk*=1.10;s.hpMax*=1.20;s.cdMul*=0.97}),
   manaore   : ART('epic','Minerai de Mana','⬟','ATK +25 %', s=>s.atk*=1.25),
-  electro   : ART('epic','Électroaimant','⌁','Dégâts Zone Électrique et Satellite +50 %',
+  electro   : ART('epic','Électroaimant','⌁',"Dégâts d'Electric Zone et Satellite +50 %",
                   s=>{s.sd.ezone=(s.sd.ezone||1)*1.5; s.sd.satellite=(s.sd.satellite||1)*1.5}),
   pocketw   : ART('epic','Montre à Gousset','⏱','Durée de magie +24 %', s=>s.dur*=1.24),
   tarot     : ART('epic','Carte de Tarot','🃏','Apprend 3 magies aléatoires', s=>s.act.tarot=true),
   gravityorb: ART('epic','Orbe de Gravité','◉','Repousse violemment les ennemis proches (12 s)',
                   s=>s.act.gravity=true),
-  mooncrystal:ART('epic','Cristal de Lune','☾','Dégâts Nova de Givre +50 %, gel permanent',
+  mooncrystal:ART('epic','Cristal de Lune','☾','Dégâts de Frost Nova +50 %, gel permanent',
                   s=>{s.sd.nova=(s.sd.nova||1)*1.5; s.permaFreeze=true}),
-  pandora   : ART('epic','Boîte de Pandore','⬛','Lance aléatoirement Cyclone, Météore ou Tsunami',
+  pandora   : ART('epic','Boîte de Pandore','⬛','Lance aléatoirement Cyclone, Meteor ou Tsunami',
                   s=>s.act.pandora=true),
-  sulfur    : ART('epic','Soufre','⚱','Dégâts Zone de Lave +80 %, taille croissante',
+  sulfur    : ART('epic','Soufre','⚱','Dégâts de Lava Zone +80 %, taille croissante',
                   s=>{s.sd.lava=(s.sd.lava||1)*1.8; s.lavaGrow=true}),
-  gaebolg   : ART('epic','Gáe Bolg','⚞','Dégâts Éclair Fulgurant +100 %', s=>s.sd.flash=(s.sd.flash||1)*2),
+  gaebolg   : ART('epic','Gáe Bolg','⚞','Dégâts de Flash Shock +100 %', s=>s.sd.flash=(s.sd.flash||1)*2),
 /* --- Spécial --- */
   asi       : ART('special','ASI','▮','ATK +30 %', s=>s.atk*=1.30),
   undead    : ART('special','Non-Mort','☥','+2 résurrections, mais PV max -25 %',
@@ -874,35 +811,35 @@ const SYNERGIES = [
 
 /* --- 1.7 CLASSES (bonus de départ + maîtrise au niveau 7 du sort) ------ */
 const CLASSES = {
-  wizard    :{nm:'Mage',         ic:'✦', spell:'bolt',      d:'Commence avec le Trait Magique amélioré.',
-              start:s=>s.allDmg*=1.03, mast:{d:'Trait Magique : cooldown -20 %, +1 Nombre, dégâts +20 %',
+  wizard    :{nm:'Mage',         ic:'✦', spell:'bolt',      d:'Commence avec Magic Bolt amélioré.',
+              start:s=>s.allDmg*=1.03, mast:{d:'Magic Bolt : cooldown -20 %, +1 Nombre, dégâts +20 %',
               f:s=>{s.sc.bolt=(s.sc.bolt||1)*0.8;s.sn.bolt=(s.sn.bolt||0)+1;s.sd.bolt=(s.sd.bolt||1)*1.2}}},
   pyromancer:{nm:'Pyromancien',  ic:'◉', spell:'fireball',  d:'Dégâts de Feu +10 % dès le départ.',
-              start:s=>s.tag.Feu=(s.tag.Feu||1)*1.10, mast:{d:'Boule de Feu : cooldown -20 %, +1 Nombre, dégâts +20 %',
+              start:s=>s.tag.Feu=(s.tag.Feu||1)*1.10, mast:{d:'Fireball : cooldown -20 %, +1 Nombre, dégâts +20 %',
               f:s=>{s.sc.fireball=(s.sc.fireball||1)*0.8;s.sn.fireball=(s.sn.fireball||0)+1;s.sd.fireball=(s.sd.fireball||1)*1.2}}},
   shaman    :{nm:'Chaman',       ic:'⚡', spell:'storm',     d:'Dégâts de Foudre +10 % dès le départ.',
-              start:s=>s.tag.Foudre=(s.tag.Foudre||1)*1.10, mast:{d:'Orage : cooldown -20 %, Nombre +35 %, dégâts +20 %',
+              start:s=>s.tag.Foudre=(s.tag.Foudre||1)*1.10, mast:{d:'Thunderstorm : cooldown -20 %, Nombre +35 %, dégâts +20 %',
               f:s=>{s.sc.storm=(s.sc.storm||1)*0.8;s.snPct.storm=1.35;s.sd.storm=(s.sd.storm||1)*1.2}}},
   warlock   :{nm:'Démoniste',    ic:'☄', spell:'meteor',    d:'Taille de magie +8 % dès le départ.',
-              start:s=>s.size*=1.08, mast:{d:'Météore : cooldown -20 %, Nombre +35 %, dégâts +20 %',
+              start:s=>s.size*=1.08, mast:{d:'Meteor : cooldown -20 %, Nombre +35 %, dégâts +20 %',
               f:s=>{s.sc.meteor=(s.sc.meteor||1)*0.8;s.snPct.meteor=1.35;s.sd.meteor=(s.sd.meteor||1)*1.2}}},
   druid     :{nm:'Druide',       ic:'🌀', spell:'cyclone',   d:'Dégâts de Nature +10 % dès le départ.',
               start:s=>s.tag.Nature=(s.tag.Nature||1)*1.10, mast:{d:'Cyclone : taille +25 %, durée +30 %, dégâts +20 %',
               f:s=>{s.sd.cyclone=(s.sd.cyclone||1)*1.2;s.szPct.cyclone=1.25;s.durPct.cyclone=1.3}}},
   sorcerer  :{nm:'Ensorceleur',  ic:'⌁', spell:'shock',     d:'Cooldown global -4 % dès le départ.',
-              start:s=>s.cdMul*=0.96, mast:{d:'Décharge : cooldown -20 %, +2 rebonds, dégâts +20 %',
+              start:s=>s.cdMul*=0.96, mast:{d:'Electric Shock : cooldown -20 %, +2 rebonds, dégâts +20 %',
               f:s=>{s.sc.shock=(s.sc.shock||1)*0.8;s.sd.shock=(s.sd.shock||1)*1.2;s.chainAdd+=2}}},
   summoner  :{nm:'Invocateur',   ic:'❂', spell:'spirit',    d:'Dégâts d\'Invocation +12 % dès le départ.',
-              start:s=>s.tag.Invocation=(s.tag.Invocation||1)*1.12, mast:{d:'Esprit : +1, cooldown -20 %, dégâts +20 %',
+              start:s=>s.tag.Invocation=(s.tag.Invocation||1)*1.12, mast:{d:'Spirit : +1, cooldown -20 %, dégâts +20 %',
               f:s=>{s.sn.spirit=(s.sn.spirit||0)+1;s.sc.spirit=(s.sc.spirit||1)*0.8;s.sd.spirit=(s.sd.spirit||1)*1.2}}},
   astronomer:{nm:'Astronome',    ic:'◍', spell:'satellite', d:'Un satellite supplémentaire dès le départ.',
               start:s=>s.sn.satellite=(s.sn.satellite||0)+1, mast:{d:'Satellite : +1, rotation +50 %, dégâts +20 %',
               f:s=>{s.sn.satellite=(s.sn.satellite||0)+1;s.rotBonus=1.5;s.sd.satellite=(s.sd.satellite||1)*1.2}}},
   cryomancer:{nm:'Cryomancien',  ic:'❄', spell:'nova',      d:'Durée de magie +12 % dès le départ.',
-              start:s=>s.dur*=1.12, mast:{d:'Nova : cooldown -20 %, taille +25 %, dégâts +20 %',
+              start:s=>s.dur*=1.12, mast:{d:'Frost Nova : cooldown -20 %, taille +25 %, dégâts +20 %',
               f:s=>{s.sc.nova=(s.sc.nova||1)*0.8;s.szPct.nova=1.25;s.sd.nova=(s.sd.nova||1)*1.2}}},
   occultist :{nm:'Occultiste',   ic:'⟶', spell:'ray',       d:'Amplify ATK +8 % dès le départ.',
-              start:s=>s.amp*=1.08, mast:{d:'Rayon : +1, longueur +40 %, dégâts +20 %',
+              start:s=>s.amp*=1.08, mast:{d:'Arcane Ray : +1, longueur +40 %, dégâts +20 %',
               f:s=>{s.sn.ray=(s.sn.ray||0)+1;s.lenBonus=1.4;s.sd.ray=(s.sd.ray||1)*1.2}}},
   arcanist  :{nm:'Arcaniste',    ic:'✧', spell:'bolt',
               d:'Dégâts de magie +1 % par niveau, mais 2 choix seulement et aucun orbe de mana attiré.',
@@ -973,7 +910,8 @@ function resCost(k,lv){ return Math.round(RESEARCH[k].cost * Math.pow(1.52, lv))
 /* =========================================================================
    2. NOYAU
    ========================================================================= */
-const cv=document.getElementById('cv'), ctx=cv.getContext('2d',{alpha:false});
+const cv=document.getElementById('cv');
+let ctx=null;   /* pointe sur le tampon de scène (cf. section 16) */
 let W=0,H=0,DPR=1,SCALE=1;
 const cam={x:0,y:0,sx:0,sy:0};
 const WORLD=2800, TAU=Math.PI*2;
@@ -983,6 +921,7 @@ function resize(){
   W=cv.clientWidth; H=cv.clientHeight;
   cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
   SCALE=Math.max(Math.min(W,H)/430,1.05);
+  initBuffers(); makeGrade(); GROUND_PAT=null;
 }
 window.addEventListener('resize',resize);
 window.addEventListener('orientationchange',()=>setTimeout(resize,180));
@@ -996,10 +935,10 @@ function wpick(l){ let t=0; for(const o of l) t+=o.w; let r=Math.random()*t;
 function hexRGB(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
 
 const DEFAULT_SAVE=()=>({
-  shards:0, bestTime:0, bestLevel:0, runs:0, cls:'wizard', subj:'novice',
+  shards:0, bestTime:0, bestLevel:0, runs:0, cls:'wizard', subj:'novice', style:'arcane',
   subjects:['novice'],
   research:{offense:0,amplify:0,defense:0,magic:0,utility:0,survival:0,loot:0,fortune:0},
-  opt:{particles:2, shake:1, flash:1, sound:1, dmgnum:1}
+  opt:{particles:2, shake:1, flash:1, sound:1, dmgnum:1, bloom:1, hitstop:1}
 });
 let SAVE=DEFAULT_SAVE();
 const Store={
@@ -1066,7 +1005,7 @@ const G={
   en:[], bul:[], ebul:[], orbs:[], zones:[], sats:[], spirits:[], rays:[], waves:[],
   pickups:[], fx:[], parts:[], nums:[], boss:null,
   buffs:{}, timers:{}, shieldN:0, shieldT:0, revives:0, critCount:0,
-  st:null, shakeT:0, flashT:0, flashC:'#fff'
+  st:null, shakeT:0, flashT:0, flashC:'#fff', freeze:0, sqx:1, sqy:1, hitFrom:null
 };
 
 /* --- statistiques ------------------------------------------------------ */
@@ -1149,7 +1088,7 @@ function spellStats(id){
   if(s.chains) s.chains+=st.chainAdd;
   if(def.base.count!=null){
     s.count+=(st.sn[id]||0);
-    if(id!=='spirit'&&id!=='satellite'&&id!=='legion'&&id!=='orbital') s.count+=st.projAdd;
+    if(id!=='spirit'&&id!=='satellite') s.count+=st.projAdd;
     if(st.snPct[id]) s.count=Math.round(s.count*st.snPct[id]);
     s.count=Math.max(1,s.count);
   }
@@ -1197,9 +1136,10 @@ function killEnemy(e){
   for(let i=0;i<big;i++) dropOrb(e.x+rnd(-14,14),e.y+rnd(-14,14),e.xp*(e.boss?2.4:1));
   if(e.elite||e.boss||Math.random()<.02) dropCell(e.x,e.y,e.boss?12:e.elite?3:1);
   if(Math.random()<(e.boss?1:e.elite?.14:.006)) dropLife(e.x,e.y);
-  if(e.boss){ G.bossKills++; G.boss=null; shake(.7); flash('#ffc94a');
+  if(e.boss){ G.bossKills++; G.boss=null; shake(.7); hitStop(.16); flash('#ffc94a');
     spawnPickup('blackbox',e.x,e.y); spawnPickup('chest',e.x+34,e.y+16); AU.boom(); }
-  else if(e.elite){ if(Math.random()<.55*G.st.lootRate) spawnPickup('chest',e.x,e.y); AU.boom(); }
+  else if(e.elite){ if(Math.random()<.55*G.st.lootRate) spawnPickup('chest',e.x,e.y);
+    hitStop(.05); AU.boom(); }
   else AU.hit();
 }
 function explode(x,y,r,coef,tags,col,flat){
@@ -1238,9 +1178,12 @@ function damagePlayer(raw){
   let red=st.dmgRed*(1-G.defPen);
   if(st.sacro && p.hp>st.hpMax*.75) red+=.25;
   if(st.manaShield) red+=.25*(G.xp/G.xpNeed);
+  if(G.hitFrom) G.shakeA=Math.atan2(p.y-G.hitFrom.y,p.x-G.hitFrom.x);
   let d=raw*(1-clamp(red,0,.85));
   d=Math.min(d, st.hpMax*st.hitCap);
-  p.hp-=d; p.iT=.36; p.hitT=.2; shake(.3); AU.hurt();
+  p.hp-=d; p.iT=.36; p.hitT=.2; shake(.3); hitStop(.07);
+  p.sqx=1.30; p.sqy=.72;                       /* écrasement à l'impact */
+  AU.hurt();
   if(p.hp<=0){
     if(G.revives>0){ G.revives--; p.hp=st.hpMax*.6*st.hpCap; p.iT=2.4;
       flash('#ffc94a'); shake(.6); killScreen(.8); return; }
@@ -1265,7 +1208,9 @@ function burst(x,y,c,n,sp,kind){
     G.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:life,mt:life,
       r:rnd(1.2,3.4)*(sp||1),c,k:kind||'spark',rot:Math.random()*TAU,rv:rnd(-6,6)}); }
 }
-function shake(a){ if(SAVE.opt.shake) G.shakeT=Math.max(G.shakeT,a); }
+function shake(a,ang){ if(!SAVE.opt.shake) return;
+  G.shakeT=Math.max(G.shakeT,a);
+  G.shakeA = ang!==undefined?ang:rnd(0,TAU); }
 function flash(c){ if(SAVE.opt.flash){ G.flashT=.16; G.flashC=c; } }
 
 /* =========================================================================
@@ -1343,7 +1288,7 @@ const CAST={
   storm(s,def,id){ let n=0;
     for(let i=0;i<s.count;i++){
       const t=G.en.length?pick(G.en):null; if(!t||t.dead) continue;
-      fx({k:'bolt',x:t.x,y:t.y,t:.22,mt:.22,c:def.c,r:s.aoe});
+      fx({k:'bolt',x:t.x,y:t.y,t:.22,mt:.22,c:def.c,r:s.aoe,sp:'storm'});
       explode(t.x,t.y,s.aoe,s.dmg,def.tags,def.c);
       if(s.chains) chainFrom(t,s.dmg*.6,s.chains,s.range,s.mul,def.c);
       n++; }
@@ -1368,7 +1313,7 @@ const CAST={
   shock(s,def,id){
     for(let c=0;c<s.count;c++){
       const t=nearest(G.p.x,G.p.y,s.range*2.4); if(!t) return;
-      fx({k:'chain',x1:G.p.x,y1:G.p.y,x2:t.x,y2:t.y,t:.16,mt:.16,c:def.c});
+      fx({k:'chain',x1:G.p.x,y1:G.p.y,x2:t.x,y2:t.y,t:.16,mt:.16,c:def.c,sp:'shock'});
       hurt(t,s.dmg,s.mul,def.c);
       chainFrom(t,s.dmg*s.falloff,s.chains,s.range,s.mul,def.c,s.falloff);
     }
@@ -1436,7 +1381,7 @@ const CAST={
 
   aura(){}, orbit(){}, spirit(){},
   nova(s,def,id){
-    fx({k:'ring',x:G.p.x,y:G.p.y,r0:10,r1:s.aoe,t:.4,mt:.4,c:def.c});
+    fx({k:'ring',x:G.p.x,y:G.p.y,r0:10,r1:s.aoe,t:.4,mt:.4,c:def.c,sp:'nova'});
     GRID.query(G.p.x,G.p.y,s.aoe+30,_q);
     for(let i=0;i<_q.length;i++){ const e=G.en[_q[i]]; if(!e||e.dead) continue;
       const dx=e.x-G.p.x,dy=e.y-G.p.y;
@@ -1490,13 +1435,13 @@ function chainFrom(src,coef,n,range,mul,col,falloff){
     for(let j=0;j<_q.length;j++){ const e=G.en[_q[j]]; if(!e||e.dead||seen.indexOf(e.uid)>=0) continue;
       const dx=e.x-cur.x,dy=e.y-cur.y,d=dx*dx+dy*dy; if(d<bd){bd=d;nx=e;} }
     if(!nx) break;
-    fx({k:'chain',x1:cur.x,y1:cur.y,x2:nx.x,y2:nx.y,t:.16,mt:.16,c:col});
+    fx({k:'chain',x1:cur.x,y1:cur.y,x2:nx.x,y2:nx.y,t:.16,mt:.16,c:col,sp:'shock'});
     hurt(nx,c,mul,col); seen.push(nx.uid); cur=nx; c*=(falloff||.86);
   }
 }
-function orbitId(){ return G.spells.orbital?'orbital':G.spells.satellite?'satellite':null; }
-function spiritId(){ return G.spells.legion?'legion':G.spells.spirit?'spirit':null; }
-function auraId(){ return G.spells.overload?'overload':G.spells.ezone?'ezone':null; }
+function orbitId(){ return G.spells.satellite?'satellite':null; }
+function spiritId(){ return G.spells.spirit?'spirit':null; }
+function auraId(){ return G.spells.ezone?'ezone':null; }
 function syncOrbit(){
   const id=orbitId(); if(!id){ G.sats.length=0; return; }
   const s=spellStats(id); G.sats.length=0;
@@ -1620,11 +1565,15 @@ function update(dt){
   if(Math.abs(v.x)>.05||Math.abs(v.y)>.05){ p.dx=v.x; p.dy=v.y; }
   if(Math.abs(p.vx)>4) p.dir=p.vx>0?1:-1;
   p.anim+=dt*(Math.hypot(p.vx,p.vy)>10?9:3);
+  const spd2=Math.hypot(p.vx,p.vy)/Math.max(1,st.spd);
+  p.sqx=lerp(p.sqx||1,1-spd2*.07,.18); p.sqy=lerp(p.sqy||1,1+spd2*.10,.18);
   if(p.iT>0)p.iT-=dt; if(p.hitT>0)p.hitT-=dt;
   if(st.regen) p.hp=clamp(p.hp+st.regen*dt,0,st.hpMax*st.hpCap);
 
   cam.x=lerp(cam.x,p.x,.16); cam.y=lerp(cam.y,p.y,.16);
-  if(G.shakeT>0){G.shakeT=Math.max(0,G.shakeT-dt*2.6);cam.sx=rnd(-1,1)*G.shakeT*13;cam.sy=rnd(-1,1)*G.shakeT*13;}
+  if(G.shakeT>0){ G.shakeT=Math.max(0,G.shakeT-dt*2.6);
+    const sa=G.shakeA!==undefined?G.shakeA:0;
+    cam.sx=Math.cos(sa)*G.shakeT*15*rnd(.6,1); cam.sy=Math.sin(sa)*G.shakeT*15*rnd(.6,1); }
   else cam.sx=cam.sy=0;
   if(G.flashT>0)G.flashT-=dt;
 
@@ -1688,7 +1637,7 @@ function update(dt){
     }
     if(dist<e.r+p.r){
       if(e.boom&&!e.boss){e.hp=0;killEnemy(e);continue;}
-      e.atkT-=dt; if(e.atkT<=0){e.atkT=.55; damagePlayer(e.dmg);}
+      e.atkT-=dt; if(e.atkT<=0){e.atkT=.55; G.hitFrom=e; damagePlayer(e.dmg); G.hitFrom=null;}
     }
   }
 
@@ -1756,6 +1705,7 @@ function updateBullets(dt){
         if(b.aoe){ explode(b.x,b.y,b.aoe,b.coef,SPELLS[b.kind].tags,b.c);
           if(b.burn&&!e.dead){e.burnT=2.4;e.burnD=b.coef*.16;} done=true; break; }
         hurt(e,b.coef,b.mul,b.c);
+        if(!e.dead) knock(e,b.vx,b.vy,4.5);      /* recul dans l'axe du tir */
         if(b.burn&&!e.dead){e.burnT=2.4;e.burnD=b.coef*.16;}
         emit(b.x,b.y,4,{c:b.c,k:'spark',a:Math.atan2(b.vy,b.vx)+Math.PI,spread:1.1,
           v0:50,v1:180,t0:.12,t1:.3,r0:1,r1:2.4});
@@ -1775,7 +1725,7 @@ function updateEBullets(dt){
   for(let i=G.ebul.length-1;i>=0;i--){
     const b=G.ebul[i]; b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
     const dx=G.p.x-b.x,dy=G.p.y-b.y,rr=G.p.r+b.r;
-    if(dx*dx+dy*dy<rr*rr){damagePlayer(b.dmg);G.ebul.splice(i,1);continue;}
+    if(dx*dx+dy*dy<rr*rr){G.hitFrom=b; damagePlayer(b.dmg); G.hitFrom=null; G.ebul.splice(i,1);continue;}
     if(b.life<=0) G.ebul.splice(i,1);
   }
 }
@@ -2013,6 +1963,159 @@ function gainXP(v){
   G.xp+=v*G.st.xpMul; AU.orb();
   while(G.xp>=G.xpNeed){ G.xp-=G.xpNeed; G.level++; G.xpNeed=xpNeed(G.level);
     G.pending++; if(G.st.arcanist) computeStats(); }
+}
+/* =========================================================================
+   16. PASSE FINALE — tampon de scène, bloom, étalonnage, vignette
+   Jusqu'ici on dessinait directement à l'écran : aucun effet ne pouvait
+   « déborder ». Désormais la scène est rendue dans un tampon, puis on en
+   extrait les zones vives, on les floute par sous-échantillonnage et on les
+   rajoute par-dessus. C'est ce halo qui sépare un rendu propre d'un rendu
+   plat — et c'est là que nos sorts lumineux gagnent le plus.
+   ========================================================================= */
+const SCREEN = cv.getContext('2d',{alpha:false});
+let SCENE=null, SCTX=null, B1=null, B1C=null, B2=null, B2C=null;
+
+function initBuffers(){
+  const w=cv.width, h=cv.height;
+  if(SCENE && SCENE.width===w && SCENE.height===h) return;
+  SCENE=document.createElement('canvas'); SCENE.width=w; SCENE.height=h;
+  SCTX=SCENE.getContext('2d',{alpha:false});
+  const s1=Math.max(1,Math.round(w/6)), t1=Math.max(1,Math.round(h/6));
+  B1=document.createElement('canvas'); B1.width=s1; B1.height=t1;
+  B1C=B1.getContext('2d',{alpha:false});
+  B2=document.createElement('canvas'); B2.width=Math.max(1,s1>>1); B2.height=Math.max(1,t1>>1);
+  B2C=B2.getContext('2d',{alpha:false});
+  ctx=SCTX;
+}
+function bloomOn(){ return SAVE.opt.bloom!==0 && SAVE.opt.particles!==0; }
+
+function composite(){
+  if(!SCENE) return;
+  SCREEN.setTransform(1,0,0,1,0,0);
+  SCREEN.globalCompositeOperation='source-over';
+  SCREEN.globalAlpha=1;
+  SCREEN.drawImage(SCENE,0,0);
+  if(bloomOn()){
+    /* 1. réduction : le filtrage bilinéaire fait office de flou, gratuitement */
+    B1C.globalCompositeOperation='source-over'; B1C.globalAlpha=1;
+    B1C.imageSmoothingEnabled=true;
+    B1C.drawImage(SCENE,0,0,B1.width,B1.height);
+    /* 2. on élève au carré pour ne garder que ce qui est réellement vif :
+          multiplier l'image par elle-même écrase les demi-teintes */
+    B2C.globalCompositeOperation='source-over'; B2C.globalAlpha=1;
+    B2C.imageSmoothingEnabled=true;
+    B2C.drawImage(B1,0,0,B2.width,B2.height);
+    B2C.globalCompositeOperation='multiply';
+    B2C.drawImage(B1,0,0,B2.width,B2.height);
+    B2C.globalCompositeOperation='source-over';
+    /* 3. on rajoute le halo : large et doux, puis serré */
+    SCREEN.imageSmoothingEnabled=true;
+    SCREEN.globalCompositeOperation='lighter';
+    SCREEN.globalAlpha=.95; SCREEN.drawImage(B2,0,0,cv.width,cv.height);
+    SCREEN.globalAlpha=.34; SCREEN.drawImage(B1,0,0,cv.width,cv.height);
+    SCREEN.globalAlpha=1;
+  }
+  /* étalonnage : on relève les ombres vers le violet, on refroidit les bords */
+  SCREEN.globalCompositeOperation='source-over';
+  if(!GRADE || GRADE.width!==cv.width || GRADE.height!==cv.height) makeGrade();
+  SCREEN.drawImage(GRADE,0,0);
+}
+let GRADE=null;
+function makeGrade(){
+  GRADE=document.createElement('canvas'); GRADE.width=cv.width; GRADE.height=cv.height;
+  const g=GRADE.getContext('2d');
+  const w=GRADE.width, h=GRADE.height;
+  const rad=g.createRadialGradient(w/2,h*.46,Math.min(w,h)*.30,w/2,h/2,Math.max(w,h)*.78);
+  rad.addColorStop(0,'rgba(0,0,0,0)');
+  rad.addColorStop(.55,'rgba(6,4,16,.20)');
+  rad.addColorStop(1,'rgba(4,2,12,.62)');
+  g.fillStyle=rad; g.fillRect(0,0,w,h);
+  const lift=g.createLinearGradient(0,0,0,h);      /* léger dégradé d'ambiance */
+  lift.addColorStop(0,'rgba(60,40,120,.06)');
+  lift.addColorStop(1,'rgba(20,10,50,.10)');
+  g.fillStyle=lift; g.fillRect(0,0,w,h);
+}
+
+/* =========================================================================
+   17. SOL — texture générée une fois, puis répétée
+   ========================================================================= */
+let GROUND=null, GROUND_PAT=null;
+function buildGround(){
+  const S=256;
+  GROUND=document.createElement('canvas'); GROUND.width=GROUND.height=S;
+  const g=GROUND.getContext('2d');
+  g.fillStyle='#0d0a18'; g.fillRect(0,0,S,S);
+  const n=(a)=>{ const x=Math.sin(a*127.1)*43758.5453; return x-Math.floor(x); };
+  /* dalles irrégulières — dessinées 9 fois en décalage pour que la tuile
+     se raccorde parfaitement à elle-même : aucune couture visible */
+  const wrap=(fn)=>{ for(let ox=-1;ox<=1;ox++) for(let oy=-1;oy<=1;oy++) fn(ox*S,oy*S); };
+  for(let i=0;i<80;i++){
+    const x=n(i*1.7)*S, y=n(i*3.1)*S, w=18+n(i*5.3)*46, h=18+n(i*7.9)*46;
+    const v=6+Math.round(n(i*11.3)*10);
+    g.fillStyle=`rgb(${14+v},${11+v},${28+v})`;
+    g.globalAlpha=.38;
+    wrap((dx,dy)=>g.fillRect(x+dx,y+dy,w,h));
+  }
+  g.globalAlpha=1;
+  /* grain */
+  const img=g.getImageData(0,0,S,S), d=img.data;
+  for(let i=0;i<d.length;i+=4){
+    const v=(n(i*.37)-.5)*16;
+    d[i]=clamp(d[i]+v,0,255); d[i+1]=clamp(d[i+1]+v,0,255); d[i+2]=clamp(d[i+2]+v*1.2,0,255);
+  }
+  g.putImageData(img,0,0);
+  /* fissures et runes discrètes */
+  g.strokeStyle='rgba(90,70,170,.14)'; g.lineWidth=1;
+  for(let i=0;i<16;i++){
+    const x0=n(i*13.1)*S, y0=n(i*17.7)*S;
+    wrap((dx,dy)=>{
+      g.beginPath(); let x=x0+dx,y=y0+dy; g.moveTo(x,y);
+      for(let j=0;j<4;j++){ x+=(n(i*3+j)-.5)*60; y+=(n(i*5+j)-.5)*60; g.lineTo(x,y); }
+      g.stroke();
+    });
+  }
+  g.strokeStyle='rgba(120,95,220,.09)';
+  for(let i=0;i<6;i++){
+    const cx=n(i*23.3)*S, cy=n(i*29.1)*S, rr=10+n(i*31.7)*22;
+    wrap((dx,dy)=>{ g.beginPath(); g.arc(cx+dx,cy+dy,rr,0,TAU); g.stroke(); });
+  }
+  GROUND_PAT=SCTX?SCTX.createPattern(GROUND,'repeat'):null;
+}
+function drawGroundTextured(v){
+  if(!GROUND_PAT && SCTX && GROUND) GROUND_PAT=SCTX.createPattern(GROUND,'repeat');
+  if(GROUND_PAT){
+    ctx.fillStyle=GROUND_PAT;
+    ctx.fillRect(v.x0,v.y0,v.x1-v.x0,v.y1-v.y0);
+  } else {
+    ctx.fillStyle='#0d0a18'; ctx.fillRect(v.x0,v.y0,v.x1-v.x0,v.y1-v.y0);
+  }
+  /* flaque de lumière autour du personnage : donne du volume à la scène */
+  ctx.globalCompositeOperation='lighter';
+  drawGlow(G.p.x,G.p.y,Math.max(W,H)/SCALE*.42,styleNow().accent,.09);
+  ctx.globalCompositeOperation='source-over';
+  /* poussières ambiantes en parallaxe */
+  ctx.fillStyle='rgba(160,140,230,.16)';
+  const s=140, t=G.t*8;
+  for(let x=Math.floor(v.x0/s)*s; x<v.x1; x+=s)
+    for(let y=Math.floor(v.y0/s)*s; y<v.y1; y+=s){
+      const h=((x*73856093)^(y*19349663))&255;
+      const px=x+(h%s)+Math.sin(t*.01+h)*8;
+      const py=y+((h*7)%s)-((t+h)%220);
+      ctx.fillRect(px,py,1.6,1.6);
+    }
+  /* limite du monde */
+  ctx.strokeStyle='rgba(139,108,255,.5)'; ctx.lineWidth=3/SCALE;
+  ctx.strokeRect(-WORLD,-WORLD,WORLD*2,WORLD*2);
+}
+
+/* =========================================================================
+   18. GAME FEEL — arrêt sur image, recul, écrasement
+   ========================================================================= */
+function hitStop(d){ if(SAVE.opt.hitstop!==0) G.freeze=Math.max(G.freeze||0,d); }
+function knock(e,vx,vy,f){
+  if(e.boss) f*=.18;
+  const l=Math.hypot(vx,vy)||1;
+  e.x+=vx/l*f; e.y+=vy/l*f;
 }
 /* =========================================================================
    10. RENDU — bestiaire redessiné
@@ -2255,21 +2358,21 @@ function drawPlayer(){
   const p=G.p,bob=Math.sin(p.anim)*1.3,y=p.y+bob,hurtF=p.hitT>0;
   ctx.fillStyle='rgba(0,0,0,.45)';
   ctx.beginPath(); ctx.ellipse(p.x,p.y+9,8,3.2,0,0,TAU); ctx.fill();
+  const sty=styleNow();
   ctx.globalCompositeOperation='lighter';
-  drawGlow(p.x,y,30,G.buffs.frenzy?'#ff6b8a':'#8b6cff',p.iT>0?.55:.3);
+  drawGlow(p.x,y,30,G.buffs.frenzy?'#ff6b8a':sty.accent,p.iT>0?.55:.3);
   ctx.globalCompositeOperation='source-over';
   ctx.globalAlpha=G.buffs.cloak?.45:1;
-  ctx.fillStyle=hurtF?'#fff':'#2b2160';
-  ctx.beginPath(); ctx.moveTo(p.x,y-11); ctx.lineTo(p.x+7.5,y+9); ctx.lineTo(p.x-7.5,y+9);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle=hurtF?'#fff':'#4a3a9e';
-  ctx.beginPath(); ctx.moveTo(p.x,y-12); ctx.lineTo(p.x+5.5,y-3); ctx.lineTo(p.x-5.5,y-3);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle='#c9b6ff';
-  ctx.fillRect(p.x-3.2*p.dir-.8,y-7,1.8,2); ctx.fillRect(p.x+1.4*p.dir-.8,y-7,1.8,2);
+  ctx.save();                                  /* écrasement / étirement */
+  ctx.translate(p.x,y+9); ctx.scale(p.sqx||1,p.sqy||1); ctx.translate(-p.x,-(y+9));
+  if(sty.draw==='shinigami') drawShinigami(p,y,hurtF);
+  else if(sty.draw==='pirate') drawPirate(p,y,hurtF);
+  else drawMageBody(p,y,hurtF);
+  ctx.restore();
   ctx.globalAlpha=1;
   ctx.globalCompositeOperation='lighter';
-  drawGlow(p.x+7*p.dir,y-6+Math.sin(p.anim*.7)*1.5,8,'#c9b6ff',.85);
+  if(sty.draw==='mage') drawGlow(p.x+7*p.dir,y-6+Math.sin(p.anim*.7)*1.5,8,'#c9b6ff',.85);
+  else drawGlow(p.x,y-2,16,sty.accent,.28);
   ctx.globalCompositeOperation='source-over';
   if(G.shieldN>0){ ctx.strokeStyle='#9ad4ff'; ctx.lineWidth=1.6; ctx.globalAlpha=.55;
     ctx.beginPath(); ctx.arc(p.x,y,17,0,TAU); ctx.stroke(); ctx.globalAlpha=1; }
@@ -2571,6 +2674,8 @@ function drawParticles(){
 
 /* --- projectiles -------------------------------------------------------- */
 function drawBulletVFX(b){
+  const o=sfxNow();                       /* animation propre au style ? */
+  if(o&&o.bullet&&o.bullet[b.kind]){ o.bullet[b.kind](b); return; }
   const t=G.t, st=styleOf(b.c);
   ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.a||0);
   if(b.kind==='fireball'||b.kind==='cataclysm'){
@@ -2624,6 +2729,8 @@ function drawBulletVFX(b){
 
 /* --- zones -------------------------------------------------------------- */
 function drawZoneVFX(z){
+  const o=sfxNow();
+  if(o&&o.zone&&o.zone[z.k]){ o.zone[z.k](z); return; }
   const t=G.t, fade=Math.min(1,z.t/.5), age=1-z.t/z.mt;
 
   if(z.k==='lava'){
@@ -2818,6 +2925,8 @@ function drawZoneVFX(z){
 
 /* --- aura électrique ---------------------------------------------------- */
 function drawAuraVFX(x,y,r,c){
+  const o=sfxNow();
+  if(o&&o.aura){ o.aura(x,y,r,c); return; }
   const t=G.t;
   drawGlow(x,y,r,c,.13);
   ctx.globalAlpha=.32; ctx.strokeStyle=c; ctx.lineWidth=2/SCALE;
@@ -2842,6 +2951,8 @@ function drawAuraVFX(x,y,r,c){
 const PAL_RAY=[['#a864c8',.22,1.75],['#b888d8',.40,1.15],
                ['#c8a8f8',.62,.72],['#e8ccf8',.85,.40]];
 function drawRayVFX(r){
+  const o=sfxNow();
+  if(o&&o.ray){ o.ray(r); return; }
   const t=G.t, age=r.mt-r.t;
   const IN=.22, OUT=.30;
   const kIn=clamp(age/IN,0,1), kOut=clamp((r.t+OUT)/OUT,0,1);
@@ -2893,6 +3004,8 @@ function drawRayVFX(r){
 /* --- vagues et éclairs directionnels ------------------------------------ */
 function drawWaveVFX(w){
   const t=G.t;
+  const o=sfxNow();
+  if(w.bolt&&o&&o.wave&&o.wave.bolt){ o.wave.bolt(w); return; }
   if(w.bolt){                                            /* Éclair Fulgurant */
     const bx=w.x-w.vx*.05, by=w.y-w.vy*.05;
     ctx.globalAlpha=.9; ctx.strokeStyle=w.c; ctx.lineWidth=w.w*.55;
@@ -2907,6 +3020,7 @@ function drawWaveVFX(w){
     if(Math.random()<.5) emit(w.x,w.y,1,{c:w.c,k:'spark',v0:40,v1:130,t0:.12,t1:.28,r0:1,r1:2});
     return;
   }
+  if(o&&o.wave&&o.wave.tide){ o.wave.tide(w); return; }
   /* Tsunami : crête + corps de vague */
   const a=w.a, nx=-Math.sin(a), ny=Math.cos(a);
   ctx.globalAlpha=.30; ctx.fillStyle=w.c;                /* corps */
@@ -2928,6 +3042,11 @@ function drawWaveVFX(w){
 
 /* --- effets ponctuels --------------------------------------------------- */
 function drawFXVFX(f){
+  const o=sfxNow();
+  if(o&&o.fx){                      /* par sort d'abord, par type ensuite */
+    if(f.sp&&o.fx[f.sp]){ o.fx[f.sp](f); return; }
+    if(o.fx[f.k]){ o.fx[f.k](f); return; }
+  }
   const t=G.t;
   if(f.k==='ring'){
     const k=clamp(1-f.t/(f.mt||.3),0,1), r=lerp(f.r0,f.r1,k), st=styleOf(f.c);
@@ -3078,6 +3197,8 @@ function drawFXVFX(f){
 
 /* --- satellites et esprits --------------------------------------------- */
 function drawSatVFX(o,size,c,beam){
+  const sf=sfxNow();
+  if(sf&&sf.sat){ sf.sat(o,size,c,beam); return; }
   const t=G.t;
   ctx.globalAlpha=.30; ctx.strokeStyle=c; ctx.lineWidth=size*.4;   /* sillage */
   ctx.beginPath(); ctx.arc(G.p.x,G.p.y,Math.hypot(o.x-G.p.x,o.y-G.p.y),
@@ -3093,6 +3214,8 @@ function drawSatVFX(o,size,c,beam){
     drawGlow(o.x,o.y,size*4.4,'#ffffff',.35); ctx.globalAlpha=1; }
 }
 function drawSpiritVFX(sp,c){
+  const sf=sfxNow();
+  if(sf&&sf.spirit){ sf.spirit(sp,c); return; }
   const t=G.t, w=Math.sin(t*4+sp.a*3)*3;
   drawGlow(sp.x,sp.y,17,c,.75);
   ctx.fillStyle=c; ctx.globalAlpha=.55;                            /* queue */
@@ -3105,6 +3228,807 @@ function drawSpiritVFX(sp,c){
   ctx.fillStyle='rgba(10,6,22,.85)';
   ctx.fillRect(sp.x-2.4,sp.y-1.4,1.4,1.8); ctx.fillRect(sp.x+1,sp.y-1.4,1.4,1.8);
   ctx.globalCompositeOperation='lighter';
+}
+/* =========================================================================
+   15. ANIMATIONS PROPRES À CHAQUE STYLE
+   Chaque style peut remplacer le rendu d'un projectile, d'un effet, de l'aura
+   ou d'une vague. Tout ce qui n'est pas redéfini garde l'animation de base.
+   ========================================================================= */
+
+/* --- Shinigami --------------------------------------------------------- */
+function vfxGetsuga(b){                     /* Getsuga Tenshō : croissant tranchant */
+  const R=b.r*3.4, t=G.t;
+  ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.a);
+  drawGlow(0,0,R*1.4,'#8ad4ff',.35);
+  ctx.scale(.52,1.25);                       /* aplati : une taille, pas une lune */
+  const crescent=(rr,inset,col,al)=>{
+    ctx.globalAlpha=al; ctx.fillStyle=col;
+    ctx.beginPath();
+    ctx.arc(0,0,rr,-1.5,1.5);
+    ctx.arc(-rr*inset,0,rr*(1-inset*.06),1.5,-1.5,true);
+    ctx.closePath(); ctx.fill();
+  };
+  ctx.globalCompositeOperation='source-over';
+  crescent(R,.40,'#0d0b14',.92);             /* cœur noir, lame fine */
+  ctx.globalCompositeOperation='lighter';
+  crescent(R*1.07,.44,'#3aa0ff',.6);         /* liseré bleu */
+  crescent(R*.9,.36,'#dff2ff',.9);           /* tranchant clair */
+  ctx.setTransform(SCALE*DPR,0,0,SCALE*DPR,
+    (W/2-(cam.x+cam.sx)*SCALE)*DPR,(H/2-(cam.y+cam.sy)*SCALE)*DPR);
+  ctx.translate(b.x,b.y); ctx.rotate(b.a);   /* on sort de l'aplatissement */
+  for(let i=0;i<3;i++){                      /* filaments de reiatsu */
+    const o=(i-1)*R*.5, w=Math.sin(t*14+i*2)*R*.12;
+    ctx.globalAlpha=.5; ctx.strokeStyle='#8ad4ff'; ctx.lineWidth=1.6/SCALE*2;
+    ctx.beginPath(); ctx.moveTo(-R*.5,o); ctx.lineTo(-R*2.1,o+w); ctx.stroke();
+  }
+  ctx.globalAlpha=1; ctx.restore();
+}
+function vfxCero(b){                        /* Cero : sphère condensée + traînée */
+  const t=G.t;
+  ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.a);
+  ctx.globalAlpha=.55; ctx.strokeStyle=b.c; ctx.lineWidth=b.r*.9;
+  ctx.beginPath(); ctx.moveTo(-b.r*7,0); ctx.lineTo(0,0); ctx.stroke();
+  ctx.globalAlpha=1;
+  drawGlow(0,0,b.r*4.4,b.c,.8);
+  for(let i=0;i<2;i++){                      /* anneaux de compression */
+    const k=(t*2.4+i*.5)%1;
+    ctx.globalAlpha=(1-k)*.7; ctx.strokeStyle='#ffffff'; ctx.lineWidth=1.4/SCALE*2;
+    ctx.beginPath(); ctx.arc(0,0,b.r*(.6+k*1.8),0,TAU); ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+  ctx.fillStyle='#ffffff'; circ(0,0,b.r*.7);
+  ctx.restore();
+}
+function vfxKurohitsugi(f){                 /* Hadō 90 : cercueil noir */
+  const k=1-f.t/f.mt, r=f.r;
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=.28+k*.5;                  /* marquage au sol */
+  ctx.strokeStyle='#8a3bff'; ctx.lineWidth=3/SCALE;
+  ctx.strokeRect(f.x-r,f.y-r*.8,r*2,r*1.6);
+  ctx.globalAlpha=.55+k*.4;                  /* parois du cercueil */
+  ctx.fillStyle='#08050f';
+  const h=r*1.6*k;
+  ctx.fillRect(f.x-r*k,f.y-r*.8*k,r*2*k,h);
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=.5+k*.5; ctx.strokeStyle='#a35bff'; ctx.lineWidth=2/SCALE;
+  ctx.strokeRect(f.x-r*k,f.y-r*.8*k,r*2*k,h);
+  for(let i=0;i<8;i++){                       /* lances convergentes */
+    const a=i/8*TAU+f.x*.01, d=r*(2.2-k*1.5);
+    ctx.globalAlpha=k*.8; ctx.strokeStyle='#c89bff'; ctx.lineWidth=2.4/SCALE;
+    ctx.beginPath();
+    ctx.moveTo(f.x+Math.cos(a)*d,f.y+Math.sin(a)*d*.85);
+    ctx.lineTo(f.x+Math.cos(a)*d*.45,f.y+Math.sin(a)*d*.38); ctx.stroke();
+  }
+  drawGlow(f.x,f.y,r*(.4+k*.7),'#8a3bff',k*.6);
+  ctx.globalAlpha=1;
+}
+function vfxReiatsu(x,y,r,c){               /* pression spirituelle */
+  const t=G.t;
+  drawGlow(x,y,r,'#ff3b5c',.10);
+  ctx.globalAlpha=.30; ctx.strokeStyle='#ff3b5c'; ctx.lineWidth=2.6/SCALE;
+  ctx.beginPath(); ctx.arc(x,y,r,0,TAU); ctx.stroke();
+  for(let i=0;i<10;i++){                      /* volutes montantes */
+    const a=i/10*TAU+t*.25, d=r*(.55+((i*37)%10)/22);
+    const up=((t*90+i*47)%(r*.9));
+    ctx.globalAlpha=Math.max(0,.55-up/(r*.9)*.55);
+    ctx.strokeStyle=i%3?'#ff6b7a':'#1a0a12'; ctx.lineWidth=2.2/SCALE;
+    const px=x+Math.cos(a)*d, py=y+Math.sin(a)*d*.7-up;
+    ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+Math.sin(t*7+i)*3,py-r*.22); ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+}
+function vfxSlashWave(w){                   /* Shunpo : trait de lame */
+  const nx=-Math.sin(w.a), ny=Math.cos(w.a);
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=.9; ctx.strokeStyle='#0d0b14'; ctx.lineWidth=w.w*.6;
+  ctx.beginPath(); ctx.moveTo(w.x-w.vx*.05,w.y-w.vy*.05); ctx.lineTo(w.x,w.y); ctx.stroke();
+  ctx.globalCompositeOperation='lighter';
+  ctx.strokeStyle='#dff2ff'; ctx.lineWidth=w.w*.2;
+  ctx.beginPath(); ctx.moveTo(w.x-w.vx*.05,w.y-w.vy*.05); ctx.lineTo(w.x,w.y); ctx.stroke();
+  ctx.globalAlpha=.6; ctx.strokeStyle='#3aa0ff'; ctx.lineWidth=w.w*.9;
+  ctx.beginPath();
+  ctx.arc(w.x,w.y,w.w*1.1,w.a-1.0,w.a+1.0); ctx.stroke();
+  drawGlow(w.x,w.y,w.w*1.5,'#8ad4ff',.8); ctx.globalAlpha=1;
+}
+
+/* --- Pirate ------------------------------------------------------------ */
+function armTo(x1,y1,x2,y2,thick,skin,fire){
+  const a=Math.atan2(y2-y1,x2-x1), L=Math.hypot(x2-x1,y2-y1);
+  ctx.save(); ctx.translate(x1,y1); ctx.rotate(a);
+  ctx.globalCompositeOperation='source-over';
+  if(fire){ ctx.globalCompositeOperation='lighter';
+    drawGlow(L*.72,0,thick*3.2,'#f57f17',.7); ctx.globalCompositeOperation='source-over'; }
+  ctx.fillStyle=skin;                        /* bras étiré, épaisseur constante */
+  ctx.fillRect(0,-thick*.62,L*.88,thick*1.24);
+  ctx.fillStyle='#c0453c'; ctx.fillRect(0,-thick*.8,L*.15,thick*1.6);     /* manche */
+  ctx.fillStyle=skin;                        /* poing, collé au bras */
+  ctx.beginPath(); ctx.ellipse(L*.88,0,thick*1.55,thick*1.42,0,0,TAU); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.24)';                                        /* phalanges */
+  for(let i=0;i<3;i++) ctx.fillRect(L*.88+thick*.75,-thick*.78+i*thick*.66,thick*.44,thick*.4);
+  ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=thick*.16;             /* pli du poignet */
+  ctx.beginPath(); ctx.moveTo(L*.76,-thick*.6); ctx.lineTo(L*.76,thick*.6); ctx.stroke();
+  if(fire){ ctx.globalCompositeOperation='lighter';
+    drawGlow(L*.9,0,thick*3,'#ff7a2e',.85);
+    drawGlow(L*.9,0,thick*1.5,'#ffe6a8',.9); }
+  ctx.globalCompositeOperation='lighter'; ctx.restore();
+}
+function vfxPistol(b){ armTo(G.p.x,G.p.y,b.x,b.y,b.r*1.15,'#f0c9a0',false); }
+function vfxRedHawk(b){ armTo(G.p.x,G.p.y,b.x,b.y,b.r*1.05,'#f0c9a0',true); }
+function vfxGatling(b){                     /* volée de poings */
+  ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.a);
+  drawGlow(0,0,b.r*3,'#ffd166',.45);
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=.45; ctx.strokeStyle='#f0c9a0'; ctx.lineWidth=b.r*1.1;
+  ctx.beginPath(); ctx.moveTo(-b.r*5,0); ctx.lineTo(0,0); ctx.stroke(); ctx.globalAlpha=1;
+  ctx.fillStyle='#f0c9a0';
+  ctx.beginPath(); ctx.arc(0,0,b.r*1.25,0,TAU); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.22)';
+  for(let i=0;i<3;i++) ctx.fillRect(b.r*.55,-b.r*.7+i*b.r*.62,b.r*.36,b.r*.36);
+  ctx.globalCompositeOperation='lighter'; ctx.restore();
+}
+function vfxElephantGun(f){                 /* poing géant qui s'abat */
+  const k=1-f.t/f.mt, r=f.r;
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=.22+k*.42;                 /* ombre portée qui se resserre */
+  ctx.fillStyle='#000';
+  ctx.beginPath(); ctx.ellipse(f.x,f.y,r*(1.3-k*.35),r*(1.0-k*.28),0,0,TAU); ctx.fill();
+  const drop=(1-k)*300+r*.5, fx2=f.x+drop*.30, fy=f.y-drop;
+  const th=r*.5;
+  ctx.globalAlpha=1;
+  /* avant-bras : large bande qui remonte hors de l'écran */
+  const ax=fx2+drop*.55, ay=fy-drop*1.4;
+  ctx.fillStyle='#f0c9a0';
+  ctx.beginPath();
+  ctx.moveTo(ax-th*1.15,ay); ctx.lineTo(ax+th*1.15,ay);
+  ctx.lineTo(fx2+th*1.25,fy); ctx.lineTo(fx2-th*1.25,fy);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#c0453c';                    /* manche du gilet, haut du bras */
+  ctx.beginPath();
+  ctx.moveTo(ax-th*1.2,ay); ctx.lineTo(ax+th*1.2,ay);
+  ctx.lineTo(ax+th*1.25-(ax-fx2)*.22,ay+(fy-ay)*.22);
+  ctx.lineTo(ax-th*1.25-(ax-fx2)*.22,ay+(fy-ay)*.22);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#f0c9a0';                    /* poing, aplati vers le bas */
+  ctx.beginPath(); ctx.ellipse(fx2,fy+th*.55,th*2.0,th*1.55,0,0,TAU); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.26)';            /* phalanges sur la face d'impact */
+  for(let i=0;i<3;i++)
+    ctx.fillRect(fx2-th*1.15+i*th*.85,fy+th*1.5,th*.55,th*.42);
+  ctx.globalCompositeOperation='lighter';
+  drawGlow(fx2,fy,th*2.4,'#ffd166',.25+k*.4);
+  ctx.globalAlpha=.3+k*.5; ctx.strokeStyle='#ffd166'; ctx.lineWidth=3/SCALE;
+  ctx.beginPath(); ctx.arc(f.x,f.y,r*(1-k*.2),0,TAU); ctx.stroke();
+  ctx.globalAlpha=1;
+}
+function vfxElThor(f){                      /* colonne de foudre */
+  const k=f.t/f.mt;
+  ctx.globalAlpha=k*.45; ctx.fillStyle='#ffe66d';
+  ctx.fillRect(f.x-f.r*.85,f.y-320,f.r*1.7,320);
+  ctx.globalAlpha=k*.85; ctx.fillStyle='#fffbe0';
+  ctx.fillRect(f.x-f.r*.3,f.y-320,f.r*.6,320);
+  ctx.globalAlpha=k; ctx.strokeStyle='#ffffff'; ctx.lineWidth=3.4/SCALE;
+  ctx.beginPath(); let x=f.x,y=f.y-320; ctx.moveTo(x,y);
+  for(let i=0;i<7;i++){ y+=45; x=f.x+rnd(-8,8)*(1-i/7); ctx.lineTo(x,y); }
+  ctx.lineTo(f.x,f.y); ctx.stroke();
+  drawGlow(f.x,f.y,f.r*1.9,'#ffe66d',k*.9);
+  ctx.globalAlpha=k*.7; ctx.strokeStyle='#ffe66d'; ctx.lineWidth=4/SCALE;
+  ctx.beginPath(); ctx.ellipse(f.x,f.y,f.r*(1.5-k*.6),f.r*.45,0,0,TAU); ctx.stroke();
+  ctx.globalAlpha=1;
+}
+function vfxHaki(x,y,r,c){                  /* Haoshoku no Haki */
+  const t=G.t;
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=.20; ctx.fillStyle='#1a0d24';
+  circ(x,y,r); ctx.globalAlpha=1;
+  ctx.globalCompositeOperation='lighter';
+  drawGlow(x,y,r*.9,'#a14bff',.12);
+  for(let s=0;s<4;s++){                       /* éclairs noirs cerclés de violet */
+    const a0=(t*1.3+s*1.57)%TAU;
+    ctx.globalAlpha=.85; ctx.strokeStyle='#c07bff'; ctx.lineWidth=3.4/SCALE;
+    ctx.beginPath();
+    for(let i=0;i<=5;i++){
+      const a=a0+i/5*1.1, rr=r*(.86+Math.sin(t*30+i*3+s)*.13);
+      const px=x+Math.cos(a)*rr, py=y+Math.sin(a)*rr;
+      i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+    }
+    ctx.stroke();
+    ctx.globalCompositeOperation='source-over';
+    ctx.strokeStyle='#0d0616'; ctx.lineWidth=1.4/SCALE;
+    ctx.stroke();
+    ctx.globalCompositeOperation='lighter';
+  }
+  ctx.globalAlpha=1;
+}
+function vfxJetFist(w){                     /* Jet Pistol : poing propulsé */
+  armTo(G.p.x,G.p.y,w.x,w.y,w.w*.32,'#f0c9a0',false);
+  drawGlow(w.x,w.y,w.w*.9,'#ffd166',.7);
+}
+
+
+/* =========================================================================
+   Chaque magie a désormais son propre traitement dans les deux univers.
+   ========================================================================= */
+
+/* ---------- SHINIGAMI ---------- */
+function vfxShakkaho(b){                    /* Hadō 31 : sphère + cercle de kidō */
+  const t=G.t;
+  ctx.save(); ctx.translate(b.x,b.y);
+  drawGlow(0,0,b.r*4.2,'#ff4a2e',.7); drawGlow(0,0,b.r*2,'#ffd27a',.85);
+  ctx.rotate(t*3.2);                         /* anneau runique */
+  ctx.globalAlpha=.75; ctx.strokeStyle='#ffb03a'; ctx.lineWidth=1.8/SCALE*2;
+  ctx.beginPath(); ctx.arc(0,0,b.r*2.2,0,TAU); ctx.stroke();
+  for(let i=0;i<6;i++){ const a=i/6*TAU;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*b.r*1.8,Math.sin(a)*b.r*1.8);
+    ctx.lineTo(Math.cos(a)*b.r*2.6,Math.sin(a)*b.r*2.6); ctx.stroke(); }
+  ctx.globalAlpha=1; ctx.rotate(-t*3.2);
+  ctx.fillStyle='#fff6dc'; circ(0,0,b.r*.85);
+  ctx.restore();
+}
+function vfxRaikoho(f){                     /* Hadō 63 : colonne large + rune au sol */
+  const k=f.t/f.mt;
+  ctx.globalAlpha=k*.4; ctx.fillStyle='#fff2a8';
+  ctx.fillRect(f.x-f.r*1.1,f.y-340,f.r*2.2,340);
+  ctx.globalAlpha=k*.9; ctx.fillStyle='#ffffff';
+  ctx.fillRect(f.x-f.r*.34,f.y-340,f.r*.68,340);
+  ctx.globalAlpha=k*.8; ctx.strokeStyle='#ffe66d'; ctx.lineWidth=2.4/SCALE;
+  for(let i=0;i<2;i++){                       /* double cercle de kidō */
+    ctx.beginPath(); ctx.ellipse(f.x,f.y,f.r*(1.3+i*.5),f.r*(.4+i*.16),0,0,TAU); ctx.stroke(); }
+  for(let i=0;i<8;i++){ const a=i/8*TAU+G.t;
+    ctx.beginPath();
+    ctx.moveTo(f.x+Math.cos(a)*f.r*1.3,f.y+Math.sin(a)*f.r*.4);
+    ctx.lineTo(f.x+Math.cos(a)*f.r*1.8,f.y+Math.sin(a)*f.r*.56); ctx.stroke(); }
+  drawGlow(f.x,f.y,f.r*2,'#fff2a8',k*.9); ctx.globalAlpha=1;
+}
+function vfxByakurai(f){                    /* Hadō 4 : trait blanc parfaitement droit */
+  const k=f.t/f.mt;
+  ctx.globalAlpha=k*.5; ctx.strokeStyle='#8ad4ff'; ctx.lineWidth=7/SCALE;
+  ctx.beginPath(); ctx.moveTo(f.x1,f.y1); ctx.lineTo(f.x2,f.y2); ctx.stroke();
+  ctx.globalAlpha=k; ctx.strokeStyle='#ffffff'; ctx.lineWidth=2/SCALE;
+  ctx.beginPath(); ctx.moveTo(f.x1,f.y1); ctx.lineTo(f.x2,f.y2); ctx.stroke();
+  drawGlow(f.x2,f.y2,14,'#dff2ff',k*.9);
+  drawGlow(f.x1,f.y1,9,'#8ad4ff',k*.7); ctx.globalAlpha=1;
+}
+function vfxTenran(z){                      /* Hadō 58 : bourrasque de lames */
+  const t=G.t, fade=Math.min(1,z.t/.5);
+  drawGlow(z.x,z.y,z.r*1.1,'#cfe6ff',fade*.2);
+  ctx.globalAlpha=fade*.8; ctx.strokeStyle='#dff2ff';
+  for(let i=0;i<7;i++){                       /* arcs tranchants en rotation */
+    const a=t*3.4+i*.9, rr=z.r*(.35+((i*29)%10)/13);
+    ctx.lineWidth=(2.6-i*.2)/SCALE*2;
+    ctx.beginPath(); ctx.arc(z.x,z.y,rr,a,a+1.0); ctx.stroke();
+  }
+  ctx.globalAlpha=fade*.5; ctx.strokeStyle='#7fb8ff'; ctx.lineWidth=1.6/SCALE*2;
+  ctx.beginPath(); ctx.arc(z.x,z.y,z.r,0,TAU); ctx.stroke(); ctx.globalAlpha=1;
+}
+function vfxRyujin(z){                      /* Ryūjin Jakka : murs de flammes */
+  const t=G.t, out=Math.min(1,z.t/.35), R=z.range*out;
+  ctx.globalCompositeOperation='source-over';
+  const n=QHI()?6:3;
+  for(let i=0;i<n;i++){
+    const k=(i+.5)/n, a=z.a+(k-.5)*z.arc*1.7*Math.sin(t*2+i);
+    const d=R*(.3+k*.8);
+    const h=R*(.30+k*.22)*(.8+Math.sin(t*9+i*2)*.2);
+    ctx.globalAlpha=out*.9;
+    const g=ctx.createLinearGradient(0,-h,0,0);
+    g.addColorStop(0,'#1a0500'); g.addColorStop(.45,'#c41411'); g.addColorStop(1,'#ffb03a');
+    ctx.save(); ctx.translate(z.x+Math.cos(a)*d,z.y+Math.sin(a)*d);
+    ctx.fillStyle=g; ctx.fillRect(-R*.09,-h,R*.18,h); ctx.restore();
+  }
+  ctx.globalAlpha=1; ctx.globalCompositeOperation='lighter';
+  drawGlow(z.x+Math.cos(z.a)*R*.4,z.y+Math.sin(z.a)*R*.4,R*.45,'#c41411',out*.5);
+}
+function vfxHyorinmaru(z){                  /* Blizzard : dragon de glace + piliers */
+  const t=G.t, fade=Math.min(1,z.t/.5);
+  drawGlow(z.x,z.y,z.radius,'#8ad4ff',fade*.12);
+  ctx.globalAlpha=fade*.9; ctx.strokeStyle='#dff2ff'; ctx.lineWidth=5/SCALE;
+  ctx.beginPath();                            /* corps serpentin */
+  for(let i=0;i<=26;i++){
+    const k=i/26, a=t*1.4+k*5.2, rr=z.radius*(.25+k*.7);
+    const px=z.x+Math.cos(a)*rr, py=z.y+Math.sin(a)*rr*.8;
+    i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+  }
+  ctx.stroke();
+  ctx.fillStyle='#bfefff';
+  for(let i=0;i<(QHI()?8:4);i++){             /* piliers de glace */
+    const a=i/8*TAU+z.x*.01, d=z.radius*(.4+((i*41)%10)/16);
+    const px=z.x+Math.cos(a)*d, py=z.y+Math.sin(a)*d*.8;
+    const h=z.aoe*(1+Math.sin(t*3+i)*.25);
+    ctx.globalAlpha=fade*.85;
+    ctx.beginPath(); ctx.moveTo(px-h*.28,py); ctx.lineTo(px,py-h*1.5);
+    ctx.lineTo(px+h*.28,py); ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+function vfxNejibana(w){                    /* Tsunami : lames d'eau en spirale */
+  const t=G.t, a=w.a;
+  drawGlow(w.x,w.y,w.w*1.2,'#5fd8ff',.4);
+  ctx.globalAlpha=.85; ctx.strokeStyle='#dff6ff';
+  for(let i=0;i<3;i++){
+    ctx.lineWidth=(4-i)/SCALE*2;
+    const off=Math.sin(t*7+i*2.1)*.5;
+    ctx.beginPath(); ctx.arc(w.x,w.y,w.w*(.7+i*.2),a-1.2+off,a+1.2+off); ctx.stroke();
+  }
+  ctx.globalAlpha=.5; ctx.strokeStyle='#3aa0ff'; ctx.lineWidth=8/SCALE;
+  ctx.beginPath(); ctx.arc(w.x,w.y,w.w,a-1.0,a+1.0); ctx.stroke(); ctx.globalAlpha=1;
+}
+function vfxZanpakuto(sp,c){                /* esprit : petite silhouette masquée */
+  const t=G.t, b=Math.sin(t*3+sp.a)*1.6;
+  drawGlow(sp.x,sp.y,15,'#dfe6ff',.5);
+  ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle='#12101a';                    /* manteau */
+  ctx.beginPath(); ctx.moveTo(sp.x,sp.y-7+b); ctx.lineTo(sp.x+5,sp.y+7+b);
+  ctx.lineTo(sp.x-5,sp.y+7+b); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#f2efe6'; circ(sp.x,sp.y-8+b,3.1);   /* masque blanc */
+  ctx.fillStyle='#c0201e';
+  ctx.fillRect(sp.x-2.4,sp.y-8.8+b,1.4,1.2); ctx.fillRect(sp.x+1,sp.y-8.8+b,1.4,1.2);
+  ctx.globalCompositeOperation='lighter';
+}
+function vfxSokatsui(o,size,c,beam){        /* satellites : flammes bleues de kidō */
+  const t=G.t;
+  drawGlow(o.x,o.y,size*3.4,'#4aa8ff',.75);
+  ctx.save(); ctx.translate(o.x,o.y); ctx.rotate(t*4+o.a);
+  ctx.globalAlpha=.85; ctx.strokeStyle='#bfe4ff'; ctx.lineWidth=size*.24;
+  ctx.strokeRect(-size*.9,-size*.9,size*1.8,size*1.8);   /* sceau carré */
+  ctx.globalAlpha=1; ctx.restore();
+  ctx.fillStyle='#8ad4ff'; circ(o.x,o.y,size*.72);
+  ctx.fillStyle='#ffffff'; circ(o.x,o.y,size*.34);
+}
+function vfxCeroOscuras(r){                 /* rayon noir bordé de blanc */
+  const t=G.t, age=r.mt-r.t;
+  const kIn=clamp(age/.2,0,1), kOut=clamp((r.t+.3)/.3,0,1);
+  const w=r.w*(1-Math.pow(1-kIn,3))*kOut, len=r.len*(1-Math.pow(1-clamp(age/.14,0,1),4));
+  if(w<=.2) return;
+  ctx.save(); ctx.translate(r.x,r.y); ctx.rotate(r.a);
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=kOut*.9; ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,-w*1.5,len,w*3);                       /* liseré blanc */
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=kOut; ctx.fillStyle='#0a0610';
+  ctx.fillRect(0,-w*1.05,len,w*2.1);                    /* cœur noir */
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=kOut*.8; ctx.fillStyle='#c04bff';
+  ctx.fillRect(0,-w*.3,len,w*.6);
+  for(let i=0;i<3;i++){ const p=((t*1.6+i*.33)%1);
+    ctx.globalAlpha=kOut*.6*(1-p); ctx.fillStyle='#ffffff';
+    ctx.fillRect(len*p,-w*1.4,len*.05,w*2.8); }
+  ctx.globalAlpha=1; ctx.restore();
+  drawGlow(r.x,r.y,w*4,'#c04bff',kOut*.9);
+}
+function vfxSotenNiZase(f){                 /* Nova : anneau de gel et cristaux */
+  const k=clamp(1-f.t/(f.mt||.4),0,1), rr=lerp(f.r0,f.r1,k), fade=1-k;
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=fade*.25; ctx.fillStyle='#bfefff'; circ(f.x,f.y,rr);
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=fade; ctx.strokeStyle='#ffffff'; ctx.lineWidth=4/SCALE;
+  ctx.beginPath(); ctx.arc(f.x,f.y,rr,0,TAU); ctx.stroke();
+  ctx.fillStyle='#dff2ff';
+  for(let i=0;i<14;i++){                      /* cristaux tournés vers l'extérieur */
+    const a=i/14*TAU+f.x*.01, h=rr*.22*fade;
+    const bx=f.x+Math.cos(a)*rr, by=f.y+Math.sin(a)*rr;
+    ctx.beginPath();
+    ctx.moveTo(bx+Math.cos(a+1.57)*h*.34,by+Math.sin(a+1.57)*h*.34);
+    ctx.lineTo(bx+Math.cos(a)*h*2,by+Math.sin(a)*h*2);
+    ctx.lineTo(bx-Math.cos(a+1.57)*h*.34,by-Math.sin(a+1.57)*h*.34); ctx.fill();
+  }
+  drawGlow(f.x,f.y,rr*.8,'#8ad4ff',fade*.5); ctx.globalAlpha=1;
+}
+function vfxZankaNoTachi(z){                /* Lave : sol calciné, fissures blanches */
+  const t=G.t, out=Math.min(1,z.t/.9), age=z.mt-z.t;
+  const rr=z.r*(.3+Math.min(1,age/.4)*.7);
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=out; ctx.fillStyle='#0f0604';
+  ctx.beginPath(); ctx.ellipse(z.x,z.y,rr,rr*.84,0,0,TAU); ctx.fill();
+  ctx.globalCompositeOperation='lighter';
+  for(let i=0;i<7;i++){                       /* fissures incandescentes */
+    const a=i/7*TAU+z.x*.01;
+    ctx.globalAlpha=out*(.5+Math.sin(t*4+i)*.35); ctx.strokeStyle='#ffefc0';
+    ctx.lineWidth=2.4/SCALE;
+    ctx.beginPath(); ctx.moveTo(z.x,z.y);
+    let px=z.x,py=z.y;
+    for(let j=1;j<=3;j++){
+      const d=rr*j/3, aa=a+Math.sin(j*2.3+i)*.4;
+      px=z.x+Math.cos(aa)*d; py=z.y+Math.sin(aa)*d*.84; ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+  }
+  drawGlow(z.x,z.y,rr*.9,'#c41411',out*.5);
+  drawGlow(z.x,z.y,rr*.35,'#ffefc0',out*.6); ctx.globalAlpha=1;
+}
+
+/* ---------- PIRATE ---------- */
+function vfxStormFists(z){                  /* Gomu Gomu no Storm : barrage de poings */
+  const t=G.t, fade=Math.min(1,z.t/.5);
+  drawGlow(z.x,z.y,z.r*1.1,'#ffd166',fade*.22);
+  ctx.globalCompositeOperation='source-over';
+  const n=QHI()?10:5;
+  for(let i=0;i<n;i++){
+    const a=t*5+i/n*TAU, d=z.r*(.45+Math.sin(t*8+i)*.4);
+    const px=z.x+Math.cos(a)*d, py=z.y+Math.sin(a)*d*.85, th=z.r*.11;
+    ctx.globalAlpha=fade*.9; ctx.fillStyle='#f0c9a0';
+    ctx.save(); ctx.translate(px,py); ctx.rotate(a);
+    ctx.fillRect(-th*3.2,-th*.5,th*3.2,th);
+    ctx.beginPath(); ctx.ellipse(0,0,th*1.2,th*1.1,0,0,TAU); ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha=1; ctx.globalCompositeOperation='lighter';
+}
+function vfxElThorChain(f){                 /* chaîne : éclairs jaunes épais */
+  const k=f.t/f.mt;
+  const pts=[[f.x1,f.y1]];
+  for(let i=1;i<5;i++) pts.push([lerp(f.x1,f.x2,i/5)+rnd(-13,13),lerp(f.y1,f.y2,i/5)+rnd(-13,13)]);
+  pts.push([f.x2,f.y2]);
+  ctx.globalAlpha=k*.6; ctx.strokeStyle='#ffe66d'; ctx.lineWidth=10/SCALE;
+  ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.stroke();
+  ctx.globalAlpha=k; ctx.strokeStyle='#fffbe0'; ctx.lineWidth=3/SCALE;
+  ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.stroke();
+  drawGlow(f.x2,f.y2,15,'#ffe66d',k*.85); ctx.globalAlpha=1;
+}
+function vfxDiableJambe(z){                 /* Diable Jambe : jambe enflammée qui tourne */
+  const t=G.t, out=Math.min(1,z.t/.35), R=z.range*out;
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=out*.55; ctx.strokeStyle='#ff7a2e'; ctx.lineWidth=R*.22;
+  ctx.beginPath(); ctx.arc(z.x,z.y,R*.62,z.a-z.arc,z.a+z.arc); ctx.stroke();
+  ctx.globalAlpha=out*.85; ctx.strokeStyle='#ffe6a8'; ctx.lineWidth=R*.07;
+  ctx.beginPath(); ctx.arc(z.x,z.y,R*.62,z.a-z.arc,z.a+z.arc); ctx.stroke();
+  const a=z.a+Math.sin(t*11)*z.arc*.75;      /* la jambe */
+  ctx.globalCompositeOperation='source-over';
+  ctx.save(); ctx.translate(z.x,z.y); ctx.rotate(a);
+  ctx.globalAlpha=out;
+  ctx.fillStyle='#1b2440'; ctx.fillRect(0,-R*.075,R*.62,R*.15);      /* pantalon */
+  ctx.fillStyle='#1a1a1f'; ctx.fillRect(R*.6,-R*.1,R*.26,R*.2);      /* chaussure */
+  ctx.restore();
+  ctx.globalCompositeOperation='lighter';
+  drawGlow(z.x+Math.cos(a)*R*.78,z.y+Math.sin(a)*R*.78,R*.3,'#ff7a2e',out*.9);
+  drawGlow(z.x+Math.cos(a)*R*.78,z.y+Math.sin(a)*R*.78,R*.15,'#ffe6a8',out);
+  ctx.globalAlpha=1;
+  emit(z.x+Math.cos(a)*R*.8,z.y+Math.sin(a)*R*.8,1,
+    {c:'#ffb03a',k:'ember',a,spread:.7,v0:40,v1:140,t0:.2,t1:.5});
+}
+function vfxIceAge(z){                      /* Ice Age : nappe de glace craquelée */
+  const t=G.t, fade=Math.min(1,z.t/.5);
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=fade*.42; ctx.fillStyle='#a8dcff';
+  ctx.beginPath(); ctx.ellipse(z.x,z.y,z.radius,z.radius*.8,0,0,TAU); ctx.fill();
+  ctx.globalAlpha=fade*.75; ctx.strokeStyle='#eaf8ff'; ctx.lineWidth=1.8/SCALE;
+  for(let i=0;i<10;i++){                      /* craquelures */
+    const a=i/10*TAU+z.x*.01;
+    ctx.beginPath(); ctx.moveTo(z.x,z.y);
+    for(let j=1;j<=3;j++){
+      const d=z.radius*j/3, aa=a+Math.sin(j*1.7+i)*.35;
+      ctx.lineTo(z.x+Math.cos(aa)*d,z.y+Math.sin(aa)*d*.8);
+    }
+    ctx.stroke();
+  }
+  ctx.fillStyle='#dff2ff';
+  for(let i=0;i<(QHI()?7:3);i++){             /* blocs de glace */
+    const a=i/7*TAU+t*.2, d=z.radius*(.35+((i*43)%10)/17);
+    const px=z.x+Math.cos(a)*d, py=z.y+Math.sin(a)*d*.8, h=z.aoe*1.1;
+    ctx.globalAlpha=fade*.9;
+    ctx.beginPath(); ctx.moveTo(px-h*.4,py); ctx.lineTo(px-h*.2,py-h);
+    ctx.lineTo(px+h*.28,py-h*.82); ctx.lineTo(px+h*.4,py); ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha=1; ctx.globalCompositeOperation='lighter';
+  drawGlow(z.x,z.y,z.radius*.9,'#8ad4ff',fade*.16);
+}
+function vfxWhipLeg(w){                     /* Gomu Gomu no Whip : jambe fouettée */
+  const a=w.a;
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=.9;
+  ctx.save(); ctx.translate(w.x,w.y); ctx.rotate(a+Math.PI);
+  ctx.fillStyle='#1b2440'; ctx.fillRect(0,-w.w*.13,w.w*2.6,w.w*.26);
+  ctx.fillStyle='#1a1a1f'; ctx.fillRect(-w.w*.34,-w.w*.2,w.w*.34,w.w*.4);
+  ctx.restore();
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=.6; ctx.strokeStyle='#ffd166'; ctx.lineWidth=6/SCALE;
+  ctx.beginPath(); ctx.arc(w.x,w.y,w.w*.9,a-1.1,a+1.1); ctx.stroke();
+  drawGlow(w.x,w.y,w.w*.8,'#ffd166',.5); ctx.globalAlpha=1;
+}
+function vfxNakama(sp,c){                   /* esprit : compagnon d'équipage */
+  const b=Math.sin(G.t*4+sp.a*3)*1.5;
+  drawGlow(sp.x,sp.y,14,'#ffd166',.45);
+  ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle='#2f6bd8'; ctx.fillRect(sp.x-3,sp.y-1+b,6,7);
+  ctx.fillStyle='#f0c9a0'; circ(sp.x,sp.y-4+b,3);
+  ctx.fillStyle='#e8c96a';                    /* chapeau de paille */
+  ctx.beginPath(); ctx.ellipse(sp.x,sp.y-6.4+b,5.4,1.7,0,0,TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(sp.x,sp.y-7.6+b,2.8,1.8,0,0,TAU); ctx.fill();
+  ctx.globalCompositeOperation='lighter';
+}
+function vfxCannonball(o,size,c,beam){      /* satellites : boulets de canon */
+  const t=G.t;
+  drawGlow(o.x,o.y,size*2.2,'#ffb03a',.35);
+  ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle='#3a3a44'; circ(o.x,o.y,size*.95);
+  ctx.fillStyle='#6b6b78'; circ(o.x-size*.28,o.y-size*.28,size*.34);   /* reflet */
+  ctx.globalCompositeOperation='lighter';
+  const fx2=o.x+Math.cos(o.a)*size*.9, fy=o.y+Math.sin(o.a)*size*.9;
+  drawGlow(fx2,fy,size*(.7+Math.sin(t*18+o.a)*.25),'#ffd166',.9);      /* mèche */
+}
+function vfxMagatama(r){                    /* Yasakani no Magatama : grêle de lumière */
+  const t=G.t, age=r.mt-r.t;
+  const kIn=clamp(age/.16,0,1), kOut=clamp((r.t+.3)/.3,0,1);
+  const len=r.len*kIn;
+  const n=QHI()?14:7;
+  for(let i=0;i<n;i++){
+    const p=((t*2.2+i/n)%1);
+    const d=len*p, sp=(i/n-.5)*r.w*3.4;
+    const px=r.x+Math.cos(r.a)*d-Math.sin(r.a)*sp;
+    const py=r.y+Math.sin(r.a)*d+Math.cos(r.a)*sp;
+    drawGlow(px,py,r.w*.85*kOut,'#ffe66d',kOut*.85);
+    ctx.globalAlpha=kOut; ctx.fillStyle='#fffbe0';
+    circ(px,py,r.w*.28*kOut);
+  }
+  ctx.globalAlpha=kOut*.25; ctx.strokeStyle='#ffe66d'; ctx.lineWidth=r.w*2;
+  ctx.beginPath(); ctx.moveTo(r.x,r.y);
+  ctx.lineTo(r.x+Math.cos(r.a)*len,r.y+Math.sin(r.a)*len); ctx.stroke();
+  ctx.globalAlpha=1;
+  drawGlow(r.x,r.y,r.w*2.6,'#ffe66d',kOut*.8);
+}
+function vfxIceTime(f){                     /* Nova : gel instantané en blocs */
+  const k=clamp(1-f.t/(f.mt||.4),0,1), rr=lerp(f.r0,f.r1,k), fade=1-k;
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=fade*.35; ctx.fillStyle='#a8dcff'; circ(f.x,f.y,rr);
+  ctx.fillStyle='#dff2ff'; ctx.globalAlpha=fade*.9;
+  for(let i=0;i<10;i++){                      /* blocs anguleux */
+    const a=i/10*TAU+f.x*.02, d=rr*.75, h=rr*.3*fade;
+    const px=f.x+Math.cos(a)*d, py=f.y+Math.sin(a)*d;
+    ctx.save(); ctx.translate(px,py); ctx.rotate(a);
+    ctx.fillRect(-h*.5,-h*.7,h,h*1.4); ctx.restore();
+  }
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=fade; ctx.strokeStyle='#eaf8ff'; ctx.lineWidth=3.4/SCALE;
+  ctx.beginPath(); ctx.arc(f.x,f.y,rr,0,TAU); ctx.stroke();
+  drawGlow(f.x,f.y,rr*.7,'#8ad4ff',fade*.45); ctx.globalAlpha=1;
+}
+function vfxMeigo(z){                       /* Meigō : empreinte de poing en magma */
+  const t=G.t, out=Math.min(1,z.t/.9), age=z.mt-z.t;
+  const rr=z.r*(.3+Math.min(1,age/.4)*.7);
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=out; ctx.fillStyle='#2a0b04';
+  ctx.beginPath(); ctx.ellipse(z.x,z.y,rr,rr*.86,0,0,TAU); ctx.fill();
+  ctx.fillStyle='#c41411';                    /* empreinte du poing */
+  ctx.beginPath(); ctx.ellipse(z.x,z.y+rr*.1,rr*.62,rr*.5,0,0,TAU); ctx.fill();
+  ctx.fillStyle='#e8551a';
+  for(let i=0;i<4;i++)
+    ctx.beginPath(),ctx.ellipse(z.x-rr*.42+i*rr*.28,z.y-rr*.42,rr*.14,rr*.2,0,0,TAU),ctx.fill();
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=out*(.6+Math.sin(t*4)*.25);
+  drawGlow(z.x,z.y,rr*.75,'#ff5a1a',.7);
+  drawGlow(z.x,z.y+rr*.1,rr*.35,'#ffd27a',.8);
+  ctx.globalAlpha=1;
+  if(Math.random()<.25) emit(z.x+rnd(-rr*.6,rr*.6),z.y+rnd(-rr*.5,rr*.5),1,
+    {c:'#ff8a2e',k:'ember',v0:5,v1:26,vy:-44,t0:.5,t1:1,r0:1,r1:2.4});
+}
+
+/* --- table de correspondance ------------------------------------------- */
+const SFX = {
+  shinigami:{
+    bullet:{bolt:vfxGetsuga, energy:vfxCero, fireball:vfxShakkaho, spirit:vfxCero},
+    fx:{meteor:vfxKurohitsugi, storm:vfxRaikoho, shock:vfxByakurai, nova:vfxSotenNiZase},
+    zone:{cyclone:vfxTenran, cone:vfxRyujin, blizzard:vfxHyorinmaru, lava:vfxZankaNoTachi},
+    aura:vfxReiatsu, ray:vfxCeroOscuras, sat:vfxSokatsui, spirit:vfxZanpakuto,
+    wave:{bolt:vfxSlashWave, tide:vfxNejibana}
+  },
+  pirate:{
+    bullet:{bolt:vfxPistol, fireball:vfxRedHawk, energy:vfxGatling, spirit:vfxGatling},
+    fx:{meteor:vfxElephantGun, storm:vfxElThor, shock:vfxElThorChain, nova:vfxIceTime},
+    zone:{cyclone:vfxStormFists, cone:vfxDiableJambe, blizzard:vfxIceAge, lava:vfxMeigo},
+    aura:vfxHaki, ray:vfxMagatama, sat:vfxCannonball, spirit:vfxNakama,
+    wave:{bolt:vfxJetFist, tide:vfxWhipLeg}
+  }
+};
+const sfxNow = ()=>SFX[SAVE.style]||null;
+/* =========================================================================
+   14. STYLES — habillage complet du jeu
+   Un style ne touche à AUCUNE mécanique : il renomme les magies, leurs
+   évolutions et les ennemis, recolore les effets et change la silhouette du
+   personnage. On sauvegarde les valeurs d'origine au chargement pour pouvoir
+   basculer d'un style à l'autre sans jamais perdre les données de base.
+   ========================================================================= */
+let STYLE_ORIG=null;
+function captureOrig(){
+  if(STYLE_ORIG) return;
+  STYLE_ORIG={spells:{},evos:{},utils:{},enemies:{}};
+  for(const k in SPELLS){
+    STYLE_ORIG.spells[k]={nm:SPELLS[k].nm,c:SPELLS[k].c};
+    STYLE_ORIG.evos[k]={};
+    for(const lv in (SPELLS[k].evos||{}))
+      for(const e of SPELLS[k].evos[lv]) STYLE_ORIG.evos[k][e.id]=e.nm;
+  }
+  for(const k in UTILS) STYLE_ORIG.utils[k]=UTILS[k].nm;
+  for(const k in ENEMIES) STYLE_ORIG.enemies[k]=ENEMIES[k].nm;
+}
+
+const STYLES = {
+  arcane:{
+    nm:'Arcane', ic:'✦', accent:'#8b6cff', hair:null,
+    d:"L'habillage d'origine : un mage dans une faille.",
+    boss:'GARDIEN DE LA FAILLE', soul:'ÂMES', draw:'mage'
+  },
+
+  /* ---- inspiration Bleach ------------------------------------------- */
+  shinigami:{
+    nm:'Shinigami', ic:'卍', accent:'#e0e6ff',
+    d:"Kimono noir, lame démesurée, pression spirituelle. Les magies prennent des noms de Kidō et de techniques de Zanpakutō.",
+    boss:'MENOS GRANDE', soul:'HOLLOWS', draw:'shinigami',
+    spells:{
+      bolt:'Getsuga Tenshō', fireball:'Hadō 31 · Shakkahō', storm:'Hadō 63 · Raikōhō',
+      meteor:'Hadō 90 · Kurohitsugi', cyclone:'Hadō 58 · Tenran',
+      shock:'Hadō 4 · Byakurai', energy:'Cero', incin:'Ryūjin Jakka',
+      blizzard:'Hyōrinmaru', tsunami:'Nejibana', spirit:'Esprit du Zanpakutō',
+      satellite:'Sōkatsui Orbital', ray:'Cero Oscuras', ezone:'Reiatsu',
+      nova:'Sōten ni Zase', lava:'Zanka no Tachi', flash:'Shunpo · Taille Éclair'
+    },
+    colors:{ bolt:'#dfe6ff', energy:'#c04bff', ray:'#c04bff', ezone:'#ff3b5c',
+             satellite:'#9ad4ff', spirit:'#dfe6ff' },
+    utils:{ shield:'Danku', cloak:'Shunpo', circle:'Bankai', armageddon:'Mugetsu' },
+    evos:{
+      bolt:{arrow:'Getsuga Noir', fireworks:'Getsuga Éclaté', fission:'Triple Lune',
+            chaincast:'Tenshō Enchaîné', firewill:'Déluge de Lunes', doppel:'Clones de Shunpo'},
+      fireball:{bigbang:'Shakkahō Suprême', poison:'Sōkatsui', constellation:'Feu Errant'},
+      meteor:{volcanic:'Cercueil Noir', shower:'Pluie de Kurohitsugi', asteroid:'Kurohitsugi Absolu'},
+      shock:{chainlight:'Byakurai en Chaîne', highout:'Byakurai Perforant', supercond:'Raikōhō Continu'},
+      incin:{flamestrike:'Zanka no Tachi · Higashi', pyromaniac:'Zanka no Tachi · Minami',
+             cerberus:'Zanka no Tachi · Kita'},
+      blizzard:{subzero:'Daiguren Hyōrinmaru', shootingstar:'Hyōten Hyakkasō', blaze:'Gouging Ice'},
+      nova:{abszero:'Hyōten Absolu', iceage:'Ère de Glace', quake:'Onde de Reiatsu'},
+      spirit:{missile:'Zangetsu Rapide', blade:'Lame de Zangetsu', familiar:'Zangetsu Intérieur'},
+      ray:{reflect:'Double Cero', disintegr:'Cero Rotatif', emburst:'Gran Rey Cero'},
+      ezone:{blast:'Pression Spirituelle', emp:'Reiatsu Écrasant', fireaura:'Aura de Bankai'},
+      flash:{wipeout:'Mugetsu', ragnarok:'Senmaioroshi', nails:'Shunpo Fantôme'},
+      storm:{bluebolt:'Raikōhō Continu', overcharge:'Raikōhō Ramifié', thunderhead:'Raikōhō Suprême'},
+      cyclone:{extreme:'Tenran Multiple', eorb:'Danku Tournoyant', void:'Tenran Dispersé'},
+      energy:{charged:'Cero Boomerang', spark:'Bala', flare:'Cero Métralleta'},
+      tsunami:{pole:'Nejibana Circulaire', siren:'Nejibana Dirigée', greaterupt:'Grande Nejibana'},
+      satellite:{antigrav:'Orbes Accélérés', wisp:'Double Anneau de Kidō', fusion:'Sphère de Kidō'},
+      lava:{melt:'Zanka no Tachi · Nishi', craterlv:'Braises de Ryūjin Jakka',
+            magmaerupt:'Zanka no Tachi · Absolu'}
+    },
+    enemies:{ crawler:'Hollow', mite:'Essaim de Hollows', stalker:'Hollow Rapide',
+              brute:'Adjuchas', bloater:'Hollow Explosif', caster:'Arrancar',
+              colony:'Nid de Hollows', invader:'Gillian', atlas:'Vasto Lorde', terra:'Espada' }
+  },
+
+  /* ---- inspiration One Piece ---------------------------------------- */
+  pirate:{
+    nm:'Pirate', ic:'☠', accent:'#ff4d4d',
+    d:"Chapeau de paille, bras élastiques. Les magies prennent des noms de techniques de fruits du démon.",
+    boss:'AMIRAL DE LA MARINE', soul:'PRIMES', draw:'pirate',
+    spells:{
+      bolt:'Gomu Gomu no Pistol', fireball:'Gomu Gomu no Red Hawk', storm:'El Thor',
+      meteor:'Gomu Gomu no Elephant Gun', cyclone:'Gomu Gomu no Storm',
+      shock:'Gomu Gomu no Jet Whip', energy:'Gomu Gomu no Gatling',
+      incin:'Diable Jambe', blizzard:'Ice Age', tsunami:'Gomu Gomu no Whip',
+      spirit:'Nakama', satellite:'Boulets de Canon', ray:'Yasakani no Magatama',
+      ezone:'Haoshoku no Haki', nova:'Ice Time', lava:'Meigō', flash:'Gomu Gomu no Jet Pistol'
+    },
+    colors:{ bolt:'#ff6b4a', energy:'#ffd166', ray:'#ffe66d', ezone:'#c04bff',
+             spirit:'#4ac9ff', satellite:'#8f8f9a', tsunami:'#4ac9ff' },
+    utils:{ shield:'Gomu Gomu no Balloon', cloak:'Soru', circle:'Gear Second',
+            armageddon:'Gear Fourth · Kong Gun' },
+    evos:{
+      bolt:{arrow:'Gomu Gomu no Bullet', fireworks:'Gomu Gomu no Bazooka',
+            fission:'Gomu Gomu no Twin Pistol', chaincast:'Gomu Gomu no Rapid Fire',
+            firewill:'Gomu Gomu no Gatling Storm', doppel:'Gomu Gomu no Mirage'},
+      fireball:{bigbang:'Gomu Gomu no Grizzly Magnum', poison:'Gastille', constellation:'Hiken Errant'},
+      storm:{bluebolt:'Mamaragan', overcharge:'Raigō', thunderhead:'El Thor Suprême'},
+      meteor:{volcanic:'Ryūsei Kazan', shower:'Gomu Gomu no Meteor', asteroid:'Gomu Gomu no King Kong Gun'},
+      cyclone:{extreme:'Gomu Gomu no Tornado', eorb:'Rankyaku Orbital', void:'Gomu Gomu no Vortex'},
+      shock:{chainlight:'El Thor en Chaîne', highout:'Kiten', supercond:'Raigō Continu'},
+      energy:{charged:'Gomu Gomu no Boomerang', spark:'Gomu Gomu no Spear', flare:'Gomu Gomu no Storm Barrage'},
+      incin:{flamestrike:'Diable Jambe · Bien Cuit', pyromaniac:'Diable Jambe · Flambage',
+             cerberus:'Diable Jambe · Concassé'},
+      blizzard:{subzero:'Ice Age Absolu', shootingstar:'Pheasant Beak', blaze:'Ice Block'},
+      tsunami:{pole:'Kaishin', siren:'Gomu Gomu no Rocket', greaterupt:'Neptune'},
+      spirit:{missile:'Équipage au Chapeau de Paille', blade:'Sanzen Sekai', familiar:'Tout l\'Équipage'},
+      satellite:{antigrav:'Boulets Tournoyants', wisp:'Double Bordée', fusion:'Canon Géant'},
+      ray:{reflect:'Ama no Murakumo', disintegr:'Yata no Kagami', emburst:'Pika Pika no Mi'},
+      ezone:{blast:'Haki Dévastateur', emp:'Haki des Rois', fireaura:'Gear Fourth · Aura'},
+      nova:{abszero:'Ice Time Capsule', iceage:'Ice Block · Partisan', quake:'Gura Gura no Mi'},
+      lava:{melt:'Dai Funka', craterlv:'Ryūsei Kazan', magmaerupt:'Meigō Suprême'},
+      flash:{wipeout:'Gomu Gomu no King Cobra', ragnarok:'Gomu Gomu no Barrage',
+             nails:'Gomu Gomu no Jet Gatling'}
+    },
+    enemies:{ crawler:'Matelot', mite:'Nuée de Pirates', stalker:'Soldat de la Marine',
+              brute:'Géant', bloater:'Baril Explosif', caster:'Tireur d\'Élite',
+              colony:'Navire de la Marine', invader:'Pacifista', atlas:'Roi des Mers',
+              terra:'Empereur' }
+  }
+};
+const STYLE_IDS = Object.keys(STYLES);
+
+function applyStyle(id){
+  captureOrig();
+  const st=STYLES[id]||STYLES.arcane;
+  /* on repart toujours des valeurs d'origine */
+  for(const k in SPELLS){
+    SPELLS[k].nm=STYLE_ORIG.spells[k].nm;
+    SPELLS[k].c =STYLE_ORIG.spells[k].c;
+    for(const lv in (SPELLS[k].evos||{}))
+      for(const e of SPELLS[k].evos[lv]) e.nm=STYLE_ORIG.evos[k][e.id];
+  }
+  for(const k in UTILS) UTILS[k].nm=STYLE_ORIG.utils[k];
+  for(const k in ENEMIES) ENEMIES[k].nm=STYLE_ORIG.enemies[k];
+  /* puis on applique l'habillage */
+  for(const k in (st.spells||{})) if(SPELLS[k]) SPELLS[k].nm=st.spells[k];
+  for(const k in (st.colors||{})) if(SPELLS[k]) SPELLS[k].c=st.colors[k];
+  for(const k in (st.evos||{})){
+    const def=SPELLS[k]; if(!def) continue;
+    for(const lv in (def.evos||{}))
+      for(const e of def.evos[lv]) if(st.evos[k][e.id]) e.nm=st.evos[k][e.id];
+  }
+  for(const k in (st.utils||{})) if(UTILS[k]) UTILS[k].nm=st.utils[k];
+  for(const k in (st.enemies||{})) if(ENEMIES[k]) ENEMIES[k].nm=st.enemies[k];
+  try{ document.documentElement.style.setProperty('--arcane',st.accent); }catch(e){}
+  SAVE.style=id;
+}
+const styleNow = ()=>STYLES[SAVE.style]||STYLES.arcane;
+
+/* --- silhouettes ------------------------------------------------------- */
+function drawMageBody(p,y,hurtF){
+  ctx.fillStyle=hurtF?'#fff':'#2b2160';
+  ctx.beginPath(); ctx.moveTo(p.x,y-11); ctx.lineTo(p.x+7.5,y+9); ctx.lineTo(p.x-7.5,y+9);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle=hurtF?'#fff':'#4a3a9e';
+  ctx.beginPath(); ctx.moveTo(p.x,y-12); ctx.lineTo(p.x+5.5,y-3); ctx.lineTo(p.x-5.5,y-3);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#c9b6ff';
+  ctx.fillRect(p.x-3.2*p.dir-.8,y-7,1.8,2); ctx.fillRect(p.x+1.4*p.dir-.8,y-7,1.8,2);
+}
+function drawShinigami(p,y,hurtF){
+  const d=p.dir, sw=Math.sin(p.anim*.5)*.18;
+  ctx.save(); ctx.translate(p.x,y);
+  /* lame portée dans le dos */
+  ctx.save(); ctx.rotate(-.9*d+sw);
+  ctx.fillStyle=hurtF?'#fff':'#141018';
+  ctx.fillRect(-2.6*d,-4,5.2,22);
+  ctx.fillStyle='#5a5566'; ctx.fillRect(-2.6*d,-4,1.6,22);
+  ctx.fillStyle='#e6e0d0'; ctx.fillRect(-1.4*d,14,3,7);   /* garde */
+  ctx.restore();
+  /* kimono noir */
+  ctx.fillStyle=hurtF?'#fff':'#12101a';
+  ctx.beginPath(); ctx.moveTo(0,-10); ctx.lineTo(8,9); ctx.lineTo(-8,9);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle=hurtF?'#fff':'#f2efe6';                    /* ceinture */
+  ctx.fillRect(-6,1.5,12,2.2);
+  ctx.fillStyle=hurtF?'#fff':'#1d1926';                    /* haut du kimono */
+  ctx.beginPath(); ctx.moveTo(0,-11); ctx.lineTo(5,-2); ctx.lineTo(-5,-2);
+  ctx.closePath(); ctx.fill();
+  /* tête et cheveux orange en pointes */
+  ctx.fillStyle=hurtF?'#fff':'#f0c9a0'; circ(0,-12,3.6);
+  ctx.fillStyle=hurtF?'#fff':'#ff7a1e';
+  ctx.beginPath();
+  ctx.moveTo(-4.4,-12.4);
+  for(let i=0;i<5;i++){ const x=-4.4+i*2.2;
+    ctx.lineTo(x+1.1,-17-(i%2?1.6:0)); ctx.lineTo(x+2.2,-13.2); }
+  ctx.lineTo(4.4,-12.4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#241a12';
+  ctx.fillRect(-2.2*d-.7,-12.6,1.5,1.7); ctx.fillRect(.9*d-.7,-12.6,1.5,1.7);
+  ctx.restore();
+}
+function drawPirate(p,y,hurtF){
+  const d=p.dir;
+  ctx.save(); ctx.translate(p.x,y);
+  ctx.fillStyle=hurtF?'#fff':'#2f6bd8';                    /* short bleu */
+  ctx.beginPath(); ctx.moveTo(-5.5,1); ctx.lineTo(5.5,1); ctx.lineTo(4.4,9);
+  ctx.lineTo(-4.4,9); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=hurtF?'#fff':'#f0c9a0';                    /* torse */
+  ctx.fillRect(-4.2,-8,8.4,9);
+  ctx.fillStyle=hurtF?'#fff':'#d63b34';                    /* gilet rouge ouvert */
+  ctx.beginPath(); ctx.moveTo(-5.4,-9); ctx.lineTo(-1.6,-9); ctx.lineTo(-2.4,2);
+  ctx.lineTo(-5.6,2); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(5.4,-9); ctx.lineTo(1.6,-9); ctx.lineTo(2.4,2);
+  ctx.lineTo(5.6,2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=hurtF?'#fff':'#f0c9a0'; circ(0,-12,3.9);   /* tête */
+  ctx.fillStyle='#241a12';
+  ctx.fillRect(-2.3*d-.7,-12.8,1.6,1.8); ctx.fillRect(1.0*d-.7,-12.8,1.6,1.8);
+  ctx.fillStyle='#c0453c';                                  /* cicatrice */
+  ctx.fillRect(-2.6*d-.6,-10.6,1.2,2.4);
+  ctx.fillStyle=hurtF?'#fff':'#e8c96a';                     /* chapeau de paille */
+  ctx.beginPath(); ctx.ellipse(0,-15.4,9.2,2.9,0,0,TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0,-17.2,4.6,3.1,0,0,TAU); ctx.fill();
+  ctx.fillStyle='#b8322c'; ctx.fillRect(-4.6,-16.4,9.2,1.5);
+  ctx.restore();
 }
 /* =========================================================================
    11. INTERFACE
@@ -3130,11 +4054,12 @@ function updateHUD(){
   $('hpTxt').textContent=Math.ceil(G.p.hp)+'/'+Math.round(st.hpMax);
   $('tmr').textContent=fmtT(G.t);
   $('killTxt').textContent=G.kills;
+  $('soulTxt').textContent=styleNow().soul;
   $('cellTxt').textContent=G.cells;
   const bw=$('bossWrap');
   if(G.boss){ bw.style.display='block';
     $('bossFill').style.width=clamp(G.boss.hp/G.boss.hpMax*100,0,100)+'%';
-    $('bossName').textContent='GARDIEN — PHASE '+(G.boss.phase||1); }
+    $('bossName').textContent=styleNow().boss+' — PHASE '+(G.boss.phase||1); }
   else bw.style.display='none';
   let bh='';
   for(const k in G.buffs) if(RUNES[k]) bh+=`<span style="color:${RUNES[k].c}">${RUNES[k].ic}</span>`;
@@ -3147,7 +4072,7 @@ function renderTray(){
   let h='';
   for(const id in G.spells){ const d=SPELLS[id], inst=G.spells[id];
     const ev=inst.evo&&Object.keys(inst.evo).length;
-    h+=`<div class="slot${d.fusion||ev?' fus':''}" style="color:${d.c};border-color:${d.c}66">${d.ic}<i>${inst.lv}</i></div>`; }
+    h+=`<div class="slot${ev?' fus':''}" style="color:${d.c};border-color:${d.c}66">${d.ic}<i>${inst.lv}</i></div>`; }
   for(const id in G.utils){ const d=UTILS[id];
     h+=`<div class="slot" style="color:${d.c};border-color:${d.c}44">${d.ic}<i>${G.utils[id].lv}</i></div>`; }
   for(const id in G.passives){ const d=PASSIVES[id];
@@ -3160,10 +4085,7 @@ function renderTray(){
 /* --- cartes ------------------------------------------------------------ */
 function card(o,i){
   let ic,nm,dsc,c,tags,lvl,cls='';
-  if(o.k==='fus'){ const d=SPELLS[o.out],a=SPELLS[o.a],b=SPELLS[o.b];
-    ic=d.ic; nm=d.nm; dsc=d.d; c=d.c; tags=d.tags; cls=' fusioncard';
-    lvl=`${a.nm} + ${b.nm}`; }
-  else if(o.k==='snew'){ const d=SPELLS[o.id];
+  if(o.k==='snew'){ const d=SPELLS[o.id];
     ic=d.ic;nm=d.nm;dsc=d.d;c=d.c;tags=d.tags;lvl='NOUVELLE MAGIE'; }
   else if(o.k==='sup'){ const d=SPELLS[o.id],lv=G.spells[o.id].lv;
     ic=d.ic;nm=d.nm;c=d.c;tags=d.tags;lvl=`NIV ${lv} → ${lv+1}`;
@@ -3188,18 +4110,8 @@ function card(o,i){
       <div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
     </div></button>`;
 }
-function availableFusion(){
-  for(const f of FUSIONS){
-    if(G.spells[f.out]) continue;
-    const a=G.spells[f.a],b=G.spells[f.b];
-    if(a&&b&&a.lv>=MAX_LV&&b.lv>=MAX_LV) return {k:'fus',a:f.a,b:f.b,out:f.out};
-  }
-  return null;
-}
 function buildOffers(n){
-  const out=[], fu=availableFusion();
-  if(fu) out.push(fu);
-  const pool=[], owned=Object.keys(G.spells);
+  const out=[], pool=[], owned=Object.keys(G.spells);
   for(const id of owned) if(G.spells[id].lv<MAX_LV)
     pool.push({k:'sup',id,w:(SPELLS[id].evoAt||[]).indexOf(G.spells[id].lv+1)>=0?26:11});
   if(owned.length<SPELL_SLOTS)
@@ -3243,9 +4155,7 @@ $('rerollBtn').addEventListener('click',()=>{
   if(G.rerolls<=0) $('rerollBtn').style.display='none';
 });
 function applyOffer(o){
-  if(o.k==='fus'){ delete G.spells[o.a]; delete G.spells[o.b];
-    G.spells[o.out]={lv:1,t:0}; flash('#ff5ec7'); AU.play(1200,.5,'sine',.07); }
-  else if(o.k==='snew') G.spells[o.id]={lv:1,t:0,evo:{}};
+  if(o.k==='snew') G.spells[o.id]={lv:1,t:0,evo:{}};
   else if(o.k==='sup'){
     const inst=G.spells[o.id]; inst.lv++;
     if((SPELLS[o.id].evoAt||[]).indexOf(inst.lv)>=0){
@@ -3404,8 +4314,9 @@ function endRun(){
     ['Cellules','◈ '+G.cells],['Éclats gagnés','◈ '+gained]]
     .map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('');
   let h='';
-  for(const id in G.spells){const d=SPELLS[id];
-    h+=`<div class="slot inl${d.fusion?' fus':''}" style="color:${d.c};border-color:${d.c}66">${d.ic}<i>${G.spells[id].lv}</i></div>`;}
+  for(const id in G.spells){const d=SPELLS[id], inst=G.spells[id];
+    const ev=inst.evo&&Object.keys(inst.evo).length;
+    h+=`<div class="slot inl${ev?' fus':''}" style="color:${d.c};border-color:${d.c}66">${d.ic}<i>${inst.lv}</i></div>`;}
   for(const id in G.utils){const d=UTILS[id];
     h+=`<div class="slot inl" style="color:${d.c}">${d.ic}<i>${G.utils[id].lv}</i></div>`;}
   for(const id in G.passives){const d=PASSIVES[id];
@@ -3443,9 +4354,9 @@ function startRun(){
 }
 
 /* --- écran de préparation --------------------------------------------- */
-let pickCls=null, pickSubj=null;
+let pickCls=null, pickSubj=null, pickStyle=null;
 function openLoadout(){
-  pickCls=SAVE.cls; pickSubj=SAVE.subj;
+  pickCls=SAVE.cls; pickSubj=SAVE.subj; pickStyle=SAVE.style;
   renderLoadout(); show('loadout');
 }
 function renderLoadout(){
@@ -3461,7 +4372,15 @@ function renderLoadout(){
       <span class="od">${s.d}</span>
       ${has?'':`<span class="om cost">◈ ${s.cost} — débloquer</span>`}</button>`;}).join('');
   $('loadShards').textContent=SAVE.shards;
+  $('styleWrap').innerHTML=STYLE_IDS.map(k=>{const st=STYLES[k];
+    return `<button class="opt${k===pickStyle?' sel':''}" data-y="${k}">
+      <span class="oi" style="color:${st.accent}">${st.ic}</span>
+      <span class="on">${st.nm}</span><span class="od">${st.d}</span></button>`;}).join('');
 }
+$('styleWrap').addEventListener('click',e=>{
+  const b=e.target.closest('.opt'); if(!b) return;
+  pickStyle=b.dataset.y; applyStyle(pickStyle); Store.save(); renderLoadout();
+});
 $('clsWrap').addEventListener('click',e=>{const b=e.target.closest('.opt'); if(!b)return;
   pickCls=b.dataset.c; renderLoadout();});
 $('subjWrap').addEventListener('click',e=>{
@@ -3473,7 +4392,8 @@ $('subjWrap').addEventListener('click',e=>{
   }
   pickSubj=k; renderLoadout();
 });
-$('goBtn').onclick=()=>{ SAVE.cls=pickCls; SAVE.subj=pickSubj; Store.save(); startRun(); };
+$('goBtn').onclick=()=>{ SAVE.cls=pickCls; SAVE.subj=pickSubj;
+  applyStyle(pickStyle||SAVE.style); Store.save(); startRun(); };
 $('loadBack').onclick=()=>{ refreshMenu(); show('menu'); };
 
 /* --- menus ------------------------------------------------------------- */
@@ -3482,7 +4402,8 @@ function refreshMenu(){
   $('shardTxt2').textContent=SAVE.shards;
   $('menuStats').innerHTML=[['Meilleur temps',fmtT(SAVE.bestTime)],['Meilleur niveau',SAVE.bestLevel],
     ['Runs',SAVE.runs],['Recherche',Object.values(SAVE.research).reduce((a,b)=>a+b,0)+' niv.'],
-    ['Classe',CLASSES[SAVE.cls].nm],['Sujet',SUBJECTS[SAVE.subj].nm]]
+    ['Classe',CLASSES[SAVE.cls].nm],['Sujet',SUBJECTS[SAVE.subj].nm],
+    ['Style',styleNow().nm],['',''] ]
     .map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('');
 }
 function renderResearch(){
@@ -3534,13 +4455,11 @@ function renderCodex(){
   const line=(ic,nm,d,c)=>`<div class="cx"><span style="color:${c}">${ic}</span>
     <b>${nm}</b><span>${d}</span></div>`;
   let h='';
-  h+=sec('Magies offensives — 17',OFFENSIVE.map(k=>{const d=SPELLS[k];
+  h+=sec('Magies offensives — '+OFFENSIVE.length,OFFENSIVE.map(k=>{const d=SPELLS[k];
     return line(d.ic,d.nm,d.tags.join(' · '),d.c);}).join(''));
   h+=sec('Évolutions',OFFENSIVE.map(k=>{const d=SPELLS[k];
     const all=[]; for(const lv in (d.evos||{})) for(const e of d.evos[lv]) all.push(e.nm);
     return line(d.ic,d.nm,all.join(' · '),d.c);}).join(''));
-  h+=sec('Fusions — '+FUSIONS.length,FUSIONS.map(f=>{const d=SPELLS[f.out];
-    return line(d.ic,d.nm,`${SPELLS[f.a].nm} + ${SPELLS[f.b].nm}`,d.c);}).join(''));
   h+=sec('Magies utilitaires',UTIL_IDS.map(k=>{const d=UTILS[k];
     return line(d.ic,d.nm,d.d,d.c);}).join(''));
   h+=sec('Synergies d\'artefacts',SYNERGIES.map(s=>
@@ -3552,6 +4471,7 @@ function renderCodex(){
   $('codexWrap').innerHTML=h;
 }
 const OPTS=[['tParticles','particles',['AUCUNE','RÉDUIT','ÉLEVÉ'],3],
+            ['tBloom','bloom',['NON','OUI'],2],['tHitstop','hitstop',['NON','OUI'],2],
             ['tShake','shake',['NON','OUI'],2],['tFlash','flash',['NON','OUI'],2],
             ['tSound','sound',['NON','OUI'],2],['tDmgNum','dmgnum',['NON','OUI'],2]];
 function renderSettings(){ for(const [el,key,labels] of OPTS) $(el).querySelector('b').textContent=labels[SAVE.opt[key]]; }
@@ -3567,7 +4487,10 @@ let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame);
   let dt=(now-last)/1000; last=now; if(dt>.05) dt=.05;
-  if(G.phase==='run'){ update(dt); if(G.pending>0&&G.phase==='run') openLevelUp(); }
+  if(G.phase==='run'){
+    if(G.freeze>0){ G.freeze-=dt; }            /* arrêt sur image à l'impact */
+    else { update(dt); if(G.pending>0&&G.phase==='run') openLevelUp(); }
+  }
   else if(G.phase==='menu'){
     G.t+=dt; cam.x=Math.cos(G.t*.06)*180; cam.y=Math.sin(G.t*.045)*180;
     if(G.parts.length<70&&Math.random()<.35)
@@ -3578,7 +4501,8 @@ function frame(now){
   render(); updateHUD();
 }
 (async function init(){
-  resize(); buildFlames(); await Store.load();
+  resize(); initBuffers(); buildGround(); buildFlames();
+  await Store.load(); applyStyle(SAVE.style);
   G.p={x:0,y:0,vx:0,vy:0,hp:100,r:10,hitT:0,iT:0,anim:0,dir:1,dx:1,dy:0};
   G.cls=SAVE.cls; G.subj=SAVE.subj;
   computeStats();

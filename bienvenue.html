@@ -112,7 +112,7 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
     <h2 id="game-title">Mage Survivor</h2>
     <p>Mon jeu : un survivor-like magique. Tu ne vises pas, tu construis ton build et tu esquives.</p>
   </div>
-  <a class="play" href="index.html">▶ Jouer</a>
+  <a class="play" id="jouer" href="index.html">▶ Jouer</a>
 </section>
 
 <script>
@@ -202,6 +202,137 @@ banner.addEventListener("keydown", e => {
     e.preventDefault();
     next(banner.clientWidth / 2, banner.clientHeight / 2);
   }
+});
+
+/* Dessin du portail (tourbillon + particules), partagé par l'entrée et la sortie */
+const PORTAIL_COULEURS = ["#8b6cff", "#ff5ec7", "#ffc94a", "#c9b6ff"];
+function creerPortail(sortie){
+  const cv = document.createElement("canvas");
+  cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block";
+  const x = cv.getContext("2d");
+  const parts = [];
+  for (let i = 0; i < 160; i++) parts.push({
+    a: Math.random() * 6.283, n: sortie ? Math.random() * 2.5 : .2 + Math.random() * 2.6,
+    c: PORTAIL_COULEURS[i % 4], s: .8 + Math.random() * 1.8
+  });
+  let W = 0, H = 0;
+  function taille(){
+    const d = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * d; cv.height = H * d;
+    x.setTransform(d, 0, 0, d, 0, 0);
+  }
+  taille();
+  addEventListener("resize", taille);
+  // t : secondes, (cx, cy) : centre, R : rayon du disque, voile : assombrissement du fond (0..1)
+  function dessiner(t, dt, cx, cy, R, voile){
+    x.globalCompositeOperation = "source-over";
+    x.clearRect(0, 0, W, H);
+    if (voile > 0){ x.fillStyle = "rgba(8,6,15," + voile + ")"; x.fillRect(0, 0, W, H); }
+    if (R < 1) return;
+    const sens = sortie ? -1 : 1;
+    // disque : centre noir, bord lumineux, halo
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, R * 1.6);
+    g.addColorStop(0, "#000");
+    g.addColorStop(.5, "#0b0418");
+    g.addColorStop(.6, "rgba(139,108,255,.95)");
+    g.addColorStop(.66, "rgba(255,94,199,.6)");
+    g.addColorStop(1, "rgba(139,108,255,0)");
+    x.fillStyle = g;
+    x.beginPath(); x.arc(cx, cy, R * 1.6, 0, 6.283); x.fill();
+    x.globalCompositeOperation = "lighter";
+    // bras de la spirale
+    const bras = 7;
+    for (let k = 0; k < bras; k++){
+      x.beginPath();
+      for (let i = 0; i <= 40; i++){
+        const f = i / 40, r = R * 1.02 * (1 - f);
+        const a = k * 6.283 / bras + sens * t * 2.4 + f * 4.8 * sens;
+        const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
+        i ? x.lineTo(px, py) : x.moveTo(px, py);
+      }
+      x.strokeStyle = PORTAIL_COULEURS[k % 4];
+      x.globalAlpha = .35;
+      x.lineWidth = 2 + R * .025;
+      x.stroke();
+    }
+    // particules aspirées (entrée) ou projetées (sortie)
+    for (const p of parts){
+      const r0 = p.n * R, a0 = p.a;
+      if (sortie){
+        p.n *= 1 + dt * 1.8; p.a -= dt * (1.2 + 1.6 / (p.n + .15));
+        if (p.n > 2.6){ p.n = .05 + Math.random() * .2; p.a = Math.random() * 6.283; continue; }
+      } else {
+        p.n *= 1 - dt * 1.8; p.a += dt * (1.2 + 1.6 / (p.n + .15));
+        if (p.n < .04){ p.n = 1.4 + Math.random() * 1.4; p.a = Math.random() * 6.283; continue; }
+      }
+      const r1 = p.n * R;
+      x.globalAlpha = Math.min(1, .3 + (sortie ? p.n : 1.6 - p.n * .5));
+      x.strokeStyle = p.c; x.lineWidth = p.s;
+      x.beginPath();
+      x.moveTo(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0);
+      x.lineTo(cx + Math.cos(p.a) * r1, cy + Math.sin(p.a) * r1);
+      x.stroke();
+    }
+    x.globalAlpha = 1;
+  }
+  return { cv, dessiner, taille: () => [W, H] };
+}
+
+// Bouton Jouer : aspiré dans le portail, puis le jeu s'ouvre de l'autre côté
+const jouer = document.getElementById("jouer");
+let portail = null;
+const facile = t => 1 - Math.pow(1 - t, 3);
+const rebond = t => 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2);
+jouer.addEventListener("click", e => {
+  if (portail || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  e.preventDefault();
+  const b = jouer.getBoundingClientRect();
+  const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+  const voile = document.createElement("div");
+  voile.style.cssText = "position:fixed;inset:0;z-index:9999";
+  portail = creerPortail(false);
+  voile.appendChild(portail.cv);
+  document.body.appendChild(voile);
+  portail.voile = voile;
+
+  const [W, H] = portail.taille();
+  const Rp = Math.min(W, H) * .2;
+  const Rmax = Math.max(Math.hypot(cx, cy), Math.hypot(W - cx, cy), Math.hypot(cx, H - cy), Math.hypot(W - cx, H - cy)) / .78;
+
+  // la page tourbillonne et rétrécit vers le portail
+  setTimeout(() => {
+    for (const el of [banner, document.querySelector(".game")]){
+      const r = el.getBoundingClientRect();
+      el.style.transition = "transform 1.1s cubic-bezier(.6,0,.9,.5), filter 1.1s, opacity 1.1s";
+      el.style.transform = `translate(${cx - r.left - r.width / 2}px,${cy - r.top - r.height / 2}px) rotate(540deg) scale(0)`;
+      el.style.filter = "blur(4px)";
+      el.style.opacity = ".3";
+    }
+  }, 350);
+
+  const t0 = performance.now();
+  let avant = t0, parti = false;
+  (function boucle(now){
+    if (!portail) return;
+    const t = now - t0, dt = Math.min((now - avant) / 1000, .05);
+    avant = now;
+    let R;
+    if (t < 450) R = Rp * rebond(t / 450);
+    else if (t < 1500) R = Rp * (1 + .06 * Math.sin((t - 450) / 90));
+    else R = Rp + (Rmax - Rp) * Math.pow(Math.min((t - 1500) / 650, 1), 2.2);
+    portail.dessiner(t / 1000, dt, cx, cy, R, .7 * facile(Math.min(t / 1500, 1)));
+    if (t > 2150 && !parti){ parti = true; location.href = "index.html?portail=1"; }
+    requestAnimationFrame(boucle);
+  })(t0);
+});
+// retour arrière : on remet la page en état
+addEventListener("pageshow", e => {
+  if (!e.persisted || !portail) return;
+  portail.voile.remove();
+  portail = null;
+  for (const el of [banner, document.querySelector(".game")])
+    el.style.transition = el.style.transform = el.style.filter = el.style.opacity = "";
 });
 </script>
 </body>

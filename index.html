@@ -12,6 +12,7 @@
 <meta name="color-scheme" content="dark">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://ddragon.leagueoflegends.com">
+<link rel="preconnect" href="https://raw.communitydragon.org">
 <style>
 :root{
   --bg:#010a13; --panel:#0a1428; --panel2:#0f1d36; --line:#1e2d43; --gold:#c8aa6e; --gold2:#f0e6d2; --gold3:#785a28;
@@ -137,6 +138,7 @@ h2{font-family:var(--serif);font-size:18px;letter-spacing:.12em;margin-top:4px;c
 </style>
 </head>
 <body>
+<canvas id="gl" style="position:fixed;inset:0;width:100%;height:100%;display:block"></canvas>
 <canvas id="cv"></canvas>
 
 <div id="hud">
@@ -225,6 +227,7 @@ h2{font-family:var(--serif);font-size:18px;letter-spacing:.12em;margin-top:4px;c
   <button class="btn sm" id="wipeBtn">Effacer la progression</button>
   <button class="btn" id="setBack">Retour</button>
 </div></div>
+<script src="three.min.js"></script>
 <script>
 /* =========================================================================
    RUNETERRA SURVIVOR — survie à la Magic Survival, compétences des champions
@@ -377,7 +380,7 @@ const resCost=(k,lv)=>Math.round(RESEARCH[k].cost*Math.pow(1.5,lv));
 /* --- sauvegarde --------------------------------------------------------- */
 const SAVE_KEY='runeterra_survivor_1';
 const DEFAULT_SAVE=()=>({gold:0, runs:0, kills:0, stage:'faille', cat:'Mage', champ:'Lux', owned:FREE.slice(),
-  cleared:{}, best:{}, ults:0, research:{atk:0,hp:0,cd:0,as:0,crit:0,spd:0,xp:0,gold:0}, opt:{sound:1,dmgnum:1,shake:1,low:0}});
+  cleared:{}, best:{}, ults:0, research:{atk:0,hp:0,cd:0,as:0,crit:0,spd:0,xp:0,gold:0}, opt:{sound:1,dmgnum:1,shake:1,low:0,d3:1}});
 let SAVE=DEFAULT_SAVE();
 const Store={
   load(){ try{ const o=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); if(!o) return; const d=DEFAULT_SAVE();
@@ -1095,6 +1098,15 @@ function drawEnemyBody(e){
   if(f==='melee') drawMelee(e); else if(f==='caster') drawCaster(e); else if(f==='siege') drawSiege(e);
   else if(f==='super') drawSuper(e); else if(f==='void') drawVoid(e); else if(f==='herald') drawHerald(e); else drawBaron(e);
 }
+/* en 3D, seule la barre de vie des élites et des géants reste en 2D, au-dessus du modèle */
+function drawEnemyBar(e){
+  if(e.slow>0&&e.hitT<=0){ ctx.globalCompositeOperation='lighter'; drawGlow(e.x,e.y,e.r*1.4,'#7fc8ff',.2); ctx.globalCompositeOperation='source-over'; }
+  if(!(e.elite||e.giant)||e.hp>=e.max) return;
+  const w=Math.max(30,e.r*2), y=e.y-unitHeight(e)*KH/KY-10;
+  ctx.fillStyle='rgba(0,0,0,.75)'; ctx.fillRect(e.x-w/2-1,y,w+2,5); ctx.fillStyle=e.giant?'#b27dff':'#e84057'; ctx.fillRect(e.x-w/2,y+1,w*clamp(e.hp/e.max,0,1),3);
+  if(e.giant){ ctx.font='bold 7px Georgia,serif'; ctx.textAlign='center'; ctx.fillStyle='#f0e6d2'; ctx.strokeStyle='#010a13'; ctx.lineWidth=2;
+    ctx.strokeText(e.def.nm,e.x,y-3); ctx.fillText(e.def.nm,e.x,y-3); }
+}
 function drawEnemy(e){
   if(e.def.forme!=='baron'&&e.def.forme!=='herald'){ ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(e.x,e.y+e.r*.95,e.r*.85,e.r*.28,0,0,TAU); ctx.fill(); }
   if(e.slow>0&&e.hitT<=0){ ctx.globalCompositeOperation='lighter'; drawGlow(e.x,e.y,e.r*1.4,'#7fc8ff',.25); ctx.globalCompositeOperation='source-over'; }
@@ -1138,7 +1150,7 @@ function vignette(){ if(VIG&&VIG.width===cv.width&&VIG.height===cv.height) retur
   VIG=document.createElement('canvas'); VIG.width=cv.width; VIG.height=cv.height; const g=VIG.getContext('2d'), w=VIG.width, h=VIG.height;
   const r=g.createRadialGradient(w/2,h/2,Math.min(w,h)*.34,w/2,h/2,Math.max(w,h)*.75);
   r.addColorStop(0,'rgba(0,0,0,0)'); r.addColorStop(1,'rgba(1,6,12,.65)'); g.fillStyle=r; g.fillRect(0,0,w,h); return VIG; }
-function view(){ const hw=W/2/SCALE+60, hh=H/2/SCALE+60, c=G.cam; return {x0:c.x-hw,x1:c.x+hw,y0:c.y-hh,y1:c.y+hh}; }
+function view(){ const k=R3.on?KY:1, hw=W/2/SCALE+60, hh=H/2/SCALE/k+60, c=G.cam; return {x0:c.x-hw,x1:c.x+hw,y0:c.y-hh,y1:c.y+hh}; }
 const vis=(v,x,y,m)=>x>v.x0-m&&x<v.x1+m&&y>v.y0-m&&y<v.y1+m;
 function jag(x1,y1,x2,y2,n,amp){ ctx.beginPath(); ctx.moveTo(x1,y1); const dx=x2-x1,dy=y2-y1,l=Math.hypot(dx,dy)||1,nx=-dy/l,ny=dx/l;
   for(let i=1;i<n;i++){ const t=i/n,o=rnd(-amp,amp); ctx.lineTo(x1+dx*t+nx*o,y1+dy*t+ny*o); } ctx.lineTo(x2,y2); ctx.stroke(); }
@@ -1156,7 +1168,8 @@ function drawPlayer(){
   /* flèche de direction, au sol */
   const a=Math.atan2(p.dy,p.dx); ctx.fillStyle=col; ctx.globalAlpha=.7; ctx.beginPath();
   ctx.moveTo(p.x+Math.cos(a)*(R+7),p.y+6+Math.sin(a)*(R+7)*.5); ctx.lineTo(p.x+Math.cos(a+.3)*(R+1),p.y+6+Math.sin(a+.3)*(R+1)*.5); ctx.lineTo(p.x+Math.cos(a-.3)*(R+1),p.y+6+Math.sin(a-.3)*(R+1)*.5); ctx.fill();
-  ctx.globalAlpha=inv?.5:1; ctx.save(); ctx.translate(p.x,p.y+8); ctx.scale(1.25,1.25); ctx.translate(-p.x,-p.y-8); drawChibi(p,c); ctx.restore(); ctx.globalAlpha=1;
+  const in3D=R3.on&&R3.player&&R3.has(R3.playerKey);
+  if(!in3D){ ctx.globalAlpha=inv?.5:1; ctx.save(); ctx.translate(p.x,p.y+8); ctx.scale(1.25,1.25); ctx.translate(-p.x,-p.y-8); drawChibi(p,c); ctx.restore(); ctx.globalAlpha=1; }
   if(false){
   /* flèche de direction */
   const a=Math.atan2(p.dy,p.dx); ctx.fillStyle=col; ctx.beginPath();
@@ -1170,7 +1183,7 @@ function drawPlayer(){
   ctx.lineWidth=2.5; ctx.strokeStyle=p.cast>0?'#f0e6d2':'#c8aa6e'; ctx.beginPath(); ctx.arc(0,0,R,0,TAU); ctx.stroke();
   }
   /* barre de vie façon LoL */
-  const w=40, hp=clamp(p.hp/ST.hpMax,0,1), sh=clamp((G.shieldHP||0)/ST.hpMax,0,1-hp), y=p.y-R-28;
+  const w=40, hp=clamp(p.hp/ST.hpMax,0,1), sh=clamp((G.shieldHP||0)/ST.hpMax,0,1-hp), y=in3D?p.y-(PLAYER_H+4)*KH/KY-8:p.y-R-28;
   ctx.fillStyle='#010a13'; ctx.fillRect(p.x-w/2-9,y-1,w+10,7);
   ctx.fillStyle='#0a1428'; ctx.fillRect(p.x-w/2-9,y-1,9,7); ctx.fillStyle='#f0e6d2'; ctx.font='bold 6px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(G.level,p.x-w/2-4.5,y+2.6);
@@ -1237,13 +1250,16 @@ function drawTrap(z){
 }
 
 function render(){
-  ctx.setTransform(DPR,0,0,DPR,0,0); ctx.fillStyle='#010a13'; ctx.fillRect(0,0,W,H);
   const c=G.cam, cx=c.x+c.sx, cy=c.y+c.sy;
-  ctx.setTransform(SCALE*DPR,0,0,SCALE*DPR,(W/2-cx*SCALE)*DPR,(H/2-cy*SCALE)*DPR);
+  if(R3.on){ render3D(); ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,W,H);
+    /* même projection que la caméra 3D : le sol est écrasé verticalement */
+    ctx.setTransform(SCALE*DPR,0,0,SCALE*KY*DPR,(W/2-cx*SCALE)*DPR,(H/2-cy*SCALE*KY)*DPR); }
+  else { ctx.setTransform(DPR,0,0,DPR,0,0); ctx.fillStyle='#010a13'; ctx.fillRect(0,0,W,H);
+    ctx.setTransform(SCALE*DPR,0,0,SCALE*DPR,(W/2-cx*SCALE)*DPR,(H/2-cy*SCALE)*DPR); }
   const v=view();
-  if(!SOL) buildGround(); if(!SOL_PAT) SOL_PAT=ctx.createPattern(SOL,'repeat');
-  ctx.fillStyle=SOL_PAT; ctx.fillRect(v.x0,v.y0,v.x1-v.x0,v.y1-v.y0);
-  ctx.globalCompositeOperation='lighter'; drawGlow(G.p.x,G.p.y,viewR()*.6,stage().teinte,.12); ctx.globalCompositeOperation='source-over';
+  if(!R3.on){ if(!SOL) buildGround(); if(!SOL_PAT) SOL_PAT=ctx.createPattern(SOL,'repeat');
+    ctx.fillStyle=SOL_PAT; ctx.fillRect(v.x0,v.y0,v.x1-v.x0,v.y1-v.y0);
+    ctx.globalCompositeOperation='lighter'; drawGlow(G.p.x,G.p.y,viewR()*.6,stage().teinte,.12); ctx.globalCompositeOperation='source-over'; }
   for(const z of G.traps) if(z.k!=='neige'&&vis(v,z.x,z.y,z.r+20)) drawTrap(z);
   for(const z of G.spikes){ if(!z.done){ const k=z.t/z.warn; ctx.fillStyle='rgba(155,77,255,'+(.08+.2*k)+')'; ctx.beginPath(); ctx.arc(z.x,z.y,z.r,0,TAU); ctx.fill();
       ctx.strokeStyle='rgba(200,140,255,'+(.4+.5*Math.sin(z.t*22)**2)+')'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(z.x,z.y,z.r,0,TAU); ctx.stroke(); }
@@ -1256,13 +1272,13 @@ function render(){
   ctx.globalCompositeOperation='source-over';
   for(const o of G.orbs){ if(!vis(v,o.x,o.y,10)) continue; ctx.fillStyle='#f4fbff'; ctx.beginPath(); ctx.arc(o.x,o.y+Math.sin(o.t*3)*1.2,o.r*.5,0,TAU); ctx.fill(); }
   for(const k of G.items) if(vis(v,k.x,k.y,20)) drawItem(k);
-  for(const f of G.fx) if(f.k==='corpse') drawFx(f);
+  for(const f of G.fx) if(f.k==='corpse'&&!(R3.on&&f.e&&R3.has(modelKeyFor(f.e)))) drawFx(f);
   for(const u of G.turrets){ ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(u.x,u.y+6,8,3,0,0,TAU); ctx.fill();
     ctx.fillStyle='#3a4658'; ctx.strokeStyle=OUT; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(u.x-6,u.y+6); ctx.lineTo(u.x-3,u.y-8); ctx.lineTo(u.x+3,u.y-8); ctx.lineTo(u.x+6,u.y+6); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.globalCompositeOperation='lighter'; drawGlow(u.x,u.y-11,u.big?14:9,u.s.c,.9*Math.min(1,u.t)); ctx.globalCompositeOperation='source-over'; }
   const list=[]; for(const e of G.en) if(!e.dead&&vis(v,e.x,e.y,e.r+10)) list.push(e);
   list.sort((a,b)=>a.y-b.y); let pd=false;
-  for(const e of list){ if(!pd&&e.y>G.p.y){ drawPlayer(); pd=true; } drawEnemy(e); }
+  for(const e of list){ if(!pd&&e.y>G.p.y){ drawPlayer(); pd=true; } if(R3.on&&R3.has(modelKeyFor(e))) drawEnemyBar(e); else drawEnemy(e); }
   if(!pd) drawPlayer();
   for(const z of G.traps) if(z.k==='neige') drawTrap(z);
   ctx.globalCompositeOperation='lighter';
@@ -1424,7 +1440,7 @@ function startRun(){
   G.cam.x=G.cam.y=0;
   G.ab[abKey(c.i,0)]={ci:c.i,k:0,lv:1,t:.5};
   ST=null; computeStats(); G.p.hp=ST.hpMax; G.revive=ST.revive;
-  SOL=null; buildGround();
+  SOL=null; buildGround(); R3.preloadRun();
   G.phase='run'; renderKit(); show(null);
   toast(c.n.toUpperCase()+' — '+STAGES[G.stage].nm.toUpperCase());
 }
@@ -1486,7 +1502,7 @@ function renderPrep(){
   $('champGrid').innerHTML=list.map(c=>{ const own=champOwned(c.id);
     return `<button class="ch${c.id===SAVE.champ?' sel':''}${own?'':' lock'}" data-id="${c.id}">${imgTag(champImg(c))}${esc(c.n)}${own?'':`<span class="cost">◈ ${CHAMP_COST}</span>`}</button>`; }).join('');
   const c=CH_BY[SAVE.champ];
-  $('pickBox').innerHTML=`<canvas id="chibiPrev" width="128" height="128" style="width:64px;height:64px;flex-shrink:0"></canvas><div><div style="font-family:var(--serif);font-size:15px;color:var(--gold2)">${esc(c.n)}</div>
+  $('pickBox').innerHTML=`<canvas id="prev3d" style="width:64px;height:84px;flex-shrink:0;display:none"></canvas><canvas id="chibiPrev" width="128" height="128" style="width:64px;height:64px;flex-shrink:0"></canvas><div><div style="font-family:var(--serif);font-size:15px;color:var(--gold2)">${esc(c.n)}</div>
     <div class="sub" style="margin-top:0">${esc(c.t)} · ${CATS[c.c].nm} · ${c.m?'mêlée':'à distance'}</div>
     <div class="kitline">${c.s.map((s,k)=>`<span title="${esc(s[0])}" style="position:relative">${imgTag(spellImg(s[6]))}</span>`).join('')}</div></div>`;
   $('stageList').innerHTML=STAGE_IDS.map(k=>{ const s=STAGES[k], ok=stageOpen(k), best=SAVE.best[k]||0;
@@ -1497,7 +1513,7 @@ function renderPrep(){
 }
 $('catTabs').addEventListener('click',e=>{ const b=e.target.closest('.tab'); if(!b) return; SAVE.cat=b.dataset.c; renderPrep(); });
 $('champGrid').addEventListener('click',e=>{ const b=e.target.closest('.ch'); if(!b) return; SAVE.champ=b.dataset.id; Store.save(); renderPrep(); });
-$('stageList').addEventListener('click',e=>{ const b=e.target.closest('.opt'); if(!b||!stageOpen(b.dataset.s)) return; SAVE.stage=G.stage=b.dataset.s; SOL=null; Store.save(); renderPrep(); });
+$('stageList').addEventListener('click',e=>{ const b=e.target.closest('.opt'); if(!b||!stageOpen(b.dataset.s)) return; SAVE.stage=G.stage=b.dataset.s; SOL=null; R3.stageGround(); Store.save(); renderPrep(); });
 $('playBtn').onclick=()=>{ AU.init(); openPrep(); };
 $('prepBack').onclick=()=>{ refreshMenu(); show('menu'); };
 $('goBtn').onclick=()=>{
@@ -1516,12 +1532,249 @@ $('resList').addEventListener('click',e=>{ const b=e.target.closest('.opt'); if(
   if(lv>=RESEARCH[k].max||SAVE.gold<c) return; SAVE.gold-=c; SAVE.research[k]++; Store.save(); AU.lvl(); renderResearch(); });
 $('researchBtn').onclick=()=>{ renderResearch(); show('research'); };
 $('resBack').onclick=()=>{ refreshMenu(); show('menu'); };
-const OPTS=[['sound','Son'],['dmgnum','Chiffres de dégâts'],['shake','Tremblements et vibrations'],['low','Mode économie (moins d\'ennemis)']];
+const OPTS=[['d3','Graphismes 3D (vrais modèles de LoL)'],['sound','Son'],['dmgnum','Chiffres de dégâts'],['shake','Tremblements et vibrations'],['low','Mode économie (moins d\'ennemis)']];
 function renderSettings(){ $('setList').innerHTML=OPTS.map(([k,n])=>`<div class="toggle"><span>${n}</span><button data-o="${k}">${SAVE.opt[k]?'OUI':'NON'}</button></div>`).join(''); }
-$('setList').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const k=b.dataset.o; SAVE.opt[k]=SAVE.opt[k]?0:1; Store.save(); renderSettings(); });
+$('setList').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const k=b.dataset.o; SAVE.opt[k]=SAVE.opt[k]?0:1; Store.save(); if(k==='d3') location.reload(); renderSettings(); });
 $('setBtn').onclick=()=>{ renderSettings(); show('settings'); };
 $('setBack').onclick=()=>{ refreshMenu(); show('menu'); };
 $('wipeBtn').onclick=()=>{ if(!confirm('Effacer toute la progression (essence, runes, champions, cartes) ?')) return; SAVE=DEFAULT_SAVE(); Store.save(); refreshMenu(); renderSettings(); };
+
+
+/* =========================================================================
+   12. 3D — les vrais modèles de League of Legends
+   Modèles, textures et sols officiels, lus depuis Community Dragon (archive
+   publique des fichiers du jeu). Caméra orthographique inclinée comme dans
+   LoL. Les effets de sorts restent dessinés en 2D par-dessus, avec la même
+   projection, pour que tout tombe juste.
+   Les fichiers d'animation ne sont pas publics : les modèles gardent leur
+   pose d'origine et sont animés par mouvement (balancement, élan, recul).
+   ========================================================================= */
+const MODELS3D={"Aatrox":{"s":"assets/characters/aatrox/skins/base/aatrox.skn","t":"assets/characters/aatrox/skins/base/aatrox_base_tx_cm.png","h":"Wings","o":{"Sword":"assets/characters/aatrox/skins/base/aatrox_base_sword_tx_cm.png","Wings":"assets/characters/aatrox/skins/base/aatrox_wings_tx_cm.png","Banner":"assets/characters/aatrox/skins/base/particles/aatrox_base_i_banner_color.png"},"k":1.09},"Ahri":{"s":"assets/characters/ahri/skins/base/ahri_base.skn","t":"assets/characters/ahri/skins/base/ahri_base_tx_cm.png","h":"Tail_Large Body_Proxy","o":{"Tail_Large":"assets/characters/ahri/skins/base/ahri_base_tails_tx_cm.png","Tails":"assets/characters/ahri/skins/base/ahri_base_tails_tx_cm.png","Body":"assets/characters/ahri/skins/base/ahri_base_tx_cm.png"}},"Akali":{"s":"assets/characters/akali/skins/base/akali.skn","t":"assets/characters/akali/skins/base/akali_base_tx_cm.png","h":"kama_right kunais recall ramen ramen_noodles chopsticks","o":{"kama_right":"assets/characters/akali/skins/base/akali_base_weapon_tx_cm.png","kunai_hand":"assets/characters/akali/skins/base/akali_base_weapon_tx_cm.png","kama_grip":"assets/characters/akali/skins/base/akali_base_weapon_tx_cm.png","kama_left":"assets/characters/akali/skins/base/akali_base_weapon_tx_cm.png","recall":"assets/characters/akali/skins/base/akali_base_prop_tx_cm.png","ramen":"assets/characters/akali/skins/base/akali_base_prop_tx_cm.png","ramen_noodles":"assets/characters/akali/skins/base/akali_base_prop_tx_cm.png","chopsticks":"assets/characters/akali/skins/base/akali_base_prop_tx_cm.png"},"k":1.05},"Akshan":{"s":"assets/characters/akshan/skins/base/akshan_base.skn","t":"assets/characters/akshan/skins/base/akshan_base_tx_cm.png","h":"Hood, Hood_Hair, Rope","o":{"Weapon":"assets/characters/akshan/skins/base/akshan_base_weapon_tx_cm.png","Hook":"assets/characters/akshan/skins/base/akshan_base_weapon_tx_cm.png","Hood":"assets/characters/akshan/skins/base/akshan_base_hood_tx_cm.png","Boomerang":"assets/characters/akshan/skins/base/akshan_base_weapon_tx_cm.png"},"k":1.05},"Alistar":{"s":"assets/characters/alistar/skins/base/alistar.skn","t":"assets/characters/alistar/skins/base/alistar_base_tx_cm.png","k":1.4},"Ambessa":{"s":"assets/characters/ambessa/skins/base/ambessa_base.skn","t":"assets/characters/ambessa/skins/base/ambessa_base_tx_cm.png","h":"Chain","o":{"Weapon":"assets/characters/ambessa/skins/base/ambessa_base_weapon_tx_cm.png","Chain":"assets/characters/ambessa/skins/base/ambessa_base_chains_tx_cm.png"},"k":1.05},"Amumu":{"s":"assets/characters/amumu/skins/base/amumu.skn","t":"assets/characters/amumu/skins/base/sadmummy.png","k":1.8},"Anivia":{"s":"assets/characters/anivia/skins/base/anivia.skn","t":"assets/characters/anivia/skins/base/cryophoenix.png","k":1.4},"Annie":{"s":"assets/characters/annie/skins/base/annie_2012.skn","t":"assets/characters/annie/skins/base/annie_base_2012_cm.png"},"Aphelios":{"s":"assets/characters/aphelios/skins/base/aphelios.skn","t":"assets/characters/aphelios/skins/base/aphelios_base_tx_cm.png","h":"recall, flower, scarf_recall","o":{"calibrum":"assets/characters/aphelios/skins/base/aphelios_base_guns_tx_cm.png","crescendum":"assets/characters/aphelios/skins/base/aphelios_base_guns_tx_cm.png","infernum":"assets/characters/aphelios/skins/base/aphelios_base_guns_tx_cm.png","gravitum":"assets/characters/aphelios/skins/base/aphelios_base_guns_tx_cm.png","severum":"assets/characters/aphelios/skins/base/aphelios_base_guns_tx_cm.png","flower":"assets/characters/aphelios/skins/base/aphelios_base_flower_tx_cm.png"},"k":1.2},"Ashe":{"s":"assets/characters/ashe/skins/base/ashe.skn","t":"assets/characters/ashe/skins/base/ashe_base_2011_tx_cm.png","k":1.1},"AurelionSol":{"s":"assets/characters/aurelionsol/skins/base/aurelionsol.skn","t":"assets/characters/aurelionsol/skins/base/aurelionsol_body_tx_cm.png","h":"AurelionSolFX","k":0.85},"Aurora":{"s":"assets/characters/aurora/skins/base/aurora_base.skn","t":"assets/characters/aurora/skins/base/aurora_base_tx_cm.png","o":{"Weapon":"assets/characters/aurora/skins/base/aurora_base_weapon_tx_cm.png","Base":"assets/characters/aurora/skins/base/aurora_base_tx_cm.png","Hat":"assets/characters/aurora/skins/base/aurora_base_tx_cm.png"},"k":0.95},"Azir":{"s":"assets/characters/azir/skins/base/azir.skn","t":"assets/characters/azir/skins/base/azir_base_tx_cm.png","k":0.8},"Bard":{"s":"assets/characters/bard/skins/base/bard.skn","t":"assets/characters/bard/skins/base/bard_base_tx_cm.png","h":"Follower","o":{"Follower":"assets/characters/bard/skins/base/bardfollower_base_tx_cm.png"},"k":0.9},"Belveth":{"s":"assets/characters/belveth/skins/base/belveth_base.skn","t":"assets/characters/belveth/skins/base/belveth_base_main_tx.png","k":0.95},"Blitzcrank":{"s":"assets/characters/blitzcrank/skins/base/blitzcrank.skn","t":"assets/characters/blitzcrank/skins/base/steamgolem.png","k":1.35},"Brand":{"s":"assets/characters/brand/skins/base/brand.skn","t":"assets/characters/brand/skins/base/brand_base_tx_cm.png","k":1.75},"Braum":{"s":"assets/characters/braum/skins/base/braum_base.skn","t":"assets/characters/braum/skins/base/braum_base_tx_cm.png","h":"Poro","o":{"Poro":"assets/characters/braum/skins/base/braum_base_poro_tx_cm.png"},"k":1.15},"Briar":{"s":"assets/characters/briar/skins/base/briar_base.skn","t":"assets/characters/briar/skins/base/briar_base_tx_cm.png","h":"HeadFrenzy FrenzyDaggers","o":{"ShacklePieces":"assets/characters/briar/skins/base/briar_base_weapon_tx_cm.png","FrenzyDaggers":"assets/characters/briar/skins/base/briar_base_weapon_tx_cm.png","ShackleBlades":"assets/characters/briar/skins/base/briar_base_weapon_tx_cm.png","Crystal":"assets/characters/briar/skins/base/briar_base_weapon_tx_cm.png"},"k":1.15},"Caitlyn":{"s":"assets/characters/caitlyn/skins/base/caitlyn_base.skn","t":"assets/characters/caitlyn/skins/base/caitlyn_base_tx_cm.png","h":"Teacup Flag","o":{"Teacup":"assets/characters/caitlyn/skins/base/caitlyn_base_teacup_tx_cm.png","Flag":"assets/characters/caitlyn/skins/base/caitlyn_base_flag_tx_cm.png"},"k":1.05},"Camille":{"s":"assets/characters/camille/skins/base/camille.skn","t":"assets/characters/camille/skins/base/camille_base_tx_cm.png","k":1.3},"Cassiopeia":{"s":"assets/characters/cassiopeia/skins/base/cassiopeia.skn","t":"assets/characters/cassiopeia/skins/base/cassiopeia_base_tx_cm.png","k":1.7},"Chogath":{"s":"assets/characters/chogath/skins/base/chogath.skn","t":"assets/characters/chogath/skins/base/greenterror.png","k":0.8},"Corki":{"s":"assets/characters/corki/skins/base/corki.skn","t":"assets/characters/corki/skins/base/corki.png","k":0.9},"Darius":{"s":"assets/characters/darius/skins/base/darius.skn","t":"assets/characters/darius/skins/base/darius_base_tx_cm.png","k":1.05},"Diana":{"s":"assets/characters/diana/skins/base/diana.skn","t":"assets/characters/diana/skins/base/diana_base_tx_cm.png","k":1.2},"Draven":{"s":"assets/characters/draven/skins/base/draven.skn","t":"assets/characters/draven/skins/base/draven_base_tx_cm.png","k":1.1},"DrMundo":{"s":"assets/characters/drmundo/skins/base/drmundo_base.skn","t":"assets/characters/drmundo/skins/base/drmundo_base_tx_cm.png","h":"Tongue BodyUlt Clipboard ToeTag L_Capacitor R_Capacitor L_CapacitorUlt R_CapacitorUlt WeaponUlt BagProps","o":{"Weapon":"assets/characters/drmundo/skins/base/drmundo_base_weapon_tx_cm.png","BodyUlt":"assets/characters/drmundo/skins/base/drmundo_base_ult_tx_cm.png","L_Capacitor":"assets/characters/drmundo/skins/base/drmundo_base_weapon_tx_cm.png","R_Capacitor":"assets/characters/drmundo/skins/base/drmundo_base_weapon_tx_cm.png","Clipboard":"assets/characters/drmundo/skins/base/drmundo_base_weapon_tx_cm.png","L_CapacitorUlt":"assets/characters/drmundo/skins/base/drmundo_base_weapon_tx_cm.png","R_CapacitorUlt":"assets/characters/drmundo/skins/base/drmundo_base_weapon_tx_cm.png","WeaponUlt":"assets/characters/drmundo/skins/base/drmundo_base_weapon_tx_cm.png","Bag":"assets/characters/drmundo/skins/base/drmundo_base_weapon_tx_cm.png","BagProps":"assets/characters/drmundo/skins/base/drmundo_base_weapon_tx_cm.png","ToeTag":"assets/characters/drmundo/skins/base/drmundo_base_toetag_tx_cm.png"},"k":0.95},"Ekko":{"s":"assets/characters/ekko/skins/base/ekko.skn","t":"assets/characters/ekko/skins/base/ekko_base_tx_cm.png","o":{"Weapon_BackGlass_Mat":"assets/characters/ekko/skins/base/ekko_glass_tx_cm.png"},"k":1.1},"Elise":{"s":"assets/characters/elise/skins/base/elise.skn","t":"assets/characters/elise/skins/base/elise_base_proxy_tx_cm.png","k":1.25},"Evelynn":{"s":"assets/characters/evelynn/skins/base/evelynn.skn","t":"assets/characters/evelynn/skins/base/evelynn_base_cm_tx3_v03.png","h":"Eve_Mask_MAT","k":0.9},"Ezreal":{"s":"assets/characters/ezreal/skins/base/ezreal_base.skn","t":"assets/characters/ezreal/skins/base/ezreal_base_tx_cm.png","k":1.1},"Fiddlesticks":{"s":"assets/characters/fiddlesticks/skins/base/fiddlesticks_base.skn","t":"assets/characters/fiddlesticks/skins/base/fiddlesticks_base_body_tx_cm.png","h":"L_Demon_Arm Lantern Tongue R_Demon_Arm","o":{"Weapon":"assets/characters/fiddlesticks/skins/base/fiddlesticks_base_weapon_tx_cm.png"}},"Fiora":{"s":"assets/characters/fiora/skins/base/fiora.skn","t":"assets/characters/fiora/skins/base/fiora_base_tx_cm.png","k":1.2},"Fizz":{"s":"assets/characters/fizz/skins/base/fizz.skn","t":"assets/characters/fizz/skins/base/fizz_base_tx_cm.png","k":1.25},"Galio":{"s":"assets/characters/galio/skins/base/galio.skn","t":"assets/characters/galio/skins/base/galio_base_cm_tx.png","h":"GalioWings_VFX","k":1.05},"Gangplank":{"s":"assets/characters/gangplank/skins/base/gangplank.skn","t":"assets/characters/gangplank/skins/base/gangplank_base_tx_cm.png","h":"Crate_Mat","o":{"Crate_Mat":"assets/characters/gangplank/skins/base/gangplank_base_crate_tx_cm.png"},"k":0.95},"Garen":{"s":"assets/characters/garen/skins/base/garen.skn","t":"assets/characters/garen/skins/base/garen_base_tx_cm.png"},"Gnar":{"s":"assets/characters/gnar/skins/base/gnar.skn","t":"assets/characters/gnar/skins/base/gnar_base_tx_cm.png","h":"Gnar_Boomerang","o":{"Gnar_Boomerang":"assets/characters/gnar/skins/base/gnar_base_boomerang_tx_cm.png"},"k":0.9},"Gragas":{"s":"assets/characters/gragas/skins/base/gragas.skn","t":"assets/characters/gragas/skins/base/gragas.png","k":1.25},"Graves":{"s":"assets/characters/graves/skins/base/graves.skn","t":"assets/characters/graves/skins/base/graves.png","k":1.2},"Gwen":{"s":"assets/characters/gwen/skins/base/gwen_base.skn","t":"assets/characters/gwen/skins/base/gwen_base_main_tx_cm.png","h":"Needle Doll","o":{"Scissors":"assets/characters/gwen/skins/base/gwen_base_main_weapon_tx_cm.png","Needle":"assets/characters/gwen/skins/base/gwen_base_main_weapon_tx_cm.png","Scissors_A_Smear":"assets/characters/gwen/skins/base/gwen_base_smears_tx_cm.png","Doll":"assets/characters/gwen/skins/base/gwen_base_main_doll_tx_cm.png","Body":"assets/characters/gwen/skins/base/gwen_base_main_tx_cm.png"}},"Hecarim":{"s":"assets/characters/hecarim/skins/base/hecarim.skn","t":"assets/characters/hecarim/skins/base/hecarim_base_tx_cm.png","k":1.25},"Heimerdinger":{"s":"assets/characters/heimerdinger/skins/base/heimerdinger.skn","t":"assets/characters/heimerdinger/skins/base/heimerdinger_base_tx_cm.png","h":"Heimerdinger_Grab_Hand, Heimerdinger_Antenna","k":0.9},"Hwei":{"s":"assets/characters/hwei/skins/base/hwei_base.skn","t":"assets/characters/hwei/skins/base/hwei_base_tx_cm.png","h":"Smear Brush_Smear","o":{"PaletteA":"assets/characters/hwei/skins/base/hwei_base_weapon_tx_cm.png","Brush":"assets/characters/hwei/skins/base/hwei_base_weapon_tx_cm.png"},"k":1.15},"Illaoi":{"s":"assets/characters/illaoi/skins/base/illaoi.skn","t":"assets/characters/illaoi/skins/base/illaoi_base_tx_cm.png","o":{"Tentacle_Mat":"assets/characters/illaoi/skins/base/illaoi_base_tantacles_tx_cm.png"},"k":1.3},"Irelia":{"s":"assets/characters/irelia/skins/base/irelia_base.skn","t":"assets/characters/irelia/skins/base/irelia_base_tx_cm.png"},"Ivern":{"s":"assets/characters/ivern/skins/base/ivern_base.skn","t":"assets/characters/ivern/skins/base/ivern_base_tx_cm.png","h":"Ivern_Wall_Of_Grass_Mat IvernSquirrel_mat IvernApple_Mat","o":{"Ivern_Wall_Of_Grass_Mat":"assets/characters/ivern/skins/base/ivernwallofgrass.png","IvernSquirrel_mat":"assets/characters/ivern/skins/base/ivernsquirrel_tx_cm.png","IvernApple_Mat":"assets/characters/ivern/skins/base/ivern_apple_diff_tx_cm.png"},"k":1.1},"Janna":{"s":"assets/characters/janna/skins/base/janna.skn","t":"assets/characters/janna/skins/base/janna_base_tx_cm.png","k":1.31},"JarvanIV":{"s":"assets/characters/jarvaniv/skins/base/jarvaniv.skn","t":"assets/characters/jarvaniv/skins/base/jarvaniv_base_tx_cm.png","k":1.16},"Jax":{"s":"assets/characters/jax/skins/base/jax_base.skn","t":"assets/characters/jax/skins/base/jax_base_body_tx_cm.png","h":"Bluefish, Goldfish","o":{"Weapon":"assets/characters/jax/skins/base/jax_base_weapon_tx_cm.png","Bluefish":"assets/characters/jax/skins/base/jax_base_fish_tx_cm.png","Goldfish":"assets/characters/jax/skins/base/jax_base_fish_tx_cm.png"},"k":0.9},"Jayce":{"s":"assets/characters/jayce/skins/base/jayce.skn","t":"assets/characters/jayce/skins/base/jayce_base_melee_tx_cm.png","k":0.95},"Jhin":{"s":"assets/characters/jhin/skins/base/jhin.skn","t":"assets/characters/jhin/skins/base/jhin_base_tx_cm.png","k":1.2},"Jinx":{"s":"assets/characters/jinx/skins/base/jinx.skn","t":"assets/characters/jinx/skins/base/jinx_base_tx_cm.png","k":1.03},"Kaisa":{"s":"assets/characters/kaisa/skins/base/kaisa_base.skn","t":"assets/characters/kaisa/skins/base/kaisa_base_tx_cm.png","h":"Kaisa_Helmet_Mat, Kaisa_Base_Frog_Mat, Kaisa_Pistols_Mat, Kaisa_Q2_Mat, Kaisa_Base_VoidFrog_Mat","o":{"Kaisa_Base_Frog_Mat":"assets/characters/kaisa/skins/base/kaisa_base_frog_tx_cm.png","Kaisa_Membrane_Mat":"assets/characters/kaisa/skins/base/particles/kaisa_base_p_wing_mask.png","Kaisa_Pistols_Mat":"assets/characters/kaisa/skins/base/kaisa_gun_scrollmask.png","Kaisa_Base_VoidFrog_Mat":"assets/characters/kaisa/skins/base/kaisa_base_joke_frogvoid_tx_cm.png"},"k":1.1},"Kalista":{"s":"assets/characters/kalista/skins/base/kalista.skn","t":"assets/characters/kalista/skins/base/kalista_base_tx_cm.png","h":"Altar_Spear","o":{"Altar_Spear":"assets/characters/kalista/skins/base/kalistaaltar_base_tx_cm.png","Spear":"assets/characters/kalista/skins/base/kalista_spearsubmesh_tx_cm.png"},"k":0.77},"Karma":{"s":"assets/characters/karma/skins/base/karma_2012.skn","t":"assets/characters/karma/skins/base/karma_base_2012_cm.png","k":1.2},"Karthus":{"s":"assets/characters/karthus/skins/base/karthus.skn","t":"assets/characters/karthus/skins/base/karthus_base_tx_cm.png","k":0.95},"Kassadin":{"s":"assets/characters/kassadin/skins/base/kassadin.skn","t":"assets/characters/kassadin/skins/base/kassadin_base_tx_cm.png","k":0.8},"Katarina":{"s":"assets/characters/katarina/skins/base/katarina.skn","t":"assets/characters/katarina/skins/base/katarina_base_2012_tx_cm.png","k":1.25},"Kayle":{"s":"assets/characters/kayle/skins/base/kayle.skn","t":"assets/characters/kayle/skins/base/kayle_base_tx_cm.png","h":"level11 wings_mid sword_hilt sword_blade wings_bot","o":{"sword_hilt":"assets/characters/kayle/skins/base/kayle_base_sword_tx_cm.png","sword_blade":"assets/characters/kayle/skins/base/kayle_base_sword_tx_cm.png","wings_up":"assets/characters/kayle/skins/base/kayle_base_wings_tx_cm.png","wings_mid":"assets/characters/kayle/skins/base/kayle_base_wings_tx_cm.png","wings_bot":"assets/characters/kayle/skins/base/kayle_base_wings_tx_cm.png","Kayle_Base_Body_Mat":"assets/characters/kayle/skins/base/kayle_base_tx_cm.png","level1":"assets/characters/kayle/skins/base/kayle_base_tx_cm.png","level11":"assets/characters/kayle/skins/base/kayle_base_tx_cm.png","sword_hilt_combined":"assets/characters/kayle/skins/base/kayle_base_sword_tx_cm.png","sword_blade_combined":"assets/characters/kayle/skins/base/kayle_base_sword_tx_cm.png"},"k":1.175},"Kayn":{"s":"assets/characters/kayn/skins/base/kayn.skn","t":"assets/characters/kayn/skins/base/kayn_base_tx_cm.png","h":"Kayn_Base_Slayer_Mat, Kayn_Base_Assassin_Mat, Kayn_Assassin_Hair_Mat","o":{"Kayn_Base_Slayer_Mat":"assets/characters/kayn/skins/base/kayn_base_slayer_tx_cm.png","Kayn_Base_Assassin_Mat":"assets/characters/kayn/skins/base/kayn_base_assassin_tx_cm.png","Kayn_Assassin_Hair_Mat":"assets/characters/kayn/skins/base/kayn_base_assassin_tx_cm.png"},"k":1.1},"Kennen":{"s":"assets/characters/kennen/skins/base/kennen.skn","t":"assets/characters/kennen/skins/base/kennen.png"},"Khazix":{"s":"assets/characters/khazix/skins/base/khazix_base.skn","t":"assets/characters/khazix/skins/base/khazix_base_cm_tx.png","k":0.95},"Kindred":{"s":"assets/characters/kindred/skins/base/kindred_base.skn","t":"assets/characters/kindred/skins/base/kindred_base_tx_cm.png","k":1.1},"Kled":{"s":"assets/characters/kled/skins/base/kled.skn","t":"assets/characters/kled/skins/base/kledmount_base_tx_cm.png","h":"KledRider_base_fish_cut_mat KledRider_base_fish_mat","o":{"KledRider_base_mat":"assets/characters/kled/skins/base/kledrider_base_tx_cm.png","KledRider_base_fish_mat":"assets/characters/kled/skins/base/kledrider_base_tx_cm.png","KledRider_base_fish_cut_mat":"assets/characters/kled/skins/base/kledrider_base_tx_cm.png"}},"KogMaw":{"s":"assets/characters/kogmaw/skins/base/kogmaw.skn","t":"assets/characters/kogmaw/skins/base/kogmaw_base_tx_cm.png","k":0.7},"KSante":{"s":"assets/characters/ksante/skins/base/ksante_base.skn","t":"assets/characters/ksante/skins/base/ksante_base_tx_cm.png","h":"LWeaponShieldSmearBot RWeaponShieldSmearBot LWeaponShieldSmearTop RWeaponShieldSmearTop","o":{"Weapon":"assets/characters/ksante/skins/base/ksante_base_weapons_tx_cm.png","LWeaponShield":"assets/characters/ksante/skins/base/ksante_base_weapons_tx_cm.png","RWeaponShield":"assets/characters/ksante/skins/base/ksante_base_weapons_tx_cm.png","LWeaponBlade":"assets/shared/materials/white.png","RWeaponBlade":"assets/shared/materials/white.png","LWeaponShieldSmearBot":"assets/shared/materials/white.png","LWeaponShieldSmearTop":"assets/shared/materials/white.png","RWeaponShieldSmearBot":"assets/shared/materials/white.png","RWeaponShieldSmearTop":"assets/shared/materials/white.png"}},"Leblanc":{"s":"assets/characters/leblanc/skins/base/leblanc_base.skn","t":"assets/characters/leblanc/skins/base/leblanc_base_tx_cm.png","o":{"Weapon":"assets/characters/leblanc/skins/base/leblanc_base_weapon_tx_cm.png","Cape":"assets/characters/leblanc/skins/base/leblanc_base_weapon_tx_cm.png"}},"LeeSin":{"s":"assets/characters/leesin/skins/base/leesin_base.skn","t":"assets/characters/leesin/skins/base/leesin_base_tx_cm.png"},"Leona":{"s":"assets/characters/leona/skins/base/leona.skn","t":"assets/characters/leona/skins/base/leona_base_tx_cm.png","k":1.37},"Lillia":{"s":"assets/characters/lillia/skins/base/lillia_base.skn","t":"assets/characters/lillia/skins/base/lillia_base_body_tx_cm.png","h":"Head_Bloom Smear Bird","o":{"Weapon":"assets/characters/lillia/skins/base/lillia_base_weapon_tx_cm.png","Smear":"assets/characters/lillia/skins/base/lillia_base_smear_tx_cm.png","Bird":"assets/characters/lillia/skins/base/lillia_base_bird_tx_cm.png"},"k":1.2},"Lissandra":{"s":"assets/characters/lissandra/skins/base/lissandra.skn","t":"assets/characters/lissandra/skins/base/lissandra_base_tx_cm.png","h":"Lissandra_Q_Spike2","k":1.12},"Locke":{"s":"assets/characters/locke/skins/base/locke_base.skn","t":"assets/characters/locke/skins/base/locke_base_main_tx_cm.png","h":"Nail Weaponsmear VFX_Head VFX_Hair VFX_Smoke","o":{"Weapon":"assets/characters/locke/skins/base/locke_base_weapon_tx_cm.png","VFX_Smoke":"assets/characters/locke/skins/base/locke_base_main_tx_cm.png","Hair":"assets/characters/locke/skins/base/locke_base_hair_tx_cm.png","Body":"assets/characters/locke/skins/base/locke_base_main_tx_cm.png","Nail":"assets/characters/locke/skins/base/locke_base_weapon_tx_cm.png","Case":"assets/characters/locke/skins/base/locke_base_weapon_tx_cm.png","Nailbelt":"assets/characters/locke/skins/base/locke_base_weapon_tx_cm.png","Weaponsmear":"assets/characters/locke/skins/base/locke_base_smear_tx_cm.png","Head":"assets/characters/locke/skins/base/locke_base_main_tx_cm.png","Glasses":"assets/characters/locke/skins/base/locke_base_main_tx_cm.png"}},"Lucian":{"s":"assets/characters/lucian/skins/base/lucian_base.skn","t":"assets/characters/lucian/skins/base/lucian_base_tx_cm.png","k":1.05},"Lulu":{"s":"assets/characters/lulu/skins/base/lulu.skn","t":"assets/characters/lulu/skins/base/lulu_base_tx_cm.png","k":1.1},"Lux":{"s":"assets/characters/lux/skins/base/lux.skn","t":"assets/characters/lux/skins/base/lux_base_cm_tx.png","k":1.5},"Malphite":{"s":"assets/characters/malphite/skins/base/malphite.skn","t":"assets/characters/malphite/skins/base/malphite.png","k":1.75},"Malzahar":{"s":"assets/characters/malzahar/skins/base/malzahar.skn","t":"assets/characters/malzahar/skins/base/malzahar_tx_cm.png","k":1.2},"Maokai":{"s":"assets/characters/maokai/skins/base/maokai.skn","t":"assets/characters/maokai/skins/base/maokai_base_2014_tx_cm.png","k":1.05},"MasterYi":{"s":"assets/characters/masteryi/skins/base/masteryi.skn","t":"assets/characters/masteryi/skins/base/masteryi_2013_tx_cm.png","k":1.5},"Mel":{"s":"assets/characters/mel/skins/base/mel_base.skn","t":"assets/characters/mel/skins/base/mel_base_tx_cm.png","k":0.975},"Milio":{"s":"assets/characters/milio/skins/base/milio_base.skn","t":"assets/characters/milio/skins/base/milio_base_tx_cm.png","h":"BuddyA, BuddyB, BuddyA_Eyes, BuddyB_Eyes","o":{"BuddyA":"assets/characters/milio/skins/base/milio_base_firebuddy_tx_cm.png","BuddyB":"assets/characters/milio/skins/base/milio_base_firebuddy_tx_cm.png","FireBuddy_Mouth":"assets/characters/milio/skins/base/milio_base_firebuddy_mouth_tx_cm.png","FireBuddy_Eye_Left":"assets/characters/milio/skins/base/milio_base_firebuddy_eyes_tx_cm.png","FireBuddy_Eye_Right":"assets/characters/milio/skins/base/milio_base_firebuddy_eyes_tx_cm.png","Backpack":"assets/characters/milio/skins/base/particles/milio_base_backpack_diffuse_rgb_tx.png","BuddyA_Eyes":"assets/characters/milio/skins/base/milio_base_firebuddy_eyes_tx_cm.png","BuddyB_Eyes":"assets/characters/milio/skins/base/milio_base_firebuddy_eyes_tx_cm.png"},"k":1.15},"MissFortune":{"s":"assets/characters/missfortune/skins/base/missfortune.skn","t":"assets/characters/missfortune/skins/base/missfortune_base_tx_cm.png","k":1.2},"MonkeyKing":{"s":"assets/characters/monkeyking/skins/base/monkeyking.skn","t":"assets/characters/monkeyking/skins/base/monkeyking_base_tx_cm_v02.png","k":1.2},"Mordekaiser":{"s":"assets/characters/mordekaiser/skins/base/mordekaiser_base.skn","t":"assets/characters/mordekaiser/skins/base/mordekaiser_base_tx_cm.png","h":"Crown Recall Poro_ShadowIsles_Mat Guitar","o":{"Crown":"assets/characters/mordekaiser/skins/base/mordekaiser_base_crown_tx_cm.png","Mace":"assets/characters/mordekaiser/skins/base/mordekaiser_base_mace_tx_cm.png","Poro_ShadowIsles_Mat":"assets/characters/mordekaiser/skins/base/poro_shadowisles_tx_cm.png","Guitar":"assets/characters/mordekaiser/skins/base/mordekaiser_base_guitar_tx_cm.png"}},"Morgana":{"s":"assets/characters/morgana/skins/base/morgana.skn","t":"assets/characters/morgana/skins/base/morgana_base_tx_cm.png","h":"wings_open flower","o":{"wings_open":"assets/characters/morgana/skins/base/morgana_base_wings_tx_cm.png","wings_closed":"assets/characters/morgana/skins/base/morgana_base_wings_tx_cm.png","wings_mid_open":"assets/characters/morgana/skins/base/morgana_base_wings_tx_cm.png","flower":"assets/characters/morgana/skins/base/morgana_base_flower_tx_cm.png"},"k":1.32},"Naafiri":{"s":"assets/characters/naafiri/skins/base/naafiri_base.skn","t":"assets/characters/naafiri/skins/base/naafiri_base_main_tx_cm.png","h":"Hand","o":{"Hand":"assets/characters/naafiri/skins/base/naafiri_base_prop_tx_cm.png"},"k":1.3},"Nami":{"s":"assets/characters/nami/skins/base/nami.skn","t":"assets/characters/nami/skins/base/nami_base_tx_cm.png","k":1.05},"Nasus":{"s":"assets/characters/nasus/skins/base/nasus.skn","t":"assets/characters/nasus/skins/base/nasus.png","k":1.23},"Nautilus":{"s":"assets/characters/nautilus/skins/base/nautilus.skn","t":"assets/characters/nautilus/skins/base/nautilus_base_tx_cm.png","k":1.1},"Neeko":{"s":"assets/characters/neeko/skins/base/neeko_base.skn","t":"assets/characters/neeko/skins/base/neeko_base_tx_cm.png","h":"Neeko_Base_Butterfly_Mat Neeko_Base_Recall_Tree_Mat","o":{"Neeko_Base_Butterfly_Mat":"assets/characters/neeko/skins/base/neeko_base_butterfly_tx_cm.png","Headquills":"assets/characters/neeko/skins/base/neeko_base_tx_cm.png","Neeko_Base_Recall_Tree_Mat":"assets/characters/neeko/skins/base/neeko_base_recall_tree_tx_cm.png"},"k":1.1},"Nidalee":{"s":"assets/characters/nidalee/skins/base/nidalee2012.skn","t":"assets/characters/nidalee/skins/base/nidalee_base_2012_tx_cm.png","k":1.35},"Nilah":{"s":"assets/characters/nilah/skins/base/nilah_base.skn","t":"assets/characters/nilah/skins/base/nilah_base_tx_cm.png","o":{"Blade":"assets/characters/nilah/skins/base/nilah_base_blade_tx_cm.png","Orb":"assets/characters/nilah/skins/base/nilah_base_orb_tx_cm.png"}},"Nocturne":{"s":"assets/characters/nocturne/skins/base/nocturne.skn","t":"assets/characters/nocturne/skins/base/nocturne_base_tx_cm.png","o":{"riotRig:lambert2":"assets/characters/nocturne/skins/base/nocturne_base_tx_cm.png"},"k":1.2},"Nunu":{"s":"assets/characters/nunu/skins/base/nunu.skn","t":"assets/characters/nunu/skins/base/nunu_base_tx_cm.png","h":"claws_long teeth_big snowman teeth_smile","o":{"willump":"assets/characters/nunu/skins/base/willump_base_tx_cm.png","claws_short":"assets/characters/nunu/skins/base/willump_base_tx_cm.png","teeth_small":"assets/characters/nunu/skins/base/willump_base_tx_cm.png","teeth_big":"assets/characters/nunu/skins/base/willump_base_tx_cm.png","teeth_smile":"assets/characters/nunu/skins/base/willump_base_tx_cm.png","snowman":"assets/characters/nunu/skins/base/nunu_snowman_base_tx_cm.png"},"k":1.42},"Olaf":{"s":"assets/characters/olaf/skins/base/olaf.skn","t":"assets/characters/olaf/skins/base/olaf.png","k":1.2},"Orianna":{"s":"assets/characters/orianna/skins/base/orianna.skn","t":"assets/particles/orianna_base_tx_cm.png","k":1.3},"Ornn":{"s":"assets/characters/ornn/skins/base/ornn.skn","t":"assets/characters/ornn/skins/base/ornn_base_tx_cm.png","h":"Ornn_Base_Sword_Mat Ornn_Base_Bucket_Mat Ornn_Base_Poro_Mat","o":{"Ornn_Base_Sword_Mat":"assets/characters/ornn/skins/base/ornn_base_swordbarrel_tx_cm.png","Ornn_Base_Bucket_Mat":"assets/characters/ornn/skins/base/ornn_base_swordbarrel_tx_cm.png","Ornn_Base_Poro_Mat":"assets/characters/ornn/skins/base/poro_2016_tx_cm.png"},"k":0.95},"Pantheon":{"s":"assets/characters/pantheon/skins/base/pantheon_base.skn","t":"assets/characters/pantheon/skins/base/pantheon_base_tx_cm.png","h":"Head, Comet, Recall Joke","o":{"Comet":"assets/characters/pantheon/skins/base/pantheon_base_comet_tx_cm.png","Shield":"assets/characters/pantheon/skins/base/pantheon_base_tx_cm.png","Cape":"assets/characters/pantheon/skins/base/pantheon_base_cape_tx_cm.png","Spear":"assets/characters/pantheon/skins/base/pantheon_base_tx_cm.png","Head":"assets/characters/pantheon/skins/base/pantheon_base_tx_cm.png","HeadHelmet":"assets/characters/pantheon/skins/base/pantheon_base_tx_cm.png","Recall":"assets/characters/pantheon/skins/base/pantheon_base_recall_tx_cm.png","Joke":"assets/characters/pantheon/skins/base/pantheon_base_bread_tx_cm.png"},"k":0.85},"Poppy":{"s":"assets/characters/poppy/skins/base/poppy.skn","t":"assets/characters/poppy/skins/base/poppy_base_tx_cm.png","k":0.85},"Pyke":{"s":"assets/characters/pyke/skins/base/pyke_base.skn","t":"assets/characters/pyke/skins/base/pyke_base_tx_cm.png","h":"Pyke_Base_Scroll_Mat Pyke_Base_Nensi_Mat Pyke_Base_Weapon_B_Mat","o":{"Pyke_Base_Nensi_Mat":"assets/characters/pyke/skins/base/pyke_base_nensi_tx_cm.png","Pyke_Base_Scroll_Mat":"assets/characters/pyke/skins/base/pyke_base_scroll_tx_cm.png"}},"Qiyana":{"s":"assets/characters/qiyana/skins/base/qiyana.skn","t":"assets/characters/qiyana/skins/base/qiyana_base_tx_cm.png","h":"weapon_grass, weapon_rock, weapon_water","o":{"weapon_default":"assets/characters/qiyana/skins/base/qiyana_base_weapon_tx_cm.png","weapon_grass":"assets/characters/qiyana/skins/base/qiyana_base_weapon_tx_cm.png","weapon_rock":"assets/characters/qiyana/skins/base/qiyana_base_weapon_tx_cm.png","weapon_water":"assets/characters/qiyana/skins/base/qiyana_base_weapon_tx_cm.png"}},"Quinn":{"s":"assets/characters/quinn/skins/base/quinn_base.skn","t":"assets/characters/quinn/skins/base/quinn_base_tx_cm.png","k":1.3},"Rakan":{"s":"assets/characters/rakan/skins/base/rakan_base.skn","t":"assets/characters/rakan/skins/base/rakan_base_tx_cm.png","h":"Rakan_Base_Rose_Mat","k":1.28},"Rammus":{"s":"assets/characters/rammus/skins/base/rammus.skn","t":"assets/characters/rammus/skins/base/armordillo.png","k":1.6},"RekSai":{"s":"assets/characters/reksai/skins/base/reksai.skn","t":"assets/characters/reksai/skins/base/reksai_base_tx_cm.png","k":0.9},"Rell":{"s":"assets/characters/rell/skins/base/rell_base.skn","t":"assets/characters/rell/skins/base/rell_base_tx_cm.png","h":"LanceMetal Armor_Shoulder Armor_Leg Armor_Leg_Mid Armor_Leg_Lower Armor_Gauntlet Armor_Foot Armor_Chest JokeHorsie JokeHorsie_Stand","o":{"Lance":"assets/characters/rell/skins/base/rell_lance_tx_cm.png","Horse_Tail":"assets/characters/rell/skins/base/rell_base_horse_tx_cm.png","LanceMetal":"assets/characters/rell/skins/base/rell_lance_tx_cm.png","Horse_BackLegs":"assets/characters/rell/skins/base/rell_base_horse_tx_cm.png","Horse_Head":"assets/characters/rell/skins/base/rell_base_horse_tx_cm.png","Horse_Midsection":"assets/characters/rell/skins/base/rell_base_horse_tx_cm.png","Horse_FrontLegs":"assets/characters/rell/skins/base/rell_base_horse_tx_cm.png","Horse_Rear":"assets/characters/rell/skins/base/rell_base_horse_tx_cm.png","Horse_Saddle":"assets/characters/rell/skins/base/rell_base_horse_tx_cm.png","JokeHorsie":"assets/characters/rell/skins/base/rell_base_horse_tx_cm.png","JokeHorsie_Stand":"assets/characters/rell/skins/base/rell_base_horsiestand_tx_cm.png"},"k":1.045},"Renata":{"s":"assets/characters/renata/skins/base/renata_base.skn","t":"assets/characters/renata/skins/base/renata_base_body_tx_cm.png","h":"Wing, Q_Arm, Pocket, Recall_Jacket, Q_Arm_Tubes, Potion","o":{"Weapon":"assets/characters/renata/skins/base/renata_base_weapon_tx_cm.png","Wing":"assets/characters/renata/skins/base/renata_base_weapon_tx_cm.png","Wing_Folded":"assets/characters/renata/skins/base/renata_base_weapon_tx_cm.png","Canisters":"assets/characters/renata/skins/base/renata_base_weapon_tx_cm.png"}},"Renekton":{"s":"assets/characters/renekton/skins/base/renekton.skn","t":"assets/characters/renekton/skins/base/renekton_base_tx_cm.png","k":1.61},"Rengar":{"s":"assets/characters/rengar/skins/base/rengar_base.skn","t":"assets/characters/rengar/skins/base/rengar_base_tx_cm.png","k":0.9},"Riven":{"s":"assets/characters/riven/skins/base/riven.skn","t":"assets/characters/riven/skins/base/riven_base_tx_cm.png","k":1.5},"Rumble":{"s":"assets/characters/rumble/skins/base/rumble.skn","t":"assets/characters/rumble/skins/base/rumble_base_tx_cm.png","k":1.85},"Ryze":{"s":"assets/characters/ryze/skins/base/ryze.skn","t":"assets/characters/ryze/skins/base/ryze.png","h":"Ryze_VFX","k":0.92},"Samira":{"s":"assets/characters/samira/skins/base/samira_base.skn","t":"assets/characters/samira/skins/base/samira_base_tx_cm.png","h":"Pistol_Blur, Revolver_Blur, Coin","o":{"Pistol":"assets/characters/samira/skins/base/samira_base_weapons_tx_cm.png","Revolver":"assets/characters/samira/skins/base/samira_base_weapons_tx_cm.png","Sword":"assets/characters/samira/skins/base/samira_base_weapons_tx_cm.png","Pistol_Blur":"assets/characters/samira/skins/base/samira_base_weapons_tx_cm.png","Revolver_Blur":"assets/characters/samira/skins/base/samira_base_weapons_tx_cm.png"}},"Sejuani":{"s":"assets/characters/sejuani/skins/base/sejuani.skn","t":"assets/characters/sejuani/skins/base/sejuani_base_tx_cm.png"},"Senna":{"s":"assets/characters/senna/skins/base/senna_base.skn","t":"assets/characters/senna/skins/base/senna_base_body_tx_cm.png","h":"LittleLegendA VFX_Arm VFX_Body  Cloak Gun_AfterImage","o":{"Gun_Handle":"assets/characters/senna/skins/base/senna_base_gun_tx_cm.png","Gun_Barrel_White":"assets/characters/senna/skins/base/senna_base_gun_tx_cm.png","Gun_Barrel_Black":"assets/characters/senna/skins/base/senna_base_gun_tx_cm.png","LittleLegendA":"assets/characters/senna/skins/base/senna_base_penguknight_tx_cm.png","Cloak":"assets/characters/senna/skins/base/particles/senna_base_idle_cape_b.png","Gun_AfterImage":"assets/characters/senna/skins/base/senna_base_gun_tx_cm.png"}},"Seraphine":{"s":"assets/characters/seraphine/skins/base/seraphine_base.skn","t":"assets/characters/seraphine/skins/base/seraphine_base_body_tx_cm.png","h":"UltSpeaker Mic Plane Bar","o":{"Hair":"assets/characters/seraphine/skins/base/seraphine_base_hair_tx_cm.png","UltSpeaker":"assets/characters/seraphine/skins/base/seraphine_base_ultspeaker_tx_cm.png","Plane":"assets/characters/seraphine/skins/base/seraphine_base_hair_tx_cm.png","Bar":"assets/characters/seraphine/skins/base/seraphine_base_hair_tx_cm.png"},"k":1.1},"Sett":{"s":"assets/characters/sett/skins/base/sett.skn","t":"assets/characters/sett/skins/base/sett_base_tx_cm.png","h":"Wolverine Joke","o":{"Wolverine":"assets/characters/sett/skins/base/sett_base_wolverine_tx_cm.png","Joke":"assets/characters/sett/skins/base/sett_base_mom_tx_cm.png"},"k":1.25},"Shaco":{"s":"assets/characters/shaco/skins/base/shaco.skn","t":"assets/characters/shaco/skins/base/jester.png","k":1.85},"Shen":{"s":"assets/characters/shen/skins/base/shen.skn","t":"assets/characters/shen/skins/base/shen_base_tx_cm.png","k":1.1},"Shyvana":{"s":"assets/characters/shyvana/skins/base/shyvana_base.skn","t":"assets/characters/shyvana/skins/base/shyvana_base_tx_cm.png"},"Singed":{"s":"assets/characters/singed/skins/base/singed.skn","t":"assets/characters/singed/skins/base/singed_tx_cm.png","k":1.5},"Sion":{"s":"assets/characters/sion/skins/base/sion.skn","t":"assets/characters/sion/skins/base/sion_base_tx_cm.png"},"Sivir":{"s":"assets/characters/sivir/skins/base/sivir.skn","t":"assets/characters/sivir/skins/base/sivir.png","k":0.9},"Skarner":{"s":"assets/characters/skarner/skins/base/skarner_rework_base.skn","t":"assets/characters/skarner/skins/base/skarner_rework_base_tx_cm.png","h":"Stone","o":{"Stone":"assets/characters/skarner/skins/base/skarner_rework_base_props_tx_cm.png","Claws":"assets/characters/skarner/skins/base/skarner_rework_base_tx_cm.png"},"k":0.9},"Smolder":{"s":"assets/characters/smolder/skins/base/smolder_base.skn","t":"assets/characters/smolder/skins/base/smolder_base_tx_cm.png","h":"VFX_Meshes"},"Sona":{"s":"assets/characters/sona/skins/base/sona.skn","t":"assets/characters/sona/skins/base/sona_base_tx_cm.png","k":1.3},"Soraka":{"s":"assets/characters/soraka/skins/base/soraka.skn","t":"assets/characters/soraka/skins/base/soraka_base_tx_cm.png","k":1.22},"Swain":{"s":"assets/characters/swain/skins/base/swain.skn","t":"assets/characters/swain/skins/base/swain_base_tx_cm.png","h":"cane","o":{"cane":"assets/characters/swain/skins/base/swain_base_cane_tx_cm.png"},"k":0.925},"Sylas":{"s":"assets/characters/sylas/skins/base/sylas_base.skn","t":"assets/characters/sylas/skins/base/sylas_base_tx_cm.png","h":"Sylas_Base_ChainLock_Mat","o":{"chain_left":"assets/characters/sylas/skins/base/sylas_base_shackles_tx_cm.png","chain_right":"assets/characters/sylas/skins/base/sylas_base_shackles_tx_cm.png","gauntlet_left":"assets/characters/sylas/skins/base/sylas_base_shackles_tx_cm.png","gauntlet_right":"assets/characters/sylas/skins/base/sylas_base_shackles_tx_cm.png","Sylas_Base_ChainLock_Mat":"assets/characters/sylas/skins/base/sylas_base_chain_lock_tx_cm.png"},"k":1.1},"Syndra":{"s":"assets/characters/syndra/skins/base/syndra.skn","t":"assets/characters/syndra/skins/base/syndra_base_tx_cm.png","k":1.25},"TahmKench":{"s":"assets/characters/tahmkench/skins/base/tahmkench_base.skn","t":"assets/characters/tahmkench/skins/base/tahmkench_base_tx_cm.png","k":0.89},"Taliyah":{"s":"assets/characters/taliyah/skins/base/taliyah_base.skn","t":"assets/characters/taliyah/skins/base/taliyah_base_tx_cm.png","h":"TauntRock SurfRock RecallRock","o":{"SurfRock":"assets/characters/taliyah/skins/base/particles/taliyah_base_recallpassivetaunt_tx_cm.png","TauntRock":"assets/characters/taliyah/skins/base/particles/taliyah_base_recallpassivetaunt_tx_cm.png","RecallRock":"assets/characters/taliyah/skins/base/particles/taliyah_base_recallpassivetaunt_tx_cm.png"},"k":1.3},"Talon":{"s":"assets/characters/talon/skins/base/talon.skn","t":"assets/characters/talon/skins/base/talon_base_tx_cm.png","k":1.2},"Taric":{"s":"assets/characters/taric/skins/base/taric.skn","t":"assets/characters/taric/skins/base/taric_base_tx_cm.png","k":0.95},"Teemo":{"s":"assets/characters/teemo/skins/base/teemo_base.skn","t":"assets/characters/teemo/skins/base/teemo_base_tx_cm.png","h":"Mushroom Harmonica","o":{"Mushroom":"assets/characters/teemo/skins/base/teemo_base_mushroom_tx_cm.png","Harmonica":"assets/characters/teemo/skins/base/teemo_base_harmonica_tx_cm.png"}},"Thresh":{"s":"assets/characters/thresh/skins/base/thresh.skn","t":"assets/characters/thresh/skins/base/thresh_base_tx_cm.png","k":0.95},"Tristana":{"s":"assets/characters/tristana/skins/base/tristana.skn","t":"assets/characters/tristana/skins/base/tristana_tx_cm.png","k":0.95},"Trundle":{"s":"assets/characters/trundle/skins/base/trundle.skn","t":"assets/characters/trundle/skins/base/trundle_base_tx_cm.png"},"Tryndamere":{"s":"assets/characters/tryndamere/skins/base/tryndamere.skn","t":"assets/characters/tryndamere/skins/base/tryndamere_base2011_tx_cm.png","k":2.0},"TwistedFate":{"s":"assets/characters/twistedfate/skins/base/twistedfate2012.skn","t":"assets/characters/twistedfate/skins/base/twistedfate_base_2012_cm.png","k":0.95},"Twitch":{"s":"assets/characters/twitch/skins/base/twitch.skn","t":"assets/characters/twitch/skins/base/twitch_base_tx_cm.png","h":"Twitch_Cheese_Mat","o":{"Twitch_cheese_Mat":"assets/characters/twitch/skins/base/twitch_cheese_tx_cm.png"}},"Udyr":{"s":"assets/characters/udyr/skins/base/udyr_base.skn","t":"assets/characters/udyr/skins/base/udyr_base_main_tx_cm.png","h":"HairUp BearArms PhoenixArms RamArms RamHorns BoarArms"},"Urgot":{"s":"assets/characters/urgot/skins/base/urgot_base.skn","t":"assets/characters/urgot/skins/base/urgot_base.png","k":0.9},"Varus":{"s":"assets/characters/varus/skins/base/varus.skn","t":"assets/characters/varus/skins/base/varus_base_tx_cm.png","o":{"Weapon":"assets/characters/varus/skins/base/varus_base_tx_cm.png"},"k":1.55},"Vayne":{"s":"assets/characters/vayne/skins/base/vayne.skn","t":"assets/characters/vayne/skins/base/vayne_base_tx_cm.png","k":1.12},"Veigar":{"s":"assets/characters/veigar/skins/base/veigar.skn","t":"assets/characters/veigar/skins/base/veigar_turnaround_b.png","k":1.85},"Velkoz":{"s":"assets/characters/velkoz/skins/base/velkoz_base.skn","t":"assets/characters/velkoz/skins/base/velkoz_base.png","k":0.7},"Vex":{"s":"assets/characters/vex/skins/base/vex_base.skn","t":"assets/characters/vex/skins/base/vex_main_tx_cm.png","h":" Shadow EyeCross EyeClose EyeOpen EyeWink Ult EyeDefault EyeLaugh","o":{"Shadow":"assets/characters/vex/skins/base/vex_main_tx_cm.png","EyeDefault":"assets/characters/vex/skins/base/vex_base_shadoweyes_tx.png","EyeOpen":"assets/characters/vex/skins/base/vex_base_shadoweyes_tx.png","EyeCross":"assets/characters/vex/skins/base/vex_base_shadoweyes_tx.png","EyeClose":"assets/characters/vex/skins/base/vex_base_shadoweyes_tx.png","EyeWink":"assets/characters/vex/skins/base/vex_base_shadoweyes_tx.png","Ult":"assets/characters/vex/skins/base/particles/vex_base_r_shadow.png","Body":"assets/characters/vex/skins/base/vex_base_eyemask.png","EyeLaugh":"assets/characters/vex/skins/base/vex_base_shadoweyes_tx.png"}},"Vi":{"s":"assets/characters/vi/skins/base/vi_base.skn","t":"assets/characters/vi/skins/base/vi_tx_cm.png","h":"Teacup","k":1.07},"Viego":{"s":"assets/characters/viego/skins/base/viego_base.skn","t":"assets/characters/viego/skins/base/viego_base_body_tx_cm.png","h":"Wraith","o":{"Sword":"assets/characters/viego/skins/base/viego_base_crown_sword_tx_cm.png","Wraith":"assets/characters/viego/skins/base/viego_base_wraith_tx_cm.png","Crown":"assets/characters/viego/skins/base/viego_base_crown_sword_tx_cm.png","Body":"assets/characters/viego/skins/base/viego_base_body_tx_cm.png","Default":"assets/characters/viego/skins/base/viego_base_body_tx_cm.png"}},"Viktor":{"s":"assets/characters/viktor/skins/base/viktor_base.skn","t":"assets/characters/viktor/skins/base/viktor_base_tx_cm.png","o":{"Weapon":"assets/characters/viktor/skins/base/viktor_base_weapon_tx_cm.png"},"k":1.1},"Vladimir":{"s":"assets/characters/vladimir/skins/base/vladimir.skn","t":"assets/characters/vladimir/skins/base/vladimir_base_tx_cm.png","k":1.15},"Volibear":{"s":"assets/characters/volibear/skins/base/volibear_base.skn","t":"assets/characters/volibear/skins/base/volibear_base_tx_cm.png","h":"mane, ice_back,ice_arms,ice_arms_float, Poro","o":{"ice_back":"assets/characters/volibear/skins/base/volibear_base_ice_tx_cm.png","ice_legs":"assets/characters/volibear/skins/base/volibear_base_ice_tx_cm.png","ice_arms":"assets/characters/volibear/skins/base/volibear_base_ice_tx_cm.png","ice_arms_float":"assets/characters/volibear/skins/base/volibear_base_ice_tx_cm.png","Poro":"assets/characters/volibear/skins/base/volibear_base_poro_tx_cm.png"},"k":1.03},"Warwick":{"s":"assets/characters/warwick/skins/base/warwick.skn","t":"assets/characters/warwick/skins/base/warwick_base_cm_tx.png","k":0.75},"Xayah":{"s":"assets/characters/xayah/skins/base/xayah_base.skn","t":"assets/characters/xayah/skins/base/xayah_base_tx_cm.png","h":"Arrow","o":{"Xayah_Base_Wing_Mat":"assets/characters/xayah/skins/base/xayah_base_wing_tx_cm.png"},"k":1.36},"Xerath":{"s":"assets/characters/xerath/skins/base/xerath.skn","t":"assets/characters/xerath/skins/base/xerath_base_tx_cm.png","k":1.7},"XinZhao":{"s":"assets/characters/xinzhao/skins/base/xinzhaorework_base.skn","t":"assets/characters/xinzhao/skins/base/xinzhaorework_base_tx_cm.png","o":{"Weapon":"assets/characters/xinzhao/skins/base/xinzhaorework_base_weapon_tx_cm.png","Hair":"assets/characters/xinzhao/skins/base/xinzhaorework_base_weapon_tx_cm.png"}},"Yasuo":{"s":"assets/characters/yasuo/skins/base/yasuo.skn","t":"assets/characters/yasuo/skins/base/yasuo_base_tx_cm.png","h":"Yasuo_Instrument_Mat, Weapon_Trail","o":{"Weapon_Trail":"assets/characters/yasuo/skins/base/yasuo_weapon_trail_tx_cm.png"},"k":0.93},"Yone":{"s":"assets/characters/yone/skins/base/yone_base.skn","t":"assets/characters/yone/skins/base/yone_base_tx_cm.png","h":"Bow_Smear Fish Sushi Instrument Azakana","o":{"GhostKatana_Smear":"assets/characters/yone/skins/base/streak_red_tx_cm.png","Katana_Smear":"assets/characters/yone/skins/base/streak_white_tx_cm.png","Katana":"assets/characters/yone/skins/base/yone_base_swords_tx_cm.png","GhostKatana":"assets/characters/yone/skins/base/yone_base_swords_tx_cm.png","Bow_Smear":"assets/characters/yone/skins/base/streak_white_tx_cm.png","Fish":"assets/characters/yone/skins/base/yone_base_props_tx_cm.png","Instrument":"assets/characters/yone/skins/base/yone_base_props_tx_cm.png","Sushi":"assets/characters/yone/skins/base/yone_base_props_tx_cm.png","Azakana":"assets/characters/yone/skins/base/yone_base_recall_tx_cm.png","Sheath":"assets/characters/yone/skins/base/yone_base_swords_tx_cm.png"},"k":0.93},"Yorick":{"s":"assets/characters/yorick/skins/base/yorick.skn","t":"assets/characters/yorick/skins/base/yorick1_base_cm_tx.png","h":"Yorick_Cape","o":{"Yorick_Cape":"assets/characters/yorick/skins/base/particles/yorick_base_cape_testtex.png"},"k":1.08},"Yunara":{"s":"assets/characters/yunara/skins/base/yunara_base.skn","t":"assets/characters/yunara/skins/base/yunara_base_tx_cm.png","h":"Tail Dragon_Head Bead_8 Bead_7 Bead_6","o":{"Tail":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png","Bead_1":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png","Bead_2":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png","Bead_3":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png","Bead_4":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png","Bead_5":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png","Bead_6":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png","Bead_7":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png","Bead_8":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png","Dragon_Head":"assets/characters/yunara/skins/base/yunara_base_weapon_tx_cm.png"},"k":1.1},"Yuumi":{"s":"assets/characters/yuumi/skins/base/yuumi_base.skn","t":"assets/characters/yuumi/skins/base/yuumi_base_parts_tx_cm.png","h":"Eye_Dilated Props Yuumi_Base_Fish_Mat Spiky_Body","o":{"Body":"assets/characters/yuumi/skins/base/yuumi_base_tx_tintcolor_cm.png","Book_Page":"assets/characters/yuumi/skins/base/yuumi_book_tx_tintcolor_cm.png","Eye_Dilated":"assets/characters/yuumi/skins/base/yuumi_base_parts_tx_cm.png","Book_Cover":"assets/characters/yuumi/skins/base/yuumi_book_tx_tintcolor_cm.png","Props":"assets/characters/yuumi/skins/base/yuumi_base_joke_tx_cm.png","Spiky_Body":"assets/characters/yuumi/skins/base/yuumi_base_spikyfur_tx_cm.png"}},"Zaahen":{"s":"assets/characters/zaahen/skins/base/zaahen_base.skn","t":"assets/characters/zaahen/skins/base/zaahen_base_tx_cm.png","h":"Weapon_Smear","o":{"Weapon_Smear":"assets/characters/zaahen/skins/base/zaahen_base_smear_tx_cm.png","Weapon":"assets/characters/zaahen/skins/base/zaahen_base_weapon_tx_cm.png","Body":"assets/characters/zaahen/skins/base/zaahen_base_tx_cm.png","Wings":"assets/characters/zaahen/skins/base/zaahen_base_weapon_tx_cm.png"},"k":0.95},"Zac":{"s":"assets/characters/zac/skins/base/zac_base.skn","t":"assets/characters/zac/skins/base/zac_base_tx_cm.png","h":"Ult Puddle Tail","o":{"Puddle":"assets/characters/zac/skins/base/zac_base_puddle_tx_cm.png","Ult":"assets/characters/zac/skins/base/zac_base_ult_tx_cm.png"},"k":0.95},"Zed":{"s":"assets/characters/zed/skins/base/zed.skn","t":"assets/characters/zed/skins/base/zed_base_tx_cm.png","k":1.07},"Zeri":{"s":"assets/characters/zeri/skins/base/zeri_base.skn","t":"assets/characters/zeri/skins/base/zeri_base_tx_cm.png","h":"HairSpike","o":{"Gun":"assets/characters/zeri/skins/base/zeri_gun_tx_cm.png","HairSpike":"assets/characters/zeri/skins/base/zeri_spikedhair_tx_cm.png"},"k":1.1},"Ziggs":{"s":"assets/characters/ziggs/skins/base/ziggs.skn","t":"assets/characters/ziggs/skins/base/ziggs_base_tx_cm.png"},"Zilean":{"s":"assets/characters/zilean/skins/base/zilean.skn","t":"assets/characters/zilean/skins/base/chronokeeper.png","k":1.5},"Zoe":{"s":"assets/characters/zoe/skins/base/zoe_base.skn","t":"assets/characters/zoe/skins/base/zoe_base_tx_cm.png","h":"Zoe_Base_Yoyo_Mat Zoe_Base_Headphones_Mat Zoe_Base_Jumprope_Mat Zoe_Base_TennisRac_Mat Zoe_Base_IceCream_Mat","o":{"Zoe_Base_Hair_Mat":"assets/characters/zoe/skins/base/zoe_base_hair_tx_cm.png"}},"Zyra":{"s":"assets/characters/zyra/skins/base/zyra.skn","t":"assets/characters/zyra/zyra_base_tx_cm.png","k":1.3},"SRU_ChaosMinionMelee":{"s":"assets/characters/sru_chaosminionmelee/skins/base/chaos_minion_melee.skn","t":"assets/characters/sru_chaosminionmelee/skins/base/chaosminion_melee_tx_cm.png","k":0.74},"SRU_ChaosMinionRanged":{"s":"assets/characters/sru_chaosminionranged/skins/base/chaos_minion_caster.skn","t":"assets/characters/sru_chaosminionranged/skins/base/red_caster_tx_cm.png","k":0.87},"SRU_ChaosMinionSiege":{"s":"assets/characters/sru_chaosminionsiege/skins/base/chaos_minion_siege.skn","t":"assets/characters/sru_chaosminionsiege/skins/base/chaos_minion_siege_tx_cm.png","k":0.925},"SRU_ChaosMinionSuper":{"s":"assets/characters/sru_chaosminionsuper/skins/base/red_minion_superminion.skn","t":"assets/characters/sru_chaosminionsuper/skins/base/red_superminion_tx_cm.png","k":1.05},"SRU_OrderMinionMelee":{"s":"assets/characters/sru_orderminionmelee/skins/base/order_minion_melee.skn","t":"assets/characters/sru_orderminionmelee/skins/base/orderminion_melee_tx_cm.png","k":0.7},"SRU_OrderMinionRanged":{"s":"assets/characters/sru_orderminionranged/skins/base/order_minion_caster.skn","t":"assets/characters/sru_orderminionranged/skins/base/orderminion_caster_tx_cm.png","k":0.76},"SRU_OrderMinionSiege":{"s":"assets/characters/sru_orderminionsiege/skins/base/order_minion_siege.skn","t":"assets/characters/sru_orderminionsiege/skins/base/order_minion_siege_tx_cm.png","k":0.925},"SRU_OrderMinionSuper":{"s":"assets/characters/sru_orderminionsuper/skins/base/blue_minion_superminion.skn","t":"assets/characters/sru_orderminionsuper/skins/base/blue_superminion_tx_cm.png","k":1.05},"SRU_Baron":{"s":"assets/characters/sru_baron/skins/base/sru_baron_base.skn","t":"assets/characters/sru_baron/skins/base/baron_base_tx_cm.png","h":"Horn Eye","k":0.9},"SRU_RiftHerald":{"s":"assets/characters/sru_riftherald/skins/base/sru_riftherald_base.skn","t":"assets/characters/sru_riftherald/skins/base/sru_riftherald_base_main_tx_cm.png","k":0.8},"SRU_Horde":{"s":"assets/characters/sru_horde/skins/base/sru_horde.skn","t":"assets/characters/sru_horde/skins/base/sru_horde_base_tx_cm.png"},"HA_ChaosMinionMelee":{"s":"assets/characters/ha_chaosminionmelee/skins/base/chaos_minion_melee.skn","t":"assets/characters/ha_chaosminionmelee/skins/base/chaosminion_melee_tx_cm.png","k":0.74},"HA_ChaosMinionRanged":{"s":"assets/characters/ha_chaosminionranged/skins/base/chaos_minion_caster.skn","t":"assets/characters/ha_chaosminionranged/skins/base/red_caster_tx_cm.png","k":0.87},"HA_ChaosMinionSiege":{"s":"assets/characters/ha_chaosminionsiege/skins/base/chaos_minion_siege.skn","t":"assets/characters/ha_chaosminionsiege/skins/base/chaos_minion_siege_tx_cm.png","k":0.925},"HA_ChaosMinionSuper":{"s":"assets/characters/ha_chaosminionsuper/skins/base/red_minion_superminion.skn","t":"assets/characters/ha_chaosminionsuper/skins/base/red_superminion_tx_cm.png","k":1.05}};
+const RAW3D='https://raw.communitydragon.org/latest/game/';
+const PITCH=56*Math.PI/180, KY=Math.sin(PITCH), KH=Math.cos(PITCH);
+/* sols officiels : une mosaïque de pièces rondes prises dans les textures du jeu,
+   posées au hasard et fondues entre elles, qui se raccorde sur ses bords :
+   aucune symétrie visible. src : zones [x,y,l,h,poids] à piocher. */
+const GROUND3D={
+  faille:{t:'assets/maps/kitpieces/srx/textures/terrain_botlane_ground_c.png', c:0xffffff, base:'#3f5a2e',
+    src:[[60,1080,700,520,5],[700,600,420,320,3],[120,120,560,420,2],[300,560,360,300,2]]},
+  jungle:{t:'assets/maps/kitpieces/srx/textures/jungle_north_bluecamp_ground_a.png', c:0xffffff, base:'#24412e',
+    src:[[820,560,880,330,4],[20,960,640,520,4],[900,700,300,300,2]]},
+  abime :{t:'assets/maps/kitpieces/howling_abyss/textures/structure_lane_ground.png', c:0xffffff, base:'#5d708a',
+    src:[[480,620,500,370,5],[540,90,440,290,4],[20,620,250,330,3],[0,0,1000,110,2]]},
+  iles  :{t:'assets/maps/kitpieces/srx/textures/jungle_north_bluecamp_ground_a.png', c:0x5fa898, base:'#1d3a34',
+    src:[[820,560,880,330,4],[20,960,640,520,4],[900,700,300,300,2]]}
+};
+function groundMosaic(im,gd){
+  const N=2048, cv=document.createElement('canvas'); cv.width=cv.height=N; const g=cv.getContext('2d');
+  g.fillStyle=gd.base; g.fillRect(0,0,N,N);
+  const pool=gd.src.map(s=>({s,w:s[4]})), patch=document.createElement('canvas'), pg=patch.getContext('2d');
+  let seed=7; const rr=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  for(let i=0;i<140;i++){
+    const s=(()=>{ let t=0; for(const o of pool) t+=o.w; let r=rr()*t; for(const o of pool){ r-=o.w; if(r<=0) return o.s; } return pool[0].s; })();
+    const size=Math.round(220+rr()*260), sw=Math.min(size,s[2]), sh=Math.min(size,s[3]);
+    const sx=s[0]+rr()*(s[2]-sw), sy=s[1]+rr()*(s[3]-sh);
+    patch.width=patch.height=size; pg.globalCompositeOperation='source-over'; pg.clearRect(0,0,size,size);
+    pg.drawImage(im,sx,sy,sw,sh,0,0,size,size);
+    const m=pg.createRadialGradient(size/2,size/2,size*.18,size/2,size/2,size/2);
+    m.addColorStop(0,'rgba(0,0,0,1)'); m.addColorStop(1,'rgba(0,0,0,0)');
+    pg.globalCompositeOperation='destination-in'; pg.fillStyle=m; pg.fillRect(0,0,size,size);
+    const x=rr()*N, y=rr()*N, a=rr()*Math.PI*2;
+    for(const ox of [-N,0,N]) for(const oy of [-N,0,N]){
+      if(x+ox<-size||x+ox>N+size||y+oy<-size||y+oy>N+size) continue;
+      g.save(); g.translate(x+ox,y+oy); g.rotate(a); g.drawImage(patch,-size/2,-size/2); g.restore(); }
+  }
+  return cv;
+}
+const UNIT_H={melee:27, caster:26, siege:27, super:38, void:26, herald:66, baron:120};
+const TINT3D={rouge:[1,1,1], noxus:[.82,.72,1.08], givre:[1,1,1], ombre:[.55,1.05,.95]};
+
+function parseSKN(buf){
+  const v=new DataView(buf); let o=0;
+  const u32=()=>{const r=v.getUint32(o,true);o+=4;return r}, u16=()=>{const r=v.getUint16(o,true);o+=2;return r};
+  if(u32()!==0x00112233) throw new Error('skn');
+  const major=u16(); u16(); const subs=[];
+  if(major>0){ const n=u32(); for(let i=0;i<n;i++){ let name=''; for(let k=0;k<64;k++){ const c=v.getUint8(o+k); if(!c) break; name+=String.fromCharCode(c); } o+=64;
+    subs.push({name,sv:u32(),vc:u32(),si:u32(),ic:u32()}); } }
+  if(major===4) u32();
+  const ic=u32(), vc=u32(); let vs=52;
+  if(major===4){ vs=u32(); u32(); o+=40; }
+  const idx=new Uint16Array(buf.slice(o,o+ic*2)); o+=ic*2;
+  const pos=new Float32Array(vc*3), uv=new Float32Array(vc*2);
+  for(let i=0;i<vc;i++){ const b=o+i*vs; pos[i*3]=v.getFloat32(b,true); pos[i*3+1]=v.getFloat32(b+4,true); pos[i*3+2]=v.getFloat32(b+8,true);
+    uv[i*2]=v.getFloat32(b+44,true); uv[i*2+1]=v.getFloat32(b+48,true); }
+  if(!subs.length) subs.push({name:'all',sv:0,vc,si:0,ic});
+  return {subs,idx,pos,uv};
+}
+
+const R3={on:false, models:{}, loading:{}, tex:{}, inst:{}, giants:new Map(), player:null, playerKey:null, face:0,
+  init(){
+    if(!window.THREE||!SAVE.opt.d3) return;
+    try{
+      const c=document.getElementById('gl');
+      this.ren=new THREE.WebGLRenderer({canvas:c,antialias:false,powerPreference:'high-performance'});
+      this.ren.outputEncoding=THREE.sRGBEncoding;
+      this.ren.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
+      this.scene=new THREE.Scene(); this.scene.background=new THREE.Color('#0b1a12');
+      this.cam=new THREE.OrthographicCamera(-1,1,1,-1,1,6000);
+      this.size();
+      /* sol : texture officielle répétée en miroir, sans couture */
+      this.groundTex=null;
+      this.ground=new THREE.Mesh(new THREE.PlaneGeometry(4400,4400),new THREE.MeshBasicMaterial({color:0x2c4a2c}));
+      this.ground.rotation.x=-Math.PI/2; this.scene.add(this.ground);
+      /* ombres et anneaux d'évolution, instanciés */
+      const sh=document.createElement('canvas'); sh.width=sh.height=64; const g=sh.getContext('2d'), gr=g.createRadialGradient(32,32,0,32,32,32);
+      gr.addColorStop(0,'rgba(0,0,0,.55)'); gr.addColorStop(.6,'rgba(0,0,0,.3)'); gr.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=gr; g.fillRect(0,0,64,64);
+      const quad=new THREE.PlaneGeometry(1,1); quad.rotateX(-Math.PI/2);
+      this.shadows=new THREE.InstancedMesh(quad,new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(sh),transparent:true,depthWrite:false}),420);
+      this.shadows.position.y=.3; this.shadows.renderOrder=1; this.scene.add(this.shadows);
+      const rg=document.createElement('canvas'); rg.width=rg.height=64; const r=rg.getContext('2d'), rr=r.createRadialGradient(32,32,8,32,32,32);
+      rr.addColorStop(0,'rgba(255,255,255,0)'); rr.addColorStop(.7,'rgba(255,255,255,.9)'); rr.addColorStop(1,'rgba(255,255,255,0)'); r.fillStyle=rr; r.fillRect(0,0,64,64);
+      this.rings=new THREE.InstancedMesh(quad,new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(rg),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}),420);
+      this.rings.position.y=.4; this.rings.renderOrder=2; this.rings.setColorAt(0,new THREE.Color(1,1,1)); this.scene.add(this.rings);
+      _m4=new THREE.Matrix4(); _q=new THREE.Quaternion(); _v=new THREE.Vector3(); _s=new THREE.Vector3(); _c=new THREE.Color(); _ya=new THREE.Vector3(0,1,0);
+      this.on=true; document.body.classList.add('d3');
+    }catch(e){ this.on=false; }
+  },
+  size(){ if(!this.ren) return; this.ren.setSize(W,H,false); const w=W/SCALE/2, h=H/SCALE/2;
+    Object.assign(this.cam,{left:-w,right:w,top:h,bottom:-h}); this.cam.updateProjectionMatrix(); },
+  stageGround(){
+    if(!this.on) return; const gd=GROUND3D[G.stage]||GROUND3D.faille;
+    if(this.groundKey===G.stage) return; this.groundKey=G.stage;
+    const key=G.stage, il=new THREE.ImageLoader(); il.setCrossOrigin('anonymous'); let tries=4;
+    const fail=()=>{ if(tries-->0&&this.groundKey===key) setTimeout(()=>il.load(RAW3D+gd.t,done,undefined,fail),1000); };
+    const done=im=>{ if(this.groundKey!==key) return;
+      const t=new THREE.CanvasTexture(groundMosaic(im,gd)); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(4,4);
+      t.encoding=THREE.sRGBEncoding; t.anisotropy=4;
+      this.ground.material.dispose(); this.ground.material=new THREE.MeshBasicMaterial({map:t,color:gd.c}); };
+    il.load(RAW3D+gd.t,done,undefined,fail);
+  },
+  texture(url){ if(this.tex[url]) return this.tex[url];
+    const ok=()=>{ t.ready=true; for(const m of t.mats){ m.alphaTest=.35; m.visible=true; m.needsUpdate=true; } };
+    let tries=3; const retry=()=>{ if(tries--<=0) return; setTimeout(()=>{ new THREE.ImageLoader().setCrossOrigin('anonymous').load(RAW3D+url,im=>{ t.image=im; t.needsUpdate=true; ok(); },undefined,retry); },900); };
+    const t=new THREE.TextureLoader().load(RAW3D+url,ok,undefined,retry);
+    t.flipY=false; t.encoding=THREE.sRGBEncoding; t.mats=[]; return this.tex[url]=t; },
+  /* tant que la texture n'est pas arrivée, le modèle reste caché (pas de silhouette noire) */
+  mat(url){ const t=this.texture(url), m=new THREE.MeshBasicMaterial({map:t,alphaTest:.35,side:THREE.DoubleSide,visible:!!t.ready}); t.mats.push(m); return m; },
+  /* charge un modèle et le ramène à une hauteur de 1, pieds au sol, centré */
+  load(key){
+    if(this.models[key]) return Promise.resolve(this.models[key]);
+    if(this.loading[key]) return this.loading[key];
+    const d=MODELS3D[key]; if(!d||!this.on) return Promise.reject(new Error('modèle'));
+    /* réseau capricieux : jusqu'à 4 essais, puis on retentera au prochain besoin */
+    const get=(n)=>fetch(RAW3D+d.s).then(r=>{ if(!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .catch(e=>{ if(n<=0) throw e; return new Promise(res=>setTimeout(res,800)).then(()=>get(n-1)); });
+    return this.loading[key]=get(3).catch(e=>{ delete this.loading[key]; throw e; }).then(buf=>{
+      const m=parseSKN(buf), hide=(d.h||'').split(' '), subs=m.subs.filter(s=>!hide.includes(s.name)&&s.ic>0);
+      let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9;
+      for(const s of subs) for(let i=s.si;i<s.si+s.ic;i++){ const k=m.idx[i]*3, x=m.pos[k], y=m.pos[k+1], z=m.pos[k+2];
+        if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; if(z<z0)z0=z; if(z>z1)z1=z; }
+      const h=Math.max(1,y1-y0), cx=(x0+x1)/2, cz=(z0+z1)/2, pos=new Float32Array(m.pos.length);
+      for(let i=0;i<pos.length;i+=3){ pos[i]=-(m.pos[i]-cx)/h; pos[i+1]=(m.pos[i+1]-y0)/h; pos[i+2]=(m.pos[i+2]-cz)/h; }
+      const pa=new THREE.BufferAttribute(pos,3), ua=new THREE.BufferAttribute(m.uv,2);
+      const parts=subs.map(s=>{ const geo=new THREE.BufferGeometry(); geo.setAttribute('position',pa); geo.setAttribute('uv',ua);
+        geo.setIndex(new THREE.BufferAttribute(m.idx.slice(s.si,s.si+s.ic),1)); geo.computeBoundingSphere();
+        return {geo,tex:(d.o&&d.o[s.name])||d.t}; });
+      return this.models[key]={parts,w:Math.max(x1-x0,z1-z0)/h};
+    });
+  },
+  mesh(key){ const m=this.models[key], g=new THREE.Group();
+    for(const p of m.parts) g.add(new THREE.Mesh(p.geo,this.mat(p.tex)));
+    return g; },
+  instanced(key){
+    if(this.inst[key]) return this.inst[key];
+    const m=this.models[key]; if(!m) return null;
+    const meshes=m.parts.map(p=>{ const im=new THREE.InstancedMesh(p.geo,this.mat(p.tex),320);
+      im.setColorAt(0,new THREE.Color(1,1,1)); im.count=0; im.frustumCulled=false; this.scene.add(im); return im; });
+    return this.inst[key]={meshes,n:0};
+  },
+  has(key){ const m=this.on&&this.models[key]; return !!m&&m.parts.every(p=>this.texture(p.tex).ready); },
+  preloadRun(){
+    if(!this.on) return;
+    this.stageGround();
+    for(const f of ['melee','caster','siege','super']) this.load(minionKey(f)).catch(()=>{});
+    for(const k of ['SRU_Horde','SRU_RiftHerald','SRU_Baron']) this.load(k).catch(()=>{});
+    this.setPlayer(champ().id);
+  },
+  setPlayer(id){
+    if(!this.on||this.playerKey===id) return; this.playerKey=id;
+    if(this.player){ this.scene.remove(this.player); this.player=null; }
+    this.load(id).then(()=>{ if(this.playerKey!==id) return; this.player=this.mesh(id); this.scene.add(this.player); }).catch(()=>{});
+  }
+};
+function minionKey(f){ const pre=G.stage==='abime'?'HA_ChaosMinion':'SRU_ChaosMinion';
+  return pre+{melee:'Melee',caster:'Ranged',siege:'Siege',super:'Super'}[f]; }
+function modelKeyFor(e){ const f=e.def.forme;
+  if(f==='void') return 'SRU_Horde'; if(f==='herald') return 'SRU_RiftHerald'; if(f==='baron') return 'SRU_Baron';
+  return minionKey(f); }
+const PLAYER_H=52;
+let _m4,_q,_v,_s,_c,_ya;
+function unitHeight(e){ return UNIT_H[e.def.forme]*(e.r/e.def.r); }
+
+/* une image 3D : caméra, sol, unités, ombres */
+function render3D(){
+  if(!R3.on) return;
+  const c=G.cam, cx=c.x+c.sx, cy=c.y+c.sy, D=1500;
+  R3.cam.position.set(cx,Math.sin(PITCH)*D,cy+Math.cos(PITCH)*D); R3.cam.lookAt(cx,0,cy);
+  const T=1100; R3.ground.position.set(Math.round(cx/T)*T,0,Math.round(cy/T)*T);
+  for(const k in R3.inst) R3.inst[k].n=0;
+  let ns=0, nr=0;
+  const put=(x,y,h,rot,col,key,sq)=>{ const I=R3.instanced(key); if(!I||I.n>=320) return false;
+    _v.set(x,(sq?0:0),y); _q.setFromAxisAngle(_ya,rot); _s.set(h,h*(sq||1),h); _m4.compose(_v,_q,_s);
+    for(const im of I.meshes){ im.setMatrixAt(I.n,_m4); im.setColorAt(I.n,col); } I.n++; return true; };
+  const shadow=(x,y,r)=>{ if(ns>=420) return; _v.set(x,0,y); _q.identity(); _s.set(r,1,r); _m4.compose(_v,_q,_s); R3.shadows.setMatrixAt(ns++,_m4); };
+  const ring=(x,y,r,col)=>{ if(nr>=420) return; _v.set(x,0,y); _q.identity(); _s.set(r,1,r); _m4.compose(_v,_q,_s); R3.rings.setMatrixAt(nr,_m4); R3.rings.setColorAt(nr++,col); };
+  const v=view(), live=new Set();
+  const draw=(e,dying)=>{
+    const key=modelKeyFor(e); if(!R3.has(key)){ R3.load(key).catch(()=>{}); return; }
+    const h=unitHeight(e), rot=Math.atan2(G.p.x-e.x,G.p.y-e.y);
+    const bob=dying?1:1+Math.abs(Math.sin(e.ph*2))*.04;
+    const sk=TINT3D[e.skin]||TINT3D.rouge;
+    if(dying) _c.setRGB(2.5,2.5,2.5);
+    else if(e.hitT>0) _c.setRGB(2.6,2.6,2.6);
+    else if(e.frz>0) _c.setRGB(.6,.9,1.5);
+    else if(e.elite) _c.setRGB(1.25,1.1,.7);
+    else _c.setRGB(sk[0]*(e.slow>0?.8:1)*(1+.06*e.rank),sk[1]*(1+.06*e.rank),sk[2]*(e.slow>0?1.25:1)*(1+.06*e.rank));
+    if(e.def.giant){ let g=R3.giants.get(e); if(!g){ g=R3.mesh(key); R3.scene.add(g); R3.giants.set(e,g); }
+      live.add(e); g.position.set(e.x,0,e.y); g.rotation.y=rot; g.scale.set(h,h*bob,h);
+      g.children.forEach(m=>m.material.color.copy(_c)); }
+    else put(e.x,e.y,h,rot,_c,key,dying?dying:bob);
+    if(!dying){ shadow(e.x,e.y,e.r*2.6);
+      if(e.elite) ring(e.x,e.y,e.r*3.2,_c.setRGB(1,.8,.35));
+      else if(e.reaper) ring(e.x,e.y,e.r*3,_c.setRGB(.6,.25,1));
+      else if(e.rank>=2){ const gl=(SKINS[e.skin]||SKINS.rouge).glow; _c.set(gl).multiplyScalar(e.rank>=3?.9:.5); ring(e.x,e.y,e.r*2.8,_c); } }
+  };
+  for(const e of G.en) if(!e.dead&&vis(v,e.x,e.y,e.r+60)) draw(e,0);
+  for(const f of G.fx) if(f.k==='corpse'&&f.e&&!f.e.def.giant){ const k=1-f.t/f.mt; draw(f.e,Math.max(.05,1-k)); }
+  for(const [e,g] of R3.giants) if(!live.has(e)){ R3.scene.remove(g); R3.giants.delete(e); }
+  for(const k in R3.inst){ const I=R3.inst[k]; for(const im of I.meshes){ im.count=I.n; im.instanceMatrix.needsUpdate=true; if(im.instanceColor) im.instanceColor.needsUpdate=true; } }
+  /* champion */
+  const p=G.p, pm=R3.player;
+  if(pm){ const show=G.phase!=='menu'&&!!ST; pm.visible=show&&!(p.iT>0&&Math.floor(G.t*20)%2&&p.hitT<=0);
+    if(show){ const mv=Math.hypot(p.vx,p.vy)>8, want=Math.atan2(p.dx,p.dy);
+      let d=want-R3.face; while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU; R3.face+=d*Math.min(1,.25);
+      const bob=mv?Math.abs(Math.sin(p.anim))*1.6:Math.sin(G.t*2.4)*.4, atk=p.cast>0?p.cast/.15:0;
+      pm.position.set(p.x+Math.sin(R3.face)*atk*3,bob,p.y+Math.cos(R3.face)*atk*3); pm.rotation.set(mv?.08:0,R3.face,0,'YXZ');
+      const s=PLAYER_H*(1+atk*.06); pm.scale.set(s,s,s);
+      const red=p.hitT>0; pm.children.forEach(m=>m.material.color.setRGB(red?2:1,red?.6:1,red?.6:1));
+      shadow(p.x,p.y,24); } }
+  R3.shadows.count=ns; R3.shadows.instanceMatrix.needsUpdate=true;
+  R3.rings.count=nr; R3.rings.instanceMatrix.needsUpdate=true; if(R3.rings.instanceColor) R3.rings.instanceColor.needsUpdate=true;
+  R3.ren.render(R3.scene,R3.cam);
+}
+/* aperçu 3D du champion à l'écran de sélection */
+const PREV3D={ren:null,scene:null,cam:null,obj:null,key:null,
+  ensure(cv){ if(!R3.on) return false;
+    if(this.cv!==cv){ this.cv=cv; try{ this.ren=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true}); }catch(e){ return false; }
+      this.ren.outputEncoding=THREE.sRGBEncoding; this.ren.setPixelRatio(Math.min(window.devicePixelRatio||1,2)); this.ren.setSize(64,84,false);
+      this.scene=new THREE.Scene(); this.cam=new THREE.PerspectiveCamera(30,64/84,.1,50); this.cam.position.set(0,1.1,3.6); this.cam.lookAt(0,.55,0); this.key=null; this.obj=null; }
+    return true; },
+  draw(cv,id){ if(!this.ensure(cv)) return false;
+    if(this.key!==id){ this.key=id; if(this.obj){ this.scene.remove(this.obj); this.obj=null; }
+      R3.load(id).then(()=>{ if(this.key!==id) return; this.obj=R3.mesh(id); this.scene.add(this.obj); }).catch(()=>{}); }
+    if(!this.obj) return false;
+    this.obj.rotation.y=Math.sin(G.t*.8)*.6; this.ren.render(this.scene,this.cam); return true; }
+};
 
 /* =========================================================================
    11. BOUCLE
@@ -1542,15 +1795,17 @@ function frame(now){
   else if(G.phase==='menu'){ G.t+=dt; G.cam.x=Math.cos(G.t*.05)*300; G.cam.y=Math.sin(G.t*.04)*300; }
   if(toastT>0){ toastT-=dt; if(toastT<=0) $('toast').style.opacity=0; }
   render();
-  const pv=document.getElementById('chibiPrev');
+  const p3=document.getElementById('prev3d'); let shown3d=false;
+  if(p3&&R3.on&&p3.parentNode.offsetParent){ shown3d=PREV3D.draw(p3,SAVE.champ); p3.style.display=shown3d?'block':'none'; }
+  const pv=document.getElementById('chibiPrev'); if(pv) pv.style.display=shown3d?'none':'block';
   if(pv&&pv.offsetParent){ const main=ctx; ctx=pv.getContext('2d'); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,128,128);
     const bg=ctx.createRadialGradient(64,70,4,64,70,64); bg.addColorStop(0,'rgba(200,170,110,.35)'); bg.addColorStop(1,'rgba(200,170,110,0)');
     ctx.fillStyle=bg; ctx.fillRect(0,0,128,128); ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(64,117,26,7,0,0,TAU); ctx.fill();
     ctx.setTransform(3.4,0,0,3.4,64,82); const t=G.t;
     drawChibi({x:0,y:0,vx:30,vy:0,anim:t*9,face:1,cast:(t%1.6)<.15?.15-(t%1.6):0,hitT:0},CH_BY[SAVE.champ]); ctx=main; }
 }
-addEventListener('resize',()=>{ resize(); VIG=null; });
-resize(); Store.load(); G.stage=SAVE.stage; G.champ=CH_BY[SAVE.champ].i; buildGround(); refreshMenu(); show('menu');
+addEventListener('resize',()=>{ resize(); VIG=null; R3.size(); });
+resize(); Store.load(); G.stage=SAVE.stage; G.champ=CH_BY[SAVE.champ].i; buildGround(); R3.init(); R3.stageGround(); refreshMenu(); show('menu');
 requestAnimationFrame(frame);
 </script>
 

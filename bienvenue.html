@@ -204,135 +204,141 @@ banner.addEventListener("keydown", e => {
   }
 });
 
-/* Dessin du portail (tourbillon + particules), partagé par l'entrée et la sortie */
-const PORTAIL_COULEURS = ["#8b6cff", "#ff5ec7", "#ffc94a", "#c9b6ff"];
-function creerPortail(sortie){
-  const cv = document.createElement("canvas");
-  cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block";
-  const x = cv.getContext("2d");
-  const parts = [];
-  for (let i = 0; i < 160; i++) parts.push({
-    a: Math.random() * 6.283, n: sortie ? Math.random() * 2.5 : .2 + Math.random() * 2.6,
-    c: PORTAIL_COULEURS[i % 4], s: .8 + Math.random() * 1.8
+/* Trou noir : disque d'accrétion en orbite, horizon, anneau de photons */
+function creerTrouNoir(){
+  const box = document.createElement("div");
+  box.style.cssText = "position:absolute;inset:0";
+  // 3 calques : disque arrière (traînées), horizon, disque avant (traînées)
+  const calques = [0, 1, 2].map(() => {
+    const c = document.createElement("canvas");
+    c.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block";
+    box.appendChild(c);
+    return { c, x: c.getContext("2d") };
   });
-  let W = 0, H = 0;
+  // halos pré-rendus : bien plus fluide que des dégradés à chaque particule
+  const sprite = (coeur, teinte) => {
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const x = c.getContext("2d"), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, coeur); g.addColorStop(.25, teinte); g.addColorStop(1, "rgba(0,0,0,0)");
+    x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+    return c;
+  };
+  const chaud = sprite("#fff", "rgba(255,201,74,.85)");
+  const tiede = sprite("#ffe3f4", "rgba(255,94,199,.75)");
+  const froid = sprite("#efe8ff", "rgba(139,108,255,.7)");
+  const parts = [];
+  for (let i = 0; i < 520; i++) parts.push({
+    r: 1.3 + Math.pow(Math.random(), 1.6) * 2.3, a: Math.random() * 6.283, s: .5 + Math.random()
+  });
+  let W = 0, H = 0, d = 1;
   function taille(){
-    const d = Math.min(devicePixelRatio || 1, 2);
-    W = innerWidth; H = innerHeight;
-    cv.width = W * d; cv.height = H * d;
-    x.setTransform(d, 0, 0, d, 0, 0);
+    d = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
+    for (const k of calques){ k.c.width = W * d; k.c.height = H * d; k.x.setTransform(d, 0, 0, d, 0, 0); }
   }
   taille();
   addEventListener("resize", taille);
-  // t : secondes, (cx, cy) : centre, R : rayon du disque, voile : assombrissement du fond (0..1)
-  function dessiner(t, dt, cx, cy, R, voile){
-    x.globalCompositeOperation = "source-over";
-    x.clearRect(0, 0, W, H);
-    if (voile > 0){ x.fillStyle = "rgba(8,6,15," + voile + ")"; x.fillRect(0, 0, W, H); }
-    if (R < 1) return;
-    const sens = sortie ? -1 : 1;
-    // disque : centre noir, bord lumineux, halo
-    const g = x.createRadialGradient(cx, cy, 0, cx, cy, R * 1.6);
-    g.addColorStop(0, "#000");
-    g.addColorStop(.5, "#0b0418");
-    g.addColorStop(.6, "rgba(139,108,255,.95)");
-    g.addColorStop(.66, "rgba(255,94,199,.6)");
+  const incl = -.32, ci = Math.cos(incl), si = Math.sin(incl), plat = .26;
+
+  // R : rayon de l'horizon ; vitesse : rotation du disque ; chute : aspiration ; eclat : opacité du disque
+  function dessiner(dt, cx, cy, R, vitesse, chute, eclat){
+    const [arr, mil, ava] = calques;
+    for (const k of [arr, ava]){ // efface doucement : laisse des traînées
+      k.x.globalCompositeOperation = "destination-out";
+      k.x.fillStyle = "rgba(0,0,0,.28)"; k.x.fillRect(0, 0, W, H);
+      k.x.globalCompositeOperation = "lighter";
+    }
+    mil.x.clearRect(0, 0, W, H);
+    if (R < .5) return;
+    for (const p of parts){
+      p.a += dt * vitesse * 1.9 * Math.pow(p.r, -1.5);
+      p.r -= dt * chute * .5 / p.r;
+      if (p.r < 1.04){ p.r = 3.2 + Math.random() * .5; p.a = Math.random() * 6.283; }
+      const ox = Math.cos(p.a) * p.r * R, oy = Math.sin(p.a) * p.r * R * plat;
+      const px = cx + ox * ci - oy * si, py = cy + ox * si + oy * ci;
+      const doppler = .35 + .65 * (.5 - .5 * Math.cos(p.a)); // côté qui vient vers nous plus brillant
+      const k = Math.sin(p.a) < 0 ? arr : ava;
+      const t = Math.min(R * .16 * p.s * (1.6 - p.r * .25), 70);
+      k.x.globalAlpha = Math.min(1, doppler * eclat * (p.r < 1.3 ? (p.r - 1.04) / .26 : 1));
+      k.x.drawImage(p.r < 1.8 ? chaud : p.r < 2.5 ? tiede : froid, px - t / 2, py - t / 2, t, t);
+    }
+    arr.x.globalAlpha = ava.x.globalAlpha = 1;
+    const x = mil.x;
+    // lueur diffuse
+    let g = x.createRadialGradient(cx, cy, R, cx, cy, R * 4);
+    g.addColorStop(0, `rgba(139,108,255,${.35 * eclat})`); g.addColorStop(1, "rgba(139,108,255,0)");
+    x.fillStyle = g; x.fillRect(cx - R * 4, cy - R * 4, R * 8, R * 8);
+    // image du disque déviée par la gravité : halo par-dessus et par-dessous l'horizon
+    g = x.createRadialGradient(cx, cy, R, cx, cy, R * 1.75);
+    g.addColorStop(0, "rgba(255,240,210,0)");
+    g.addColorStop(.1, `rgba(255,236,190,${.9 * eclat})`);
+    g.addColorStop(.35, `rgba(255,140,120,${.5 * eclat})`);
+    g.addColorStop(.7, `rgba(255,94,199,${.15 * eclat})`);
     g.addColorStop(1, "rgba(139,108,255,0)");
     x.fillStyle = g;
-    x.beginPath(); x.arc(cx, cy, R * 1.6, 0, 6.283); x.fill();
-    x.globalCompositeOperation = "lighter";
-    // bras de la spirale
-    const bras = 7;
-    for (let k = 0; k < bras; k++){
-      x.beginPath();
-      for (let i = 0; i <= 40; i++){
-        const f = i / 40, r = R * 1.02 * (1 - f);
-        const a = k * 6.283 / bras + sens * t * 2.4 + f * 4.8 * sens;
-        const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
-        i ? x.lineTo(px, py) : x.moveTo(px, py);
-      }
-      x.strokeStyle = PORTAIL_COULEURS[k % 4];
-      x.globalAlpha = .35;
-      x.lineWidth = 2 + R * .025;
-      x.stroke();
-    }
-    // particules aspirées (entrée) ou projetées (sortie)
-    for (const p of parts){
-      const r0 = p.n * R, a0 = p.a;
-      if (sortie){
-        p.n *= 1 + dt * 1.8; p.a -= dt * (1.2 + 1.6 / (p.n + .15));
-        if (p.n > 2.6){ p.n = .05 + Math.random() * .2; p.a = Math.random() * 6.283; continue; }
-      } else {
-        p.n *= 1 - dt * 1.8; p.a += dt * (1.2 + 1.6 / (p.n + .15));
-        if (p.n < .04){ p.n = 1.4 + Math.random() * 1.4; p.a = Math.random() * 6.283; continue; }
-      }
-      const r1 = p.n * R;
-      x.globalAlpha = Math.min(1, .3 + (sortie ? p.n : 1.6 - p.n * .5));
-      x.strokeStyle = p.c; x.lineWidth = p.s;
-      x.beginPath();
-      x.moveTo(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0);
-      x.lineTo(cx + Math.cos(p.a) * r1, cy + Math.sin(p.a) * r1);
-      x.stroke();
-    }
-    x.globalAlpha = 1;
+    x.beginPath(); x.ellipse(cx, cy, R * 1.75, R * 1.6, incl, 0, 6.283); x.fill();
+    // horizon : noir absolu
+    x.fillStyle = "#000";
+    x.beginPath(); x.arc(cx, cy, R, 0, 6.283); x.fill();
+    // anneau de photons
+    x.lineWidth = Math.max(1.2, R * .035);
+    x.strokeStyle = `rgba(255,248,230,${.95 * eclat})`;
+    x.beginPath(); x.arc(cx, cy, R * 1.03, 0, 6.283); x.stroke();
   }
-  return { cv, dessiner, taille: () => [W, H] };
+  return { box, dessiner, taille: () => [W, H] };
 }
 
-// Bouton Jouer : aspiré dans le portail, puis le jeu s'ouvre de l'autre côté
+// Bouton Jouer : la page est aspirée par un trou noir, le jeu ressort de l'autre côté
 const jouer = document.getElementById("jouer");
-let portail = null;
-const facile = t => 1 - Math.pow(1 - t, 3);
-const rebond = t => 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2);
+let trou = null;
+const lisse = t => t * t * (3 - 2 * t);
 jouer.addEventListener("click", e => {
-  if (portail || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (trou || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   e.preventDefault();
   const b = jouer.getBoundingClientRect();
   const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
   const voile = document.createElement("div");
-  voile.style.cssText = "position:fixed;inset:0;z-index:9999";
-  portail = creerPortail(false);
-  voile.appendChild(portail.cv);
+  voile.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(3,2,8,0)";
+  trou = creerTrouNoir();
+  voile.appendChild(trou.box);
   document.body.appendChild(voile);
-  portail.voile = voile;
+  trou.voile = voile;
 
-  const [W, H] = portail.taille();
-  const Rp = Math.min(W, H) * .2;
-  const Rmax = Math.max(Math.hypot(cx, cy), Math.hypot(W - cx, cy), Math.hypot(cx, H - cy), Math.hypot(W - cx, H - cy)) / .78;
+  const [W, H] = trou.taille();
+  const Rp = Math.min(W, H) * .12;
+  const Rmax = Math.max(Math.hypot(cx, cy), Math.hypot(W - cx, cy), Math.hypot(cx, H - cy), Math.hypot(W - cx, H - cy)) * 1.05;
 
-  // la page tourbillonne et rétrécit vers le portail
-  setTimeout(() => {
-    for (const el of [banner, document.querySelector(".game")]){
-      const r = el.getBoundingClientRect();
-      el.style.transition = "transform 1.1s cubic-bezier(.6,0,.9,.5), filter 1.1s, opacity 1.1s";
-      el.style.transform = `translate(${cx - r.left - r.width / 2}px,${cy - r.top - r.height / 2}px) rotate(540deg) scale(0)`;
-      el.style.filter = "blur(4px)";
-      el.style.opacity = ".3";
-    }
-  }, 350);
+  // la page est étirée puis avalée en spirale (spaghettification)
+  trou.anims = [banner, document.querySelector(".game")].map((el, i) => {
+    const r = el.getBoundingClientRect();
+    const dx = cx - r.left - r.width / 2, dy = cy - r.top - r.height / 2;
+    return el.animate([
+      { transform: "none", filter: "blur(0)", opacity: 1 },
+      { transform: `translate(${dx * .3}px,${dy * .3}px) rotate(70deg) scale(.85,.55)`, filter: "blur(.5px)", opacity: 1, offset: .45 },
+      { transform: `translate(${dx}px,${dy}px) rotate(400deg) scale(.02,.005)`, filter: "blur(5px)", opacity: 0 }
+    ], { duration: 1500, delay: 250 + i * 120, easing: "cubic-bezier(.5,0,.85,.4)", fill: "forwards" });
+  });
 
   const t0 = performance.now();
   let avant = t0, parti = false;
   (function boucle(now){
-    if (!portail) return;
+    if (!trou) return;
     const t = now - t0, dt = Math.min((now - avant) / 1000, .05);
     avant = now;
-    let R;
-    if (t < 450) R = Rp * rebond(t / 450);
-    else if (t < 1500) R = Rp * (1 + .06 * Math.sin((t - 450) / 90));
-    else R = Rp + (Rmax - Rp) * Math.pow(Math.min((t - 1500) / 650, 1), 2.2);
-    portail.dessiner(t / 1000, dt, cx, cy, R, .7 * facile(Math.min(t / 1500, 1)));
-    if (t > 2150 && !parti){ parti = true; location.href = "index.html?portail=1"; }
+    const ouverture = lisse(Math.min(t / 700, 1));
+    const fin = Math.min(Math.max((t - 1700) / 800, 0), 1);
+    const R = Rp * ouverture + (Rmax - Rp) * fin * fin * fin;
+    trou.dessiner(dt, cx, cy, R, 1 + t / 600, .2 + t / 1200, 1 - fin * fin);
+    voile.style.background = `rgba(3,2,8,${.82 * lisse(Math.min(t / 1600, 1)) + .18 * fin})`;
+    if (t > 2550 && !parti){ parti = true; location.href = "index.html?portail=1"; }
     requestAnimationFrame(boucle);
   })(t0);
 });
 // retour arrière : on remet la page en état
 addEventListener("pageshow", e => {
-  if (!e.persisted || !portail) return;
-  portail.voile.remove();
-  portail = null;
-  for (const el of [banner, document.querySelector(".game")])
-    el.style.transition = el.style.transform = el.style.filter = el.style.opacity = "";
+  if (!e.persisted || !trou) return;
+  trou.voile.remove();
+  trou.anims.forEach(a => a.cancel());
+  trou = null;
 });
 </script>
 </body>

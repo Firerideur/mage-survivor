@@ -4800,5 +4800,108 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 </script>
+<script>
+/* --- arrivée par le portail depuis la page de bienvenue ------------- */
+/* Dessin du portail (tourbillon + particules), partagé par l'entrée et la sortie */
+const PORTAIL_COULEURS = ["#8b6cff", "#ff5ec7", "#ffc94a", "#c9b6ff"];
+function creerPortail(sortie){
+  const cv = document.createElement("canvas");
+  cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block";
+  const x = cv.getContext("2d");
+  const parts = [];
+  for (let i = 0; i < 160; i++) parts.push({
+    a: Math.random() * 6.283, n: sortie ? Math.random() * 2.5 : .2 + Math.random() * 2.6,
+    c: PORTAIL_COULEURS[i % 4], s: .8 + Math.random() * 1.8
+  });
+  let W = 0, H = 0;
+  function taille(){
+    const d = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * d; cv.height = H * d;
+    x.setTransform(d, 0, 0, d, 0, 0);
+  }
+  taille();
+  addEventListener("resize", taille);
+  // t : secondes, (cx, cy) : centre, R : rayon du disque, voile : assombrissement du fond (0..1)
+  function dessiner(t, dt, cx, cy, R, voile){
+    x.globalCompositeOperation = "source-over";
+    x.clearRect(0, 0, W, H);
+    if (voile > 0){ x.fillStyle = "rgba(8,6,15," + voile + ")"; x.fillRect(0, 0, W, H); }
+    if (R < 1) return;
+    const sens = sortie ? -1 : 1;
+    // disque : centre noir, bord lumineux, halo
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, R * 1.6);
+    g.addColorStop(0, "#000");
+    g.addColorStop(.5, "#0b0418");
+    g.addColorStop(.6, "rgba(139,108,255,.95)");
+    g.addColorStop(.66, "rgba(255,94,199,.6)");
+    g.addColorStop(1, "rgba(139,108,255,0)");
+    x.fillStyle = g;
+    x.beginPath(); x.arc(cx, cy, R * 1.6, 0, 6.283); x.fill();
+    x.globalCompositeOperation = "lighter";
+    // bras de la spirale
+    const bras = 7;
+    for (let k = 0; k < bras; k++){
+      x.beginPath();
+      for (let i = 0; i <= 40; i++){
+        const f = i / 40, r = R * 1.02 * (1 - f);
+        const a = k * 6.283 / bras + sens * t * 2.4 + f * 4.8 * sens;
+        const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
+        i ? x.lineTo(px, py) : x.moveTo(px, py);
+      }
+      x.strokeStyle = PORTAIL_COULEURS[k % 4];
+      x.globalAlpha = .35;
+      x.lineWidth = 2 + R * .025;
+      x.stroke();
+    }
+    // particules aspirées (entrée) ou projetées (sortie)
+    for (const p of parts){
+      const r0 = p.n * R, a0 = p.a;
+      if (sortie){
+        p.n *= 1 + dt * 1.8; p.a -= dt * (1.2 + 1.6 / (p.n + .15));
+        if (p.n > 2.6){ p.n = .05 + Math.random() * .2; p.a = Math.random() * 6.283; continue; }
+      } else {
+        p.n *= 1 - dt * 1.8; p.a += dt * (1.2 + 1.6 / (p.n + .15));
+        if (p.n < .04){ p.n = 1.4 + Math.random() * 1.4; p.a = Math.random() * 6.283; continue; }
+      }
+      const r1 = p.n * R;
+      x.globalAlpha = Math.min(1, .3 + (sortie ? p.n : 1.6 - p.n * .5));
+      x.strokeStyle = p.c; x.lineWidth = p.s;
+      x.beginPath();
+      x.moveTo(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0);
+      x.lineTo(cx + Math.cos(p.a) * r1, cy + Math.sin(p.a) * r1);
+      x.stroke();
+    }
+    x.globalAlpha = 1;
+  }
+  return { cv, dessiner, taille: () => [W, H] };
+}
+(function(){
+  if (!/[?&]portail=1/.test(location.search)) return;
+  history.replaceState(null, "", location.pathname);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const p = creerPortail(true);
+  const voile = document.createElement("div");
+  voile.style.cssText = "position:fixed;inset:0;z-index:9999;pointer-events:none";
+  voile.appendChild(p.cv);
+  document.body.appendChild(voile);
+  const t0 = performance.now();
+  let avant = t0;
+  (function boucle(now){
+    const t = now - t0, dt = Math.min((now - avant) / 1000, .05);
+    avant = now;
+    const [W, H] = p.taille();
+    const diag = Math.hypot(W, H) / 2;
+    // le trou s'ouvre au centre et laisse apparaître le jeu
+    const k = Math.min(Math.max((t - 250) / 1100, 0), 1);
+    const trou = (diag + 80) * (k * k * (3 - 2 * k));
+    p.dessiner(t / 1000, dt, W / 2, H / 2, diag / .78, 0);
+    const m = `radial-gradient(circle at 50% 50%, transparent ${trou}px, #000 ${trou + 60}px)`;
+    voile.style.webkitMaskImage = voile.style.maskImage = m;
+    if (k < 1) requestAnimationFrame(boucle);
+    else voile.remove();
+  })(t0);
+})();
+</script>
 </body>
 </html>

@@ -15,7 +15,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{min-height:100%;background:var(--void);color:var(--ink);font-family:var(--mono)}
-body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px;overflow-x:hidden}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;min-height:100vh;padding:16px;overflow-x:hidden}
 
 /* La bande */
 .banner{
@@ -68,6 +68,30 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
   to{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}
 }
 
+/* Carte du jeu */
+.game{
+  width:100%;max-width:900px;display:flex;align-items:center;gap:20px;
+  padding:20px;border:1px solid var(--line);border-radius:14px;background:var(--slab);
+}
+.game img{width:88px;height:88px;border-radius:18px;flex-shrink:0;
+  box-shadow:0 0 24px rgba(139,108,255,.35)}
+.game .info{flex:1;min-width:0}
+.game h2{font-size:1.25rem;color:var(--arcane-lt)}
+.game p{margin-top:6px;font-size:.9rem;color:var(--mut);line-height:1.45}
+.play{
+  flex-shrink:0;display:inline-flex;align-items:center;gap:8px;
+  padding:14px 26px;border-radius:10px;text-decoration:none;
+  font:700 1rem var(--mono);letter-spacing:.06em;color:var(--void);
+  background:linear-gradient(135deg,var(--gold),var(--fus));
+  box-shadow:0 6px 20px rgba(255,94,199,.3);transition:transform .15s,box-shadow .15s;
+}
+.play:hover,.play:focus-visible{transform:translateY(-2px) scale(1.04);box-shadow:0 10px 28px rgba(255,94,199,.45)}
+.play:active{transform:scale(.97)}
+@media (max-width:600px){
+  .game{flex-direction:column;text-align:center}
+  .play{width:100%;justify-content:center}
+}
+
 @media (prefers-reduced-motion:reduce){
   .banner{transition:none;transform:none}
   .banner::before,.msg .caret{animation:none}
@@ -81,6 +105,15 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
   <p class="msg"><span id="msg"></span><span class="caret">▌</span></p>
   <p class="hint">Survole · clique</p>
 </div>
+
+<section class="game" aria-labelledby="game-title">
+  <img src="icon-192.png" alt="">
+  <div class="info">
+    <h2 id="game-title">Mage Survivor</h2>
+    <p>Mon jeu : un survivor-like magique. Tu ne vises pas, tu construis ton build et tu esquives.</p>
+  </div>
+  <a class="play" href="index.html">▶ Jouer</a>
+</section>
 
 <script>
 // ✏️ Modifie ces valeurs avec ton prénom, ton nom et tes messages

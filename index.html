@@ -167,6 +167,7 @@ h2{font-size:15px;font-weight:700;letter-spacing:.26em;margin-bottom:10px}
   <button class="btn" id="researchBtn">Recherche</button>
   <button class="btn" id="codexBtn">Codex</button>
   <button class="btn" id="setBtn">Paramètres</button>
+  <button class="btn sm" id="quitBtn">◂ Quitter</button>
   <div class="center shards" style="margin-top:12px">◈ <span id="shardTxt">0</span> ÉCLATS</div>
 </div>
 
@@ -4801,75 +4802,182 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
 }
 </script>
 <script>
-/* --- arrivée par le portail depuis la page de bienvenue ------------- */
-/* Sortie par un trou blanc : le noir s'ouvre depuis le centre et libère le jeu */
-(function(){
-  if (!/[?&]portail=1/.test(location.search)) return;
-  history.replaceState(null, "", location.pathname);
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const box = document.createElement("div");
-  box.style.cssText = "position:fixed;inset:0;z-index:9999;pointer-events:none";
-  const noir = document.createElement("div");
-  noir.style.cssText = "position:absolute;inset:0;background:#000";
-  const cv = document.createElement("canvas");
-  cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block";
-  box.append(noir, cv);
-  document.body.appendChild(box);
-  const x = cv.getContext("2d");
-  let W, H;
-  function taille(){
-    const d = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
-    cv.width = W * d; cv.height = H * d; x.setTransform(d, 0, 0, d, 0, 0);
-  }
-  taille();
-  addEventListener("resize", taille);
-  const couleurs = ["255,201,74", "255,94,199", "139,108,255", "255,240,220"];
-  const eclats = [];
-  const lisse = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  const t0 = performance.now();
-  let avant = t0;
-  (function boucle(now){
-    const t = now - t0, dt = Math.min((now - avant) / 1000, .05);
-    avant = now;
-    const cx = W / 2, cy = H / 2, diag = Math.hypot(W, H) / 2 + 60;
-    const k = Math.min(Math.max((t - 150) / 1300, 0), 1);
-    const r = diag * lisse(k);
-    noir.style.webkitMaskImage = noir.style.maskImage =
-      `radial-gradient(circle at 50% 50%, transparent ${r * .9}px, #000 ${r + 2}px)`;
-    // traînées
-    x.globalCompositeOperation = "destination-out";
-    x.fillStyle = "rgba(0,0,0,.3)"; x.fillRect(0, 0, W, H);
-    x.globalCompositeOperation = "lighter";
-    const vie = 1 - k * k;
-    // éclair blanc au moment où le trou s'ouvre
-    if (t < 600){
-      const f = 1 - t / 600, g = x.createRadialGradient(cx, cy, 0, cx, cy, 160 + t * .5);
-      g.addColorStop(0, `rgba(255,255,255,${.5 * f})`); g.addColorStop(1, "rgba(201,182,255,0)");
-      x.fillStyle = g; x.fillRect(0, 0, W, H);
+/* --- passage : tunnel de ver, puis vitre qui se brise sur le jeu ------
+   Arrivée depuis la page de bienvenue (?portail=1) : tunnel → vitre → éclats.
+   Bouton Quitter : la même scène jouée à l'envers, puis retour à l'accueil.
+   Chaque image est calculée à partir du temps seul : l'envers est exact. */
+const Passage = (function(){
+  const SCENE = 3000, BRIS = 2100;
+  const reduit = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function jouer(retour, apres){
+    const box = document.createElement("div");
+    box.style.cssText = "position:fixed;inset:0;z-index:9999;touch-action:none;background:" + (retour ? "transparent" : "#000");
+    const cv = document.createElement("canvas");
+    cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block";
+    box.appendChild(cv);
+    document.body.appendChild(box);
+    const d = Math.min(devicePixelRatio || 1, 2), W = innerWidth, H = innerHeight;
+    cv.width = W * d; cv.height = H * d;
+    const x = cv.getContext("2d");
+    x.setTransform(d, 0, 0, d, 0, 0);
+    const cx = W / 2, cy = H / 2, diag = Math.hypot(W, H) / 2;
+    const alea = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+
+    // la vitre : la lumière du bout du tunnel vue à travers le verre
+    const vitre = document.createElement("canvas");
+    vitre.width = W * d; vitre.height = H * d;
+    const v = vitre.getContext("2d");
+    v.setTransform(d, 0, 0, d, 0, 0);
+    let g = v.createRadialGradient(cx, cy, 0, cx, cy, diag);
+    g.addColorStop(0, "#ffffff"); g.addColorStop(.25, "#f1eaff"); g.addColorStop(.6, "#b9a2ff"); g.addColorStop(1, "#5a3fb8");
+    v.fillStyle = g; v.fillRect(0, 0, W, H);
+    for (let i = 0; i < 5; i++){ // reflets
+      const y0 = alea() * H * 1.5 - H * .25;
+      g = v.createLinearGradient(0, y0, W, y0 - W * .6);
+      g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(.5, "rgba(255,255,255,.18)"); g.addColorStop(1, "rgba(255,255,255,0)");
+      v.fillStyle = g; v.fillRect(0, 0, W, H);
     }
-    // anneau lumineux au bord de l'ouverture
-    if (r > 2 && vie > 0){
-      x.lineWidth = 3; x.strokeStyle = `rgba(255,236,200,${.9 * vie})`;
-      x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.stroke();
-      x.lineWidth = 12; x.strokeStyle = `rgba(255,94,199,${.25 * vie})`;
-      x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.stroke();
-      for (let i = 0; i < 6; i++){
-        const a = Math.random() * 6.283;
-        eclats.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r,
-          vx: Math.cos(a + .5) * 260, vy: Math.sin(a + .5) * 260, v: 1, c: couleurs[i % 4] });
+
+    // réseau de fissures : rayons depuis le point d'impact + anneaux
+    const N = 16, anneaux = [0];
+    for (let r = 16; anneaux[anneaux.length - 1] < diag * 1.15; r *= 1.75) anneaux.push(r);
+    const ang = [];
+    for (let i = 0; i < N; i++) ang.push(i / N * 6.283 + (alea() - .5) * .3);
+    const P = anneaux.map((r, k) => ang.map(a => {
+      if (!k) return [cx, cy];
+      const rr = r * (1 + (alea() - .5) * .3), aa = a + (alea() - .5) * .12;
+      return [cx + Math.cos(aa) * rr, cy + Math.sin(aa) * rr];
+    }));
+    const eclats = [];
+    for (let k = 0; k < anneaux.length - 1; k++) for (let i = 0; i < N; i++){
+      const j = (i + 1) % N, a = P[k][i], b = P[k][j], c = P[k + 1][j], e = P[k + 1][i];
+      if (!k) eclats.push([a, c, e]);
+      else if (k > 1 && alea() < .6){
+        if (alea() < .5){ eclats.push([a, b, c]); eclats.push([a, c, e]); }
+        else { eclats.push([a, b, e]); eclats.push([b, c, e]); }
+      } else eclats.push([a, b, c, e]);
+    }
+    // chaque éclat est pré-découpé dans sa propre petite image
+    const morceaux = eclats.map(pts => {
+      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+      const x0 = Math.floor(Math.min(...xs)) - 2, y0 = Math.floor(Math.min(...ys)) - 2;
+      const w = Math.ceil(Math.max(...xs)) + 2 - x0, h = Math.ceil(Math.max(...ys)) + 2 - y0;
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, w * d); c.height = Math.max(1, h * d);
+      const o = c.getContext("2d");
+      o.setTransform(d, 0, 0, d, -x0 * d, -y0 * d);
+      o.beginPath(); pts.forEach((p, n) => n ? o.lineTo(p[0], p[1]) : o.moveTo(p[0], p[1])); o.closePath();
+      o.save(); o.clip(); o.drawImage(vitre, 0, 0, W, H); o.restore();
+      o.strokeStyle = "rgba(255,255,255,.85)"; o.lineWidth = 1.2; o.stroke();
+      const mx = xs.reduce((s, n) => s + n, 0) / xs.length, my = ys.reduce((s, n) => s + n, 0) / ys.length;
+      const dist = Math.hypot(mx - cx, my - cy) || 1;
+      return { c, x0, y0, w, h, mx, my, ux: (mx - cx) / dist, uy: (my - cy) / dist,
+        retard: dist / diag * .3, vit: 250 + alea() * 550, rot: (alea() - .5) * 8 };
+    });
+
+    // tunnel
+    const teintes = ["139,108,255", "255,94,199", "255,201,74", "201,182,255"];
+    const etoiles = [];
+    for (let i = 0; i < 90; i++) etoiles.push({ a: alea() * 6.283, z: alea(), c: teintes[i % 4] });
+    const lisse = t => t * t * (3 - 2 * t);
+    const borne = (t, a, b) => Math.min(Math.max((t - a) / (b - a), 0), 1);
+
+    function image(t){
+      x.globalCompositeOperation = "source-over";
+      x.clearRect(0, 0, W, H);
+      if (t < BRIS){
+        x.fillStyle = "#000"; x.fillRect(0, 0, W, H);
+        const s = t / 1000, phase = s * .7 + s * s * .45;
+        x.globalCompositeOperation = "lighter";
+        // anneaux du tunnel qui foncent vers nous, en serpentant
+        for (let j = 0; j < 26; j++){
+          const z = ((j / 26 - phase) % 1 + 1) % 1;
+          const r = diag * .08 / (z + .04);
+          if (r > diag * 2.2) continue;
+          const ox = Math.sin(phase * 2.5 + z * 6) * W * .06 * z, oy = Math.cos(phase * 2 + z * 5) * H * .04 * z;
+          x.strokeStyle = `rgba(${teintes[j % 4]},${(1 - z) * .55 * borne(t, 0, 300)})`;
+          x.lineWidth = 1 + (1 - z) * 7;
+          x.beginPath(); x.ellipse(cx + ox, cy + oy, r, r * .92, 0, 0, 6.283); x.stroke();
+        }
+        // étoiles étirées par la vitesse
+        for (const e of etoiles){
+          const z = ((e.z - phase * 1.3) % 1 + 1) % 1;
+          const r1 = diag * .05 / (z + .03), r2 = diag * .05 / (z + .07);
+          x.strokeStyle = `rgba(${e.c},${(1 - z) * borne(t, 0, 300)})`;
+          x.lineWidth = 1.5;
+          x.beginPath();
+          x.moveTo(cx + Math.cos(e.a) * r2, cy + Math.sin(e.a) * r2);
+          x.lineTo(cx + Math.cos(e.a) * r1, cy + Math.sin(e.a) * r1);
+          x.stroke();
+        }
+        x.globalCompositeOperation = "source-over";
+        // la lumière au bout du tunnel approche, puis devient la vitre
+        const L = 12 + diag * 1.4 * Math.pow(borne(t, 700, 1650), 2.4);
+        g = x.createRadialGradient(cx, cy, 0, cx, cy, L);
+        g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(.4, "rgba(225,212,255,.9)"); g.addColorStop(1, "rgba(139,108,255,0)");
+        x.fillStyle = g; x.fillRect(0, 0, W, H);
+        x.globalAlpha = lisse(borne(t, 1350, 1700));
+        x.drawImage(vitre, 0, 0, W, H);
+        x.globalAlpha = 1;
+        // fissures qui partent du point d'impact
+        const f = borne(t, 1700, 2050);
+        if (f > 0){
+          const rf = Math.pow(f, .7) * diag * 1.2;
+          x.strokeStyle = "rgba(255,255,255,.95)"; x.lineWidth = 1.3;
+          x.beginPath();
+          for (let i = 0; i < N; i++) for (let k = 1; k < anneaux.length; k++){
+            if (anneaux[k - 1] > rf) break;
+            x.moveTo(P[k - 1][i][0], P[k - 1][i][1]); x.lineTo(P[k][i][0], P[k][i][1]);
+            if (anneaux[k] <= rf && k > 1){ const n = P[k][(i + 1) % N]; x.moveTo(P[k][i][0], P[k][i][1]); x.lineTo(n[0], n[1]); }
+          }
+          x.stroke();
+          g = x.createRadialGradient(cx, cy, 0, cx, cy, 40 + 60 * f); // impact
+          g.addColorStop(0, `rgba(255,255,255,${.9 * f})`); g.addColorStop(1, "rgba(255,255,255,0)");
+          x.fillStyle = g; x.fillRect(cx - 100, cy - 100, 200, 200);
+        }
+      } else {
+        // les éclats volent vers nous et laissent voir le jeu
+        const s = (t - BRIS) / 1000;
+        for (const m of morceaux){
+          const u = Math.max(0, s - m.retard);
+          const a = 1 - Math.min(u / .7, 1);
+          if (a <= 0) continue;
+          const z = 1 + u * 1.6;
+          const px = m.mx + m.ux * m.vit * u, py = m.my + m.uy * m.vit * u + 700 * u * u;
+          x.save();
+          x.globalAlpha = a;
+          x.translate(px, py); x.rotate(m.rot * u); x.scale(z, z);
+          x.drawImage(m.c, m.x0 - m.mx, m.y0 - m.my, m.w, m.h);
+          x.restore();
+        }
+        const flash = 1 - borne(t, BRIS, BRIS + 250);
+        if (flash > 0){ x.fillStyle = `rgba(255,255,255,${.6 * flash})`; x.fillRect(0, 0, W, H); }
       }
     }
-    for (let i = eclats.length - 1; i >= 0; i--){
-      const p = eclats[i];
-      p.x += p.vx * dt; p.y += p.vy * dt; p.v -= dt * 1.4;
-      if (p.v <= 0){ eclats.splice(i, 1); continue; }
-      x.fillStyle = `rgba(${p.c},${p.v})`;
-      x.beginPath(); x.arc(p.x, p.y, 1.6, 0, 6.283); x.fill();
+
+    const t0 = performance.now();
+    (function boucle(now){
+      const e = now - t0, t = Math.max(0, Math.min(retour ? SCENE - e : e, SCENE));
+      image(t);
+      box.style.background = "transparent";
+      if (e >= SCENE){ if (!retour) box.remove(); apres && apres(); return; }
+      requestAnimationFrame(boucle);
+    })(t0);
+  }
+  return {
+    arrivee(){
+      if (!/[?&]portail=1/.test(location.search)) return;
+      history.replaceState(null, "", location.pathname);
+      if (!reduit()) jouer(false);
+    },
+    quitter(){
+      const aller = () => { location.href = "bienvenue.html?retour=1"; };
+      reduit() ? aller() : jouer(true, aller);
     }
-    if (k < 1 || eclats.length) requestAnimationFrame(boucle);
-    else box.remove();
-  })(t0);
+  };
 })();
+Passage.arrivee();
+document.getElementById("quitBtn").onclick = () => Passage.quitter();
 </script>
 </body>
 </html>

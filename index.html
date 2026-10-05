@@ -42,6 +42,12 @@ img{display:block}
 #death .bar{height:7px;margin-top:4px;background:#1a0b2a;border:1px solid #5b2a8a;overflow:hidden}
 #death .bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#4b1a7a,#b27dff)}
 @keyframes pulse{50%{opacity:.45}}
+.plist .pp{display:flex;gap:8px;align-items:flex-start;margin:6px 0;text-align:left}.plist img{width:28px;height:28px;border:1px solid var(--gold3)}.plist span{font-size:11px;color:var(--gold)}.plist small{display:block;color:#a09b8c;font-size:10px;margin-top:2px}
+#shopBtn{position:fixed;top:calc(var(--pt) + 84px);right:10px;z-index:6;height:30px;padding:0 8px;border:1px solid #f0c040;background:rgba(1,10,19,.8);color:#f0c040;font:700 12px system-ui,sans-serif;display:none}
+#shop .srow{display:flex;align-items:center;gap:4px;padding:4px;border:1px solid var(--gold3);margin:4px 0;background:rgba(1,10,19,.5)}#shop .srow.sel{border-color:#f0c040;background:rgba(240,192,64,.08)}
+#shop .snm{flex:1;font-size:12px;color:var(--gold)}#shop .snm small{display:block;font-size:9px;color:#8a8a86;letter-spacing:.1em}
+#shop .slot{width:34px;height:34px;border:1px solid var(--gold3);background:#0a1428;position:relative}#shop .slot img{width:100%;height:100%}#shop .slot.sell{border-color:#e84057}#shop .slot.sell span{position:absolute;inset:0;background:rgba(232,64,87,.75);color:#fff;font:700 9px system-ui;display:flex;align-items:center;justify-content:center}
+#shopList{display:flex;flex-direction:column;gap:4px;margin-top:6px}.sitem{display:flex;align-items:center;gap:8px;text-align:left;padding:5px;border:1px solid var(--gold3);background:rgba(1,10,19,.6);color:#f0e6d2}.sitem.no{opacity:.45}.sitem .ic img{width:36px;height:36px;display:block}.sitem .t{flex:1;font-size:12px}.sitem .t small{display:block;font-size:10px;color:#a09b8c;margin-top:2px}.sitem .pr{color:#f0c040;font:700 12px system-ui}
 #pauseBtn{position:fixed;top:calc(var(--pt) + 40px);right:10px;z-index:6;width:38px;height:38px;border:1px solid var(--gold3);
   background:rgba(1,10,19,.8);color:var(--gold);font-size:13px;display:none}
 #stk{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}#stk .st{display:flex;align-items:center;gap:3px;background:rgba(1,10,19,.75);border:1px solid;border-radius:3px;padding:1px 5px 1px 1px}#stk img{width:18px;height:18px;border-radius:2px}#stk b{font:700 11px system-ui,sans-serif}
@@ -149,6 +155,7 @@ h2{font-family:var(--serif);font-size:18px;letter-spacing:.12em;margin-top:4px;c
   <div id="death"><div class="lbl" id="deathLbl">LE NÉANT DÉFERLE</div><div class="bar"><i id="deathFill"></i></div></div>
 </div>
 <button id="pauseBtn">❚❚</button>
+<button id="shopBtn">🛒 <b id="poTxt">0</b></button>
 <div id="kit"></div>
 <div id="toast"></div>
 
@@ -160,6 +167,7 @@ h2{font-family:var(--serif);font-size:18px;letter-spacing:.12em;margin-top:4px;c
   </div>
   <div class="stats" id="menuStats"></div>
   <div class="spacer"></div>
+  <button class="btn primary" id="resumeRunBtn" style="display:none">Reprendre la partie</button>
   <button class="btn primary" id="playBtn">Jouer</button>
   <button class="btn" id="researchBtn">Runes</button>
   <button class="btn" id="setBtn">Paramètres</button>
@@ -196,9 +204,22 @@ h2{font-family:var(--serif);font-size:18px;letter-spacing:.12em;margin-top:4px;c
   <div class="stats" id="pauseStats"></div>
   <div class="sub" style="margin-top:14px">Compétences et objets</div>
   <div class="build" id="pauseBuild"></div>
+  <div class="sub" style="margin-top:14px">Passifs actifs</div>
+  <div id="pausePass" class="plist"></div>
   <div class="spacer"></div>
   <button class="btn primary" id="resumeBtn">Reprendre</button>
+  <button class="btn" id="pauseShop">Boutique</button>
   <button class="btn" id="abandonBtn">Abandonner</button>
+</div></div>
+
+<div class="ovl" id="shop"><div class="wrap">
+  <div class="center"><div class="eyebrow">Boutique</div><h2>OBJETS</h2>
+    <div class="sub">🪙 <b class="gold" id="shopPo">0</b> pièces d'or · <span id="shopHint"></span></div></div>
+  <div id="shopTeam"></div>
+  <div class="tabs" id="shopTabs"></div>
+  <div id="shopList"></div>
+  <div class="spacer"></div>
+  <button class="btn primary" id="shopBack">Reprendre</button>
 </div></div>
 
 <div class="ovl" id="over"><div class="wrap">
@@ -226,6 +247,8 @@ h2{font-family:var(--serif);font-size:18px;letter-spacing:.12em;margin-top:4px;c
   <div class="eyebrow">Options</div><h2>PARAMÈTRES</h2>
   <div id="setList" style="margin-top:10px"></div>
   <div class="spacer"></div>
+  <button class="btn" id="expBtn">Copier ma sauvegarde</button>
+  <button class="btn" id="impBtn">Restaurer une sauvegarde</button>
   <button class="btn sm" id="wipeBtn">Effacer la progression</button>
   <button class="btn" id="setBack">Retour</button>
 </div></div>
@@ -304,39 +327,76 @@ const MAX_LV=[5,5,5,3];                 /* Q, W, E jusqu'au rang 5 ; R jusqu'au 
 const MAX_CHAMPS=3;                     /* compétences de 3 champions au plus par partie */
 
 /* --- objets (coffres) : noms officiels, effets adaptés ----------------- */
-const ITEM_NAMES={"3084": "Cœur d'acier", "3006": "Jambières du berzerker", "3047": "Coques en acier", "1055": "Lame de Doran", "3031": "Lame d'infini", "3089": "Coiffe de Rabadon", "3157": "Sablier de Zhonya", "3071": "Couperet noir", "3083": "Armure de Warmog", "3110": "Cœur gelé", "3075": "Cotte épineuse", "3153": "Lame du roi déchu", "3072": "Soif-de-sang", "3135": "Bâton du vide", "3165": "Morellonomicon", "3046": "Danseur fantôme", "3026": "Ange gardien", "3742": "Plaque du mort", "3065": "Visage spirituel", "3190": "Médaillon de l'Iron Solari", "3504": "Encensoir ardent", "3100": "Fléau de liche", "3116": "Sceptre de Rylai", "3115": "Dent de Nashor", "3078": "Force de la trinité", "3094": "Canon ultrarapide", "3085": "Ouragan de Runaan", "6672": "Tueur de krakens", "3053": "Gage de Sterak"};
-const IT=(id,d,f,r)=>({id,nm:ITEM_NAMES[id]||id,d,f,r});
+const ITEM_NAMES={"1001": "Bottes", "1036": "Épée longue", "1052": "Tome d'amplification", "1028": "Cristal de rubis", "1042": "Dague", "1029": "Armure d'étoffe", "1033": "Cape de néant", "1055": "Lame de Doran", "1056": "Anneau de Doran", "1054": "Bouclier de Doran", "3006": "Jambières du berzerker", "3047": "Coques en acier", "3020": "Chaussures de sorcier", "3158": "Bottes de lucidité", "3111": "Sandales de Mercure", "3009": "Bottes de célérité", "1018": "Cape d'agilité", "1037": "Pioche", "1058": "Baguette trop grosse", "1038": "BF Glaive", "1053": "Sceptre vampirique", "3067": "Gemme exaltante", "3031": "Lame d'infini", "3089": "Coiffe de Rabadon", "3157": "Sablier de Zhonya", "3071": "Couperet noir", "3083": "Armure de Warmog", "3110": "Cœur gelé", "3075": "Cotte épineuse", "3153": "Lame du roi déchu", "3072": "Soif-de-sang", "3135": "Bâton du vide", "3165": "Morellonomicon", "3046": "Danseur fantôme", "3026": "Ange gardien", "3742": "Plaque du mort", "3065": "Visage spirituel", "3190": "Médaillon de l'Iron Solari", "3504": "Encensoir ardent", "3100": "Fléau de liche", "3116": "Sceptre de Rylai", "3115": "Dent de Nashor", "3078": "Force de la trinité", "3094": "Canon ultrarapide", "3085": "Ouragan de Runaan", "6672": "Tueur de krakens", "3053": "Gage de Sterak", "3084": "Cœuracier", "3036": "Salutations de Dominik", "3033": "Rappel mortel", "6653": "Tourment de Liandry", "3124": "Lame enragée de Guinsoo", "3087": "Poignard de Statikk", "3161": "Lance de Shojin", "4645": "Flamme-ombre", "3102": "Voile de la banshee", "3143": "Présage de Randuin", "6655": "Écho de Luden", "3508": "Faux spectrale", "6675": "Tremblelame navori", "3139": "Cimeterre mercuriel", "6333": "Danse de la mort", "3748": "Hydre titanesque"};
+/* objets de la boutique : prix réels de LoL (en pièces d'or), effet adapté au jeu */
+const IT=(id,cat,d,f)=>({id,cat,r:{base:'commun',bottes:'rare',epique:'epique',legend:'legend'}[cat],price:ITEM_PRICE[id],nm:ITEM_NAMES[id]||id,d,f});
+const ITEM_PRICE={"1001": 300, "1036": 350, "1052": 400, "1028": 400, "1042": 250, "1029": 300, "1033": 400, "1055": 450, "1056": 400, "1054": 450, "3006": 1100, "3047": 1200, "3020": 1100, "3158": 900, "3111": 1250, "3009": 1000, "1018": 600, "1037": 875, "1058": 1200, "1038": 1300, "1053": 900, "3067": 800, "3031": 3500, "3089": 3500, "3157": 3250, "3071": 3000, "3083": 3100, "3110": 2500, "3075": 2450, "3153": 3200, "3072": 3400, "3135": 3000, "3165": 2850, "3046": 2650, "3026": 3200, "3742": 2900, "3065": 2700, "3190": 2200, "3504": 2200, "3100": 2900, "3116": 2600, "3115": 2900, "3078": 3333, "3094": 2650, "3085": 2650, "6672": 3000, "3053": 3200, "3084": 3000, "3036": 3300, "3033": 3000, "6653": 3000, "3124": 3000, "3087": 3000, "3161": 3100, "4645": 3200, "3102": 3000, "3143": 2700, "6655": 2750, "3508": 3050, "6675": 2650, "3139": 3200, "6333": 3300, "3748": 3300};
 const ITEMS=[
-  IT('3006','Vitesse d\'attaque +25 %, vitesse +8 %',s=>{s.as*=1.25;s.spd*=1.08},'commun'),
-  IT('3047','Dégâts subis -12 %, vitesse +6 %',s=>{s.taken*=.88;s.spd*=1.06},'commun'),
-  IT('1055','ATK +8 %, PV max +8 %',s=>{s.atk*=1.08;s.hpMax*=1.08},'commun'),
-  IT('3031','Critique +20 %, dégâts critiques +40 %',s=>{s.crit+=.2;s.critMul+=.4},'legend'),
-  IT('3089','ATK +30 %',s=>s.atk*=1.3,'legend'),
-  IT('3157','ATK +12 %, dégâts subis -12 %',s=>{s.atk*=1.12;s.taken*=.88},'epique'),
-  IT('3071','ATK +12 %, PV max +15 %',s=>{s.atk*=1.12;s.hpMax*=1.15},'epique'),
-  IT('3083','PV max +40 %, régénération +1,5/s',s=>{s.hpMax*=1.4;s.regen+=1.5},'epique'),
-  IT('3110','Dégâts subis -15 %, ralentit les ennemis proches de 15 %',s=>{s.taken*=.85;s.frost=1},'rare'),
-  IT('3075','Dégâts subis -10 %, renvoie les dégâts au contact',s=>{s.taken*=.9;s.thorns=1},'rare'),
-  IT('3153','Vitesse d\'attaque +20 %, vol de vie 6 %',s=>{s.as*=1.2;s.vamp+=.06},'epique'),
-  IT('3072','ATK +15 %, vol de vie 8 %',s=>{s.atk*=1.15;s.vamp+=.08},'epique'),
-  IT('3135','Dégâts des compétences +12 %',s=>s.dmg*=1.12,'rare'),
-  IT('3165','ATK +12 %, PV max +10 %',s=>{s.atk*=1.12;s.hpMax*=1.1},'rare'),
-  IT('3046','Vitesse d\'attaque +30 %, vitesse +7 %',s=>{s.as*=1.3;s.spd*=1.07},'rare'),
-  IT('3026','Ressuscite une fois avec 60 % des PV',s=>s.revive+=1,'legend'),
-  IT('3742','PV max +20 %, vitesse +10 %',s=>{s.hpMax*=1.2;s.spd*=1.1},'rare'),
-  IT('3065','Soins et boucliers +30 %, PV max +20 %',s=>{s.heal*=1.3;s.hpMax*=1.2},'rare'),
-  IT('3190','Boucliers +40 %, PV max +10 %',s=>{s.heal*=1.2;s.shieldMul*=1.4;s.hpMax*=1.1},'rare'),
-  IT('3504','Renforcements +40 % de durée, vitesse d\'attaque +15 %',s=>{s.buffDur*=1.4;s.as*=1.15},'rare'),
-  IT('3100','ATK +15 %, recharges -8 %',s=>{s.atk*=1.15;s.cd*=.92},'epique'),
-  IT('3116','Tes compétences ralentissent de 20 %, PV max +10 %',s=>{s.rylai=1;s.hpMax*=1.1},'rare'),
-  IT('3115','Vitesse d\'attaque +25 %, ATK +10 %',s=>{s.as*=1.25;s.atk*=1.1},'rare'),
-  IT('3078','ATK +10 %, vitesse d\'attaque +15 %, recharges -7 %',s=>{s.atk*=1.1;s.as*=1.15;s.cd*=.93},'legend'),
-  IT('3094','Portée des attaques +30 %, vitesse d\'attaque +15 %',s=>{s.aaRange*=1.3;s.as*=1.15},'rare'),
-  IT('3085','Tes attaques touchent 2 cibles de plus',s=>s.aaExtra+=2,'epique'),
-  IT('6672','Une attaque sur trois inflige ×3',s=>s.kraken=1,'epique'),
-  IT('3053','PV max +25 %, dégâts subis -5 %',s=>{s.hpMax*=1.25;s.taken*=.95},'epique'),
-  IT('3084','PV max +15 %. Toutes les 6 s, charge un coup colossal sur un ennemi proche : dégâts selon tes PV, et des PV max gagnés pour toujours (sans limite). Tu grandis.',s=>{s.hpMax*=1.15;s.heartsteel=1},'legend')
+  IT('1001','base',"Vitesse +6 %",s=>{s.spd*=1.06}),
+  IT('1036','base',"ATK +6 %",s=>{s.atk*=1.06}),
+  IT('1052','base',"Dégâts des sorts +6 %",s=>{s.dmg*=1.06}),
+  IT('1028','base',"PV max +8 %",s=>{s.hpMax*=1.08}),
+  IT('1042','base',"Vitesse d'attaque +8 %",s=>{s.as*=1.08}),
+  IT('1029','base',"Dégâts subis -5 %",s=>{s.taken*=.95}),
+  IT('1033','base',"Dégâts subis -5 %, régénération +0,2/s",s=>{s.taken*=.95;s.regen+=.2}),
+  IT('1055','base',"ATK +5 %, PV max +5 %, vol de vie 2 %",s=>{s.atk*=1.05;s.hpMax*=1.05;s.vamp+=.02}),
+  IT('1056','base',"Dégâts des sorts +6 %, PV max +4 %",s=>{s.dmg*=1.06;s.hpMax*=1.04}),
+  IT('1054','base',"PV max +8 %, régénération +0,5/s",s=>{s.hpMax*=1.08;s.regen+=.5}),
+  IT('3006','bottes',"Vitesse d'attaque +25 %, vitesse +8 %",s=>{s.as*=1.25;s.spd*=1.08}),
+  IT('3047','bottes',"Dégâts subis -12 %, vitesse +6 %",s=>{s.taken*=.88;s.spd*=1.06}),
+  IT('3020','bottes',"Dégâts des sorts +10 %, vitesse +6 %",s=>{s.dmg*=1.1;s.spd*=1.06}),
+  IT('3158','bottes',"Recharges -10 %, vitesse +6 %",s=>{s.cd*=.9;s.spd*=1.06}),
+  IT('3111','bottes',"Dégâts subis -10 %, vitesse +6 %",s=>{s.taken*=.9;s.spd*=1.06}),
+  IT('3009','bottes',"Vitesse +18 %",s=>{s.spd*=1.18}),
+  IT('1018','epique',"Critique +8 %",s=>{s.crit+=.08}),
+  IT('1037','epique',"ATK +12 %",s=>{s.atk*=1.12}),
+  IT('1058','epique',"Dégâts des sorts +14 %",s=>{s.dmg*=1.14}),
+  IT('1038','epique',"ATK +16 %",s=>{s.atk*=1.16}),
+  IT('1053','epique',"ATK +6 %, vol de vie 4 %",s=>{s.atk*=1.06;s.vamp+=.04}),
+  IT('3067','epique',"PV max +8 %, recharges -5 %",s=>{s.hpMax*=1.08;s.cd*=.95}),
+  IT('3031','legend',"Critique +20 %, dégâts critiques +40 %, ATK +10 %",s=>{s.crit+=.2;s.critMul+=.4;s.atk*=1.1}),
+  IT('3089','legend',"Dégâts des sorts +30 %",s=>{s.dmg*=1.3}),
+  IT('3157','legend',"Dégâts des sorts +12 %, dégâts subis -12 %",s=>{s.dmg*=1.12;s.taken*=.88}),
+  IT('3071','legend',"ATK +12 %, PV max +15 %, recharges -5 %",s=>{s.atk*=1.12;s.hpMax*=1.15;s.cd*=.95}),
+  IT('3083','legend',"PV max +40 %, régénération +1,5/s",s=>{s.hpMax*=1.4;s.regen+=1.5}),
+  IT('3110','legend',"Dégâts subis -15 %, ralentit les ennemis proches, recharges -5 %",s=>{s.taken*=.85;s.frost=1;s.cd*=.95}),
+  IT('3075','legend',"Dégâts subis -10 %, PV max +8 %, renvoie les dégâts au contact",s=>{s.taken*=.9;s.hpMax*=1.08;s.thorns=1}),
+  IT('3153','legend',"Vitesse d'attaque +20 %, vol de vie 6 %, ATK +5 %",s=>{s.as*=1.2;s.vamp+=.06;s.atk*=1.05}),
+  IT('3072','legend',"ATK +15 %, vol de vie 8 %",s=>{s.atk*=1.15;s.vamp+=.08}),
+  IT('3135','legend',"Dégâts des sorts +15 %, +25 % contre les monstres géants",s=>{s.dmg*=1.15;s.giantMul*=1.25}),
+  IT('3165','legend',"Dégâts des sorts +12 %, PV max +10 %",s=>{s.dmg*=1.12;s.hpMax*=1.1}),
+  IT('3046','legend',"Vitesse d'attaque +30 %, vitesse +7 %, critique +10 %",s=>{s.as*=1.3;s.spd*=1.07;s.crit+=.1}),
+  IT('3026','legend',"Ressuscite une fois avec 60 % des PV",s=>{s.revive+=1}),
+  IT('3742','legend',"PV max +20 %, vitesse +10 %",s=>{s.hpMax*=1.2;s.spd*=1.1}),
+  IT('3065','legend',"Soins et boucliers +30 %, PV max +20 %",s=>{s.heal*=1.3;s.hpMax*=1.2}),
+  IT('3190','legend',"Boucliers +40 %, soins +20 %, PV max +10 %",s=>{s.heal*=1.2;s.shieldMul*=1.4;s.hpMax*=1.1}),
+  IT('3504','legend',"Renforcements +40 % de durée, vitesse d'attaque +15 %",s=>{s.buffDur*=1.4;s.as*=1.15}),
+  IT('3100','legend',"ATK +15 %, recharges -8 %",s=>{s.atk*=1.15;s.cd*=.92}),
+  IT('3116','legend',"Les sorts ralentissent de 20 %, PV max +10 %",s=>{s.rylai=1;s.hpMax*=1.1}),
+  IT('3115','legend',"Vitesse d'attaque +25 %, ATK +10 %",s=>{s.as*=1.25;s.atk*=1.1}),
+  IT('3078','legend',"ATK +10 %, vitesse d'attaque +15 %, recharges -7 %",s=>{s.atk*=1.1;s.as*=1.15;s.cd*=.93}),
+  IT('3094','legend',"Portée des attaques +30 %, vitesse d'attaque +15 %, critique +10 %",s=>{s.aaRange*=1.3;s.as*=1.15;s.crit+=.1}),
+  IT('3085','legend',"Les attaques touchent 2 cibles de plus, critique +10 %",s=>{s.aaExtra+=2;s.crit+=.1}),
+  IT('6672','legend',"Une attaque sur trois inflige ×3",s=>{s.kraken=1}),
+  IT('3053','legend',"PV max +25 %, dégâts subis -5 %",s=>{s.hpMax*=1.25;s.taken*=.95}),
+  IT('3084','legend',"PV max +15 %. Toutes les 6 s, charge un coup colossal : dégâts selon les PV et PV max gagnés pour toujours (sans limite). Tu grandis.",s=>{s.hpMax*=1.15;s.heartsteel=1}),
+  IT('3036','legend',"ATK +12 %, critique +10 %, +25 % contre les monstres géants",s=>{s.atk*=1.12;s.crit+=.1;s.giantMul*=1.25}),
+  IT('3033','legend',"ATK +12 %, critique +10 %",s=>{s.atk*=1.12;s.crit+=.1}),
+  IT('6653','legend',"Dégâts des sorts +10 %, les sorts brûlent",s=>{s.dmg*=1.1;s.liandry=1}),
+  IT('3124','legend',"Vitesse d'attaque +20 %, dégâts des sorts +8 %, ATK +5 %",s=>{s.as*=1.2;s.dmg*=1.08;s.atk*=1.05}),
+  IT('3087','legend',"Vitesse d'attaque +15 %, les attaques touchent 1 cible de plus",s=>{s.as*=1.15;s.aaExtra+=1}),
+  IT('3161','legend',"Recharges -10 %, ATK +8 %, PV max +5 %",s=>{s.cd*=.9;s.atk*=1.08;s.hpMax*=1.05}),
+  IT('4645','legend',"Dégâts des sorts +16 %, +20 % contre les ennemis sous 40 % de PV",s=>{s.dmg*=1.16;s.execB+=.2}),
+  IT('3102','legend',"Dégâts des sorts +10 %, dégâts subis -10 %",s=>{s.dmg*=1.1;s.taken*=.9}),
+  IT('3143','legend',"PV max +12 %, dégâts subis -12 %",s=>{s.hpMax*=1.12;s.taken*=.88}),
+  IT('6655','legend',"Dégâts des sorts +10 %, recharges -7 %",s=>{s.dmg*=1.1;s.cd*=.93}),
+  IT('3508','legend',"Critique +15 %, ATK +8 %, recharges -5 %",s=>{s.crit+=.15;s.atk*=1.08;s.cd*=.95}),
+  IT('6675','legend',"Critique +15 %, recharges -12 %",s=>{s.crit+=.15;s.cd*=.88}),
+  IT('3139','legend',"ATK +10 %, vol de vie 5 %, dégâts subis -5 %",s=>{s.atk*=1.1;s.vamp+=.05;s.taken*=.95}),
+  IT('6333','legend',"ATK +10 %, dégâts subis -12 %",s=>{s.atk*=1.1;s.taken*=.88}),
+  IT('3748','legend',"PV max +12 %, ATK +8 %, les attaques touchent 1 cible de plus",s=>{s.hpMax*=1.12;s.atk*=1.08;s.aaExtra+=1})
 ];
+const ITEM_BY={}; ITEMS.forEach(i=>ITEM_BY[i.id]=i);
 const RAR={commun:{nm:'Commun',c:'#8a8a86',w:45}, rare:{nm:'Rare',c:'#3a8fd6',w:32},
            epique:{nm:'Épique',c:'#a568ff',w:16}, legend:{nm:'Légendaire',c:'#c8aa6e',w:7}};
 
@@ -390,13 +450,41 @@ const DEFAULT_SAVE=()=>({gold:0, runs:0, kills:0, stage:'faille', cat:'Mage', ch
   cleared:{}, best:{}, ults:0, research:{atk:0,hp:0,cd:0,as:0,crit:0,spd:0,xp:0,gold:0}, opt:{sound:1,dmgnum:1,shake:1,low:0,d3:1}});
 let SAVE=DEFAULT_SAVE();
 const Store={
-  load(){ try{ const o=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); if(!o) return; const d=DEFAULT_SAVE();
+  load(){ try{ const o=JSON.parse(localStorage.getItem(SAVE_KEY)||localStorage.getItem(SAVE_KEY+'_bak')||'null'); if(!o) return; const d=DEFAULT_SAVE();
     SAVE=Object.assign(d,o,{research:Object.assign(d.research,o.research||{}),opt:Object.assign(d.opt,o.opt||{}),
       owned:o.owned||d.owned, cleared:o.cleared||{}, best:o.best||{}});
     if(!STAGES[SAVE.stage]) SAVE.stage='faille'; if(!CATS[SAVE.cat]) SAVE.cat='Mage'; if(!CH_BY[SAVE.champ]) SAVE.champ='Lux';
   }catch(e){} },
-  save(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify(SAVE)); }catch(e){} }
+  save(){ try{ const j=JSON.stringify(SAVE); localStorage.setItem(SAVE_KEY,j); localStorage.setItem(SAVE_KEY+'_bak',j); }catch(e){} }
 };
+/* demande au navigateur de ne pas effacer les données du jeu */
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+/* --- partie en cours : sauvegardée en continu, reprise possible ---------- */
+const RUN_KEY='runeterra_survivor_run';
+const RUN_F=['t','clock','tier','dcIdx','nextDC','infinite','level','xp','need','kills','gold','banked','spawnAcc','nextElite','nextGiant','nextRune','nextCell','trapT','revive','annie','ahriN','undyCD','undyK','heartHP','po','stk','inv'];
+function saveRun(){ if(!['run','pause','shop','choice'].includes(G.phase)) return;
+  try{ const r={v:1,champ:G.champ,stage:G.stage,cat:G.cat,hp:G.p.hp,ab:{},pg:{}};
+    for(const k of RUN_F) r[k]=G[k];
+    for(const k in G.ab){ const a=G.ab[k]; r.ab[k]={ci:a.ci,k:a.k,lv:a.lv}; }
+    for(const id in (G.pst||{})) if(G.pst[id].given) r.pg[id]=1;
+    localStorage.setItem(RUN_KEY,JSON.stringify(r)); }catch(e){} }
+function loadRun(){ try{ const r=JSON.parse(localStorage.getItem(RUN_KEY)||'null'); return r&&CHAMPS[r.champ]&&STAGES[r.stage]?r:null; }catch(e){ return null; } }
+function clearRun(){ try{ localStorage.removeItem(RUN_KEY); }catch(e){} }
+function resumeRun(){ const r=loadRun(); if(!r) return;
+  SAVE.champ=CHAMPS[r.champ].id; SAVE.stage=r.stage; SAVE.cat=r.cat; startRun();
+  for(const k of RUN_F) if(r[k]!==undefined) G[k]=r[k];
+  G.ab={}; for(const k in r.ab) G.ab[k]=Object.assign({},r.ab[k],{t:.5});
+  for(const id in r.pg||{}) pst(id).given=1;
+  G.inv=G.inv||{}; G.stk=G.stk||{}; syncAllies(); computeStats(); G.p.hp=Math.max(1,Math.min(ST.hpMax,r.hp||ST.hpMax));
+  renderKit(); renderStacks(); toast('PARTIE REPRISE — '+fmtT(G.clock)); }
+/* sauvegarde de secours à copier / coller */
+function exportSave(){ const code=btoa(unescape(encodeURIComponent(JSON.stringify(SAVE))));
+  try{ navigator.clipboard.writeText(code); toast('CODE DE SAUVEGARDE COPIÉ'); }catch(e){}
+  prompt('Ton code de sauvegarde (garde-le précieusement) :',code); }
+function importSave(){ const code=prompt('Colle ton code de sauvegarde :'); if(!code) return;
+  try{ const o=JSON.parse(decodeURIComponent(escape(atob(code.trim())))); if(!o||typeof o!=='object'||!o.owned) throw 0;
+    localStorage.setItem(SAVE_KEY,JSON.stringify(o)); Store.load(); Store.save(); refreshMenu(); renderSettings(); toast('PROGRESSION RESTAURÉE'); }
+  catch(e){ alert('Code invalide.'); } }
 const stageOpen=k=>!STAGES[k].apres||!!SAVE.cleared[STAGES[k].apres];
 const champOwned=n=>SAVE.owned.includes(n);
 
@@ -420,14 +508,31 @@ let ST=null;
 const stage=()=>STAGES[G.stage]||STAGES.faille;
 const champ=()=>CHAMPS[G.champ];
 
-function computeStats(){
+function baseStats(){
   const R=SAVE.research;
   const s={atk:10*(1+.05*R.atk), dmg:1, cd:Math.pow(.98,R.cd), as:1+.05*R.as, aaRange:1, aaExtra:0, kraken:0,
     crit:.05+.02*R.crit, critMul:1.75, hpMax:130*(1+.08*R.hp), regen:.35, spd:90*(1+.02*R.spd), pickup:52,
     goldMul:1+.08*R.gold, xpMul:1+.05*R.xp, taken:1, revive:0, vamp:0, heal:1, shieldMul:1, buffDur:1,
-    frost:0, thorns:0, rylai:0, heartsteel:0};
+    frost:0, thorns:0, rylai:0, heartsteel:0, giantMul:1, execB:0, liandry:0};
+  return s;
+}
+/* inventaire : 6 emplacements par champion (principal et alliés) */
+const invOf=ci=>(G.inv[ci]||(G.inv[ci]=[null,null,null,null,null,null]));
+function applyItems(s,ci){ for(const id of invOf(ci)) if(id&&ITEM_BY[id]) ITEM_BY[id].f(s); }
+const allyCis=()=>ownedChamps().filter(ci=>ci!==G.champ);
+let ASTAT={};
+/* statistiques du champion principal (ST) et de chaque allié (ASTAT) ;
+   les PV et résistances des objets des alliés protègent toute l'équipe */
+function computeStats(){
+  if(!G.inv) G.inv={};
+  const s=baseStats();
   if(champ().m) { s.hpMax*=1.15; s.taken*=.92; }           /* les champions de mêlée sont plus solides */
-  for(const id of G.arts) ITEMS.find(i=>i.id===id).f(s);
+  applyItems(s,G.champ);
+  ASTAT={};
+  for(const ci of allyCis()){ const t=baseStats(), b=baseStats(); applyItems(t,ci);
+    t.cd=Math.max(t.cd,.35); t.crit=Math.min(t.crit,.85); ASTAT[ci]=t;
+    s.hpMax*=t.hpMax/b.hpMax; s.taken*=t.taken/b.taken; s.regen+=t.regen-b.regen; s.heal*=t.heal/b.heal; s.shieldMul*=t.shieldMul/b.shieldMul;
+    s.revive+=t.revive; if(t.frost) s.frost=1; if(t.thorns) s.thorns=1; if(t.heartsteel) s.heartsteel=1; }
   stackStats(s);
   s.cd=Math.max(s.cd,.35); s.crit=Math.min(s.crit,.85);
   const old=ST?ST.hpMax:s.hpMax; ST=s;
@@ -435,13 +540,15 @@ function computeStats(){
   G.p.hp=Math.min(G.p.hp,s.hpMax);
   for(const k in G.ab) G.ab[k].s=null;
 }
+const statsFor=ci=>(ci!==G.champ&&ASTAT[ci])||ST;
 const abKey=(ci,k)=>ci+'_'+k;
 const abSpell=a=>CHAMPS[a.ci].s[a.k];
 function abStats(key){
   const a=G.ab[key]; if(a.s) return a.s;
   const c=CHAMPS[a.ci], sp=c.s[a.k], fam=sp[2], f=FAM[fam], ult=a.k===3, lv=a.lv;
   const s={key, fam, cc:sp[3], ult, c:CATS[c.c].c, nm:sp[0], count:1, size:1, amount:1, ch:c.id, kk:KEYS[a.k], P:sp[7]||{}};
-  s.cd=(ult?clamp(sp[4]*.1,8,16):clamp(sp[4]*.3,.9,4.5))*Math.pow(.94,lv-1)*ST.cd;
+  const SS=statsFor(a.ci);
+  s.cd=(ult?clamp(sp[4]*.1,8,16):clamp(sp[4]*.3,.9,4.5))*Math.pow(.94,lv-1)*SS.cd;
   s.range=clamp(sp[5]/3.2,90,320);
   s.dmg=f.dmg*1.5*(1+.3*(lv-1))*(ult?3.2:1);
   const bonus=(lv>=3?1:0)+(lv>=5?1:0)+(ult&&lv>=2?1:0)+(ult&&lv>=3?1:0);
@@ -449,7 +556,8 @@ function abStats(key){
   if(ult){ s.size*=1.6; s.amount*=2; if(f.grow==='count') s.count++; }
   if(c.id==='AurelionSol') s.size*=1+.004*stk('asol');
   if(fam==='frappe') s.range=Math.max(s.range,140)*bigness();
-  s.mul=ST.atk*ST.dmg*(c.c===G.cat?1.15:1);
+  s.mul=SS.atk*SS.dmg*(c.c===G.cat?1.15:1);
+  Object.assign(s,{crit:SS.crit,critMul:SS.critMul,vamp:SS.vamp,rylai:SS.rylai,liandry:SS.liandry,giantMul:SS.giantMul,execB:SS.execB});
   return a.s=s;
 }
 const dynMul=()=>(G.buffs.emp>0?1+G.empAmt:1)*(G.buffs.red>0?1.5:1);
@@ -506,10 +614,10 @@ function owns(id){ const c=CH_BY[id]; if(!c||!G.ab) return false; if(G.champ===c
 function hasSp(id,k){ const c=CH_BY[id]; return !!(c&&G.ab&&G.ab[abKey(c.i,k)]); }
 function stk(k){ return (G.stk&&G.stk[k])||0; }
 function addStk(k,n,x,y){ if(!G.stk) G.stk={}; G.stk[k]=stk(k)+n; G.stkDirty=1;
-  if(['feast','heart','sion','senna','thresh','veigar','asol'].includes(k)) computeStats();
+  if(['feast','heart','sion','senna','thresh','veigar','asol'].includes(k)||(STK[k]&&STK[k].gen)) computeStats();
   if(x!=null&&G.nums.length<60) G.nums.push({x,y:y-16,vy:-34,t:.9,v:'+'+n+' '+STK[k].nm,crit:false,c:STK[k].c}); }
 /* taille du champion : grandit sans fin, de moins en moins vite */
-function bigness(){ return 1+.42*Math.log(1+stk('feast')/7)+.3*Math.log(1+stk('heart')/10); }
+function bigness(){ return 1+.42*Math.log(1+stk('feast')/7)+.3*Math.log(1+stk('heart')/10)+(G.rageBig>0?.35:0); }
 /* bonus des cumuls sur les statistiques */
 function stackStats(s){
   s.hpMax+=stk('feast')*8+(G.heartHP||0)+stk('sion')*3;
@@ -517,12 +625,14 @@ function stackStats(s){
   const sn=stk('senna'); s.atk*=1+.01*sn; s.aaRange*=Math.min(2.2,1+.01*sn);
   s.taken*=Math.max(.55,Math.pow(.997,stk('thresh')));
   if(owns('Yasuo')) s.crit*=2;
+  genStats(s);
   G.p.r=11*(1+(bigness()-1)*.45);
 }
 /* --- états sur les ennemis ------------------------------------------- */
 function ss(e){ return e.ss||(e.ss={}); }
 const MEL_S={ch:'Mel',kk:'Q',dmg:.9,mul:1,c:'#ffd36b',spark:1,cc:'',P:{}};
 function passMod(e,s,d){
+  d=genMod(e,s,d);
   const ch=s.ch;
   if(ch==='Darius'&&s.kk==='R'&&e.ss&&e.ss.bleed) d*=1+.2*e.ss.bleed.n;
   if(ch==='Nasus'&&s.kk==='Q') d*=1+.04*stk('nasus');
@@ -534,6 +644,7 @@ function passMod(e,s,d){
   return d;
 }
 function onHitPass(e,s,d){
+  genHit(e,s,d); if(e.dead) return;
   const aaMain=s.aa?champ().id:null, ch=s.ch||aaMain;
   if(!ch) return;
   if(ch==='Darius'){ const b=ss(e).bleed||(e.ss.bleed={n:0,t:0,tk:0}); b.n=Math.min(5,b.n+1); b.t=5;
@@ -555,6 +666,7 @@ function onHitPass(e,s,d){
   if(ch==='Ezreal'&&!s.aa){ G.ezr={n:Math.min(5,((G.ezr&&G.ezr.t>0)?G.ezr.n:0)+1),t:5}; }
 }
 function onKillPass(e){
+  genKill(e);
   const s=e.lastS||{}, ch=s.ch, big=e.giant?6:e.elite?2:1;
   if(ch==='Chogath'&&s.kk==='R'){ addStk('feast',big,G.p.x,G.p.y); G.p.hp=Math.min(ST.hpMax,G.p.hp+ST.hpMax*.03); burst(e.x,e.y,'#b46bff',10,1.2); }
   if(ch==='Nasus'&&s.kk==='Q') addStk('nasus',3*big,e.x,e.y);
@@ -569,6 +681,7 @@ function onKillPass(e){
   if(owns('Ahri')&&(G.ahriN=(G.ahriN||0)+1)%9===0){ G.p.hp=Math.min(ST.hpMax,G.p.hp+ST.hpMax*.05); G.fx.push({k:'heal',x:G.p.x,y:G.p.y,r:30,t:.5,mt:.5}); }
 }
 function onCastPass(s){
+  genCast(s);
   if(s.ch==='Mel'){ G.mel=Math.min(9,(G.mel||0)+3); }
   if(s.ch==='Annie'){ G.annie=((G.annie||0)+1)%4; if(G.annie===0){ G.pyroT=G.t+1.2; } }
 }
@@ -581,6 +694,7 @@ function tickSS(e,dt){ const S=e.ss;
   if(S.illum){ S.illum.t-=dt; if(S.illum.t<=0) delete S.illum; }
 }
 function updatePass(dt){
+  genUpdate(dt);
   const p=G.p;
   if(G.ezr&&G.ezr.t>0) G.ezr.t-=dt; if(G.undy>0) G.undy-=dt;
   /* étincelles de Mel : partent seules vers les ennemis proches */
@@ -640,9 +754,284 @@ function drawPassPlayer(p,top){
   ctx.globalCompositeOperation='source-over';
   if(owns('Annie')){ pips(p.x,top-6,G.annie||0,4,G.pyroT>G.t?'#ffffff':'#ff7a1a'); }
 }
+function drawPet(u){ const k=Math.min(1,u.t), im=img(psvImg(u.s.ch)), y=u.y-(R3.on?8:4)+Math.sin(G.t*6+u.x)*1.5;
+  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(u.x,u.y+4,7,R3.on?7:2.5,0,0,TAU); ctx.fill();
+  ctx.globalAlpha=k; ctx.save(); ctx.beginPath(); ctx.arc(u.x,y,7,0,TAU); ctx.clip(); if(im) ctx.drawImage(im,u.x-7,y-7,14,14); else { ctx.fillStyle='#c8aa6e'; ctx.fill(); } ctx.restore();
+  ctx.strokeStyle='#c8aa6e'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(u.x,y,7,0,TAU); ctx.stroke(); ctx.globalAlpha=1; }
 function drawSouls(){ ctx.globalCompositeOperation='lighter';
   for(const o of G.souls||[]){ const c=o.k==='senna'?'#7fe0c8':'#5dff9a', y=o.y-6+Math.sin(o.t*4)*2; drawGlow(o.x,y,9,c,.85); drawGlow(o.x,y,3,'#ffffff',.9); }
   ctx.globalCompositeOperation='source-over'; }
+
+/* passifs officiels (nom et icône de LoL) et leur mécanique dans le jeu */
+const PSV={"Aatrox":{"n":"Posture du massacreur","i":"Aatrox_Passive.png","t":"cd","p":{"every":5,"k":1.2,"pct":0.04,"heal":0.03}},"Ahri":{"n":"Vol essentiel","i":"Ahri_SoulEater2.png"},"Akali":{"n":"Marque d'assassin","i":"Akali_P.png","t":"cast","p":{"k":1.8}},"Akshan":{"n":"Fourberie","i":"akshan_p.png","t":"nth","p":{"n":3,"k":1.2,"shield":0.04}},"Alistar":{"n":"Cri triomphant","i":"Alistar_E.png","t":"healKill","p":{"pct":0.004}},"Ambessa":{"n":"Ruée des chiens-dragons","i":"Icon_Ambessa_Passive.png","t":"cast","p":{"k":1.2}},"Amumu":{"n":"Toucher maudit","i":"Amumu_Passive.png","t":"amp","p":{"k":0.12}},"Anivia":{"n":"Renaissance","i":"Anivia_P.png","t":"revive","p":{}},"Annie":{"n":"Pyromanie","i":"Annie_Passive.png"},"Aphelios":{"n":"Le Tueur et l'Oracle","i":"ApheliosP.png","t":"nth","p":{"n":4,"k":1.5,"aoe":32}},"Ashe":{"n":"Tir givrant","i":"Ashe_P.png","t":"slow","p":{"k":0.2}},"AurelionSol":{"n":"Créateur cosmique","i":"AurelionSolP.png"},"Aurora":{"n":"Abjuration spirituelle","i":"AuroraPassive.png","t":"heal","p":{"v":0.05}},"Azir":{"n":"Héritage de Shurima","i":"Azir_Passive.png","t":"pet","p":{"kind":"soldat","every":6,"life":6}},"Bard":{"n":"Instinct du voyageur","i":"Bard_Passive.png","t":"cd","p":{"every":3,"k":1,"aoe":26}},"Belveth":{"n":"Mer de lavande","i":"Belveth_Passive.png","t":"stackAS","p":{"per":0.002}},"Blitzcrank":{"n":"Barrière de mana","i":"Blitzcrank_ManaBarrier.png","t":"shieldLow","p":{"pct":0.3}},"Brand":{"n":"Flammes","i":"BrandP.png"},"Braum":{"n":"Coups étourdissants","i":"Braum_Passive.png","t":"mark","p":{"n":4,"k":1.2,"stun":1}},"Briar":{"n":"Malédiction écarlate","i":"BriarP.png","t":"dot","p":{"kind":"bleed","dps":0.08,"max":5,"heal":0.02}},"Caitlyn":{"n":"Tir dans la tête","i":"Caitlyn_Headshot.png","t":"nth","p":{"n":6,"k":3}},"Camille":{"n":"Protection modulable","i":"Camille_Passive.png","t":"shield","p":{"every":6,"pct":0.06}},"Cassiopeia":{"n":"Grâce serpentine","i":"Cassiopeia_Passive.png","t":"dot","p":{"kind":"poison","dps":0.2}},"Chogath":{"n":"Carnivore","i":"GreenTerror_TailSpike.png"},"Corki":{"n":"Munitions Hextech","i":"Corki_RapidReload.png","t":"bonus","p":{"k":0.18}},"Darius":{"n":"Plaie béante","i":"Darius_Icon_Hemorrhage.png"},"Diana":{"n":"Lame sélène","i":"Diana_Passive_LunarBlade.png","t":"nth","p":{"n":3,"k":1.3,"aoe":36}},"DrMundo":{"n":"Il va où il veut","i":"DrMundo_P.png","t":"regen","p":{"pct":0.012}},"Draven":{"n":"League of Draven","i":"Draven_passive.png","t":"gold","p":{"min":2,"max":5}},"Ekko":{"n":"RéZonance","i":"Ekko_P.png","t":"mark","p":{"n":3,"k":2,"spd":1}},"Elise":{"n":"Reine araignée","i":"ElisePassive.png","t":"pet","p":{"kind":"araignée","every":5,"life":5}},"Evelynn":{"n":"Ombre démoniaque","i":"Evelynn_Passive.png","t":"lowregen","p":{"pct":0.035,"th":0.5}},"Ezreal":{"n":"Force grandissante","i":"Ezreal_RisingSpellForce.png"},"Fiddlesticks":{"n":"Épouvantable épouvantail","i":"FiddlesticksP.png","t":"pet","p":{"kind":"épouvantail","every":9,"life":8,"fear":1}},"Fiora":{"n":"Danse de la duelliste","i":"Fiora_P.png","t":"first","p":{"k":1.5,"heal":0.03}},"Fizz":{"n":"Combattant agile","i":"Fizz_P.png","t":"dr","p":{"k":0.1}},"Galio":{"n":"Frappe colossale","i":"Galio_Passive.png","t":"cd","p":{"every":5,"k":2,"aoe":40}},"Gangplank":{"n":"Épreuve du feu","i":"Gangplank_Passive.png","t":"cd","p":{"every":4,"k":1,"burn":1}},"Garen":{"n":"Persévérance","i":"Garen_Passive.png"},"Gnar":{"n":"Rage génique","i":"Gnar_Passive.png","t":"rage","p":{"n":25,"dur":10,"k":0.4,"big":1}},"Gragas":{"n":"Tournée","i":"GragasPassiveHeal.png","t":"healCast","p":{"pct":0.025}},"Graves":{"n":"Nouvelle destinée","i":"GravesTrueGrit.png","t":"stat","p":{"aaExtra":2}},"Gwen":{"n":"Mille coupures","i":"Gwen_Passive.png","t":"pct","p":{"p":0.015,"heal":0.25}},"Hecarim":{"n":"Galop","i":"Hecarim_Passive.png","t":"stat","p":{"spd":1.1,"atk":1.08}},"Heimerdinger":{"n":"Affinité Hextech","i":"Heimerdinger_Passive.png","t":"pet","p":{"kind":"tourelle","every":7,"life":8}},"Hwei":{"n":"Signature du Visionnaire","i":"HweiPassive.png","t":"mark","p":{"n":2,"k":1.5}},"Illaoi":{"n":"Prophétesse d'un dieu ancestral","i":"Illaoi_P.png","t":"slam","p":{"every":4,"k":2.2,"r":32}},"Irelia":{"n":"Ferveur ionienne","i":"Irelia_Passive.png","t":"as","p":{"per":0.06,"max":4}},"Ivern":{"n":"Ami de la forêt","i":"IvernP.png","t":"shieldCast","p":{"pct":0.04}},"Janna":{"n":"Zéphyr","i":"JannaP.png","t":"spd","p":{"on":"cast"}},"JarvanIV":{"n":"Cadence martiale","i":"JarvanIVP.png","t":"first","p":{"pct":0.08}},"Jax":{"n":"Acharnement","i":"Armsmaster_MasterOfArms.png","t":"as","p":{"per":0.035,"max":8}},"Jayce":{"n":"Capaciteur Hextech","i":"Jayce_Passive.png","t":"spd","p":{"on":"cast"}},"Jhin":{"n":"Murmure","i":"Jhin_P.png","t":"nth","p":{"n":4,"k":2.5,"exec":1}},"Jinx":{"n":"Enthousiasme !","i":"Jinx_Passive.png"},"KSante":{"n":"Instinct intrépide","i":"Icons_KSante_P.png","t":"cast","p":{"k":1.5}},"Kaisa":{"n":"Seconde peau","i":"Kaisa_Passive.png"},"Kalista":{"n":"Maintien martial","i":"Kalista_Passive.png","t":"mark","p":{"n":5,"k":2.5}},"Karma":{"n":"Concentration ardente","i":"Karma_Passive.png","t":"cdr","p":{"on":"hit","v":0.3}},"Karthus":{"n":"Déni de mort","i":"Karthus_Passive.png","t":"undying","p":{"dur":5}},"Kassadin":{"n":"Pierre du Néant","i":"Kassadin_Passive.png","t":"dr","p":{"k":0.12}},"Katarina":{"n":"Voracité","i":"Katarina_Passive.png"},"Kayle":{"n":"Ascension divine","i":"Kayle_P.png","t":"stat","p":{"aaRange":1.4,"as_":1.1}},"Kayn":{"n":"Faux des Darkin","i":"Kayn_Passive_Primary.png","t":"heal","p":{"v":0.08}},"Kennen":{"n":"Marque de tempête","i":"Kennen_Passive.png","t":"mark","p":{"n":3,"k":1,"stun":1}},"Khazix":{"n":"Menace invisible","i":"Khazix_P.png","t":"isolate","p":{"k":0.6}},"Kindred":{"n":"Marque de Kindred","i":"Kindred_Passive.png","t":"hunt","p":{"per":0.03}},"Kled":{"n":"Skaarl, le Lézard froussard","i":"Kled_P.png","t":"revive","p":{}},"KogMaw":{"n":"Surprise d'Icathia","i":"KogMaw_IcathianSurprise.png","t":"pct","p":{"p":0.02}},"Leblanc":{"n":"Image miroir","i":"LeblancP.png","t":"shieldLow","p":{"pct":0.25,"invis":1}},"LeeSin":{"n":"Rafale","i":"LeeSinPassive.png","t":"cast","p":{"k":0.8,"heal":0.02}},"Leona":{"n":"Rayon de soleil","i":"LeonaSunlight.png","t":"mark","p":{"n":2,"k":1.4}},"Lillia":{"n":"Bâton chargé de rêves","i":"Lillia_Icon_Passive.png","t":"dot","p":{"kind":"burn","dps":0.06,"pct":0.01}},"Lissandra":{"n":"Emprise de la Sublimée","i":"Lissandra_Passive.png","t":"petKill","p":{"chance":0.06}},"Locke":{"n":"Pieu argenté","i":"Locke_Passive.png","t":"missing","p":{"k":0.7}},"Lucian":{"n":"Pistolero","i":"Lucian_Passive.png","t":"cast","p":{"k":1,"double":1}},"Lulu":{"n":"Pix, le Compagnon féérique","i":"Lulu_PixFaerieCompanion.png","t":"pix","p":{"k":0.5}},"Lux":{"n":"Illumination","i":"LuxIlluminatingFraulein.png"},"Malphite":{"n":"Bouclier de granit","i":"Malphite_GraniteShield.png","t":"shield","p":{"every":8,"pct":0.1}},"Malzahar":{"n":"Plan du Néant","i":"Malzahar_Passive.png","t":"shield","p":{"every":10,"pct":0.12}},"Maokai":{"n":"Sève magique","i":"Maokai_Passive.png","t":"cd","p":{"every":6,"k":1.5,"heal":0.04}},"MasterYi":{"n":"Coup double","i":"MasterYi_Passive1.png","t":"nth","p":{"n":4,"k":0.5,"double":1}},"Mel":{"n":"Luminescence incandescente","i":"Mel_Passive.png"},"Milio":{"n":"Tout feu tout flamme","i":"Milio_P.png","t":"cast","p":{"k":1,"burn":1}},"MissFortune":{"n":"Cœur volage","i":"MissFortune_W.png","t":"first","p":{"k":1}},"Mordekaiser":{"n":"Vortex de ténèbres","i":"MordekaiserPassive.png","t":"aura","p":{"dps":0.3,"r":45}},"Morgana":{"n":"Siphon d'âme","i":"FallenAngel_Empathize.png","t":"heal","p":{"v":0.12}},"Naafiri":{"n":"La meute s'agrandit","i":"Icons_Naafiri_P.png","t":"pet","p":{"kind":"chien","every":5,"life":6}},"Nami":{"n":"Déferlantes","i":"NamiPassive.png","t":"healCast","p":{"pct":0.015,"spd":1}},"Nasus":{"n":"Mangeur d'âmes","i":"Nasus_Passive.png"},"Nautilus":{"n":"Coup écrasant","i":"Nautilus_StaggeringBlow.png","t":"first","p":{"k":1,"root":1}},"Neeko":{"n":"Mirage inné","i":"Neeko_P.png","t":"cast","p":{"k":1.2}},"Nidalee":{"n":"Prédateur","i":"Nidalee_Passive.png","t":"spd","p":{"on":"hit"}},"Nilah":{"n":"Joie éternelle","i":"NIlahP.png","t":"xp","p":{"k":0.2}},"Nocturne":{"n":"Lames d'ombre","i":"Nocturne_UmbraBlades.png","t":"cd","p":{"every":4,"k":1.2,"aoe":40,"heal":0.02}},"Nunu":{"n":"Appel de Freljord","i":"NunuPassive.png","t":"slow","p":{"k":0.15}},"Olaf":{"n":"Rage du berzerker","i":"Olaf_Passive.png","t":"stat","p":{"as_":1.15,"vamp":0.04}},"Orianna":{"n":"Remontoir","i":"OriannaPassive.png","t":"same","p":{"k":0.2,"max":3}},"Ornn":{"n":"Forgeron ambulant","i":"OrnnP.png","t":"discount","p":{"k":0.15}},"Pantheon":{"n":"Ardeur mortelle","i":"Pantheon_Passive.png","t":"nth","p":{"n":5,"k":2}},"Poppy":{"n":"Ambassadrice de fer","i":"Poppy_Passive.png","t":"shield","p":{"every":9,"pct":0.08}},"Pyke":{"n":"Don des noyés","i":"PykePassive.png","t":"exec","p":{"th":0.15}},"Qiyana":{"n":"Privilège royal","i":"Qiyana_Passive.png","t":"first","p":{"k":1.2}},"Quinn":{"n":"Busard","i":"Quinn_Passive.png","t":"cd","p":{"every":4,"k":1.6}},"Rakan":{"n":"Plumes enchantées","i":"Rakan_P.png","t":"shield","p":{"every":7,"pct":0.06}},"Rammus":{"n":"Carapace cloutée","i":"Armordillo_ScavengeArmor.png","t":"stat","p":{"thorns":1,"taken":0.92}},"RekSai":{"n":"Fureur des Xer'Sai","i":"RekSai_Passive.png","t":"heal","p":{"v":0.06}},"Rell":{"n":"Mise en pièces","i":"RellP.png","t":"amp","p":{"k":0.08}},"Renata":{"n":"Pression","i":"Renata_P.png","t":"amp","p":{"k":0.1}},"Renekton":{"n":"Règne de la colère","i":"Renekton_Passive.png","t":"rage","p":{"n":15,"dur":6,"k":0.5}},"Rengar":{"n":"Prédateur invisible","i":"Rengar_P.png","t":"nth","p":{"n":4,"k":2.2,"heal":0.03}},"Riven":{"n":"Lame runique","i":"RivenRunicBlades.png","t":"cast","p":{"k":1.4}},"Rumble":{"n":"Titan de bric-à-brac","i":"Rumble_JunkyardTitan1.png","t":"cast","p":{"k":1,"burn":1}},"Ryze":{"n":"Maîtrise des arcanes","i":"Ryze_P.png","t":"stat","p":{"dmg":1.12}},"Samira":{"n":"Élan téméraire","i":"SamiraP.png","t":"nth","p":{"n":6,"k":2.5,"aoe":30}},"Sejuani":{"n":"Fureur du nord","i":"Sejuani_passive.png","t":"dr","p":{"k":0.12}},"Senna":{"n":"Absolution","i":"Senna_Passive.png"},"Sett":{"n":"Roi de l'arène","i":"Sett_P.png","t":"nth","p":{"n":2,"k":0.8}},"Shaco":{"n":"Traîtrise","i":"Jester_CarefulStrikes.png","t":"first","p":{"k":1.3}},"Shen":{"n":"Barrière de ki","i":"Shen_Passive.png","t":"shieldCast","p":{"pct":0.05}},"Shyvana":{"n":"Armure d'écailles","i":"Shyvana_Passive.png","t":"stackDR","p":{"per":0.002}},"Singed":{"n":"Sillage toxique","i":"Singed_Passive.png","t":"aura","p":{"dps":0.2,"r":32,"poison":1}},"Sion":{"n":"Gloire posthume","i":"Sion_Passive1.png"},"Sivir":{"n":"Mille-pattes","i":"Sivir_Passive.png","t":"spd","p":{"on":"hit"}},"Skarner":{"n":"Échos des vibrations","i":"Skarner_Passive.png","t":"mark","p":{"n":3,"k":1.5,"stun":1}},"Smolder":{"n":"Dragon en herbe","i":"Icons_Smolder_Passive.png"},"Sona":{"n":"Accord de puissance","i":"Sona_Passive_Charged.png","t":"aura","p":{"dps":0.15,"r":60}},"Soraka":{"n":"Salut","i":"Soraka_Passive.png","t":"healCast","p":{"pct":0.02}},"Swain":{"n":"Nuée de corbeaux","i":"Swain_P.png","t":"stackHP","p":{"hp":3,"chance":0.3}},"Sylas":{"n":"Volée de pétricite","i":"SylasP.png","t":"cast","p":{"k":1.3,"aoe":30}},"Syndra":{"n":"Transcendance","i":"SyndraPassive.png","t":"stackDMG","p":{"per":0.003}},"Seraphine":{"n":"Présence sur scène","i":"Seraphine_Passive.png","t":"echo","p":{"n":3}},"TahmKench":{"n":"Goût acquis","i":"TahmKenchP.png","t":"bonusHP","p":{"k":0.02}},"Taliyah":{"n":"Surf tellurique","i":"Taliyah_Passive.png","t":"spd","p":{"on":"cast"}},"Talon":{"n":"Saignée fatale","i":"TalonP.png","t":"mark","p":{"n":3,"k":2,"bleed":1}},"Taric":{"n":"Plastronneur","i":"Taric_Passive.png","t":"cast","p":{"k":1,"heal":0.015}},"Teemo":{"n":"Guérilla","i":"TeemoPassive.png"},"Thresh":{"n":"Damnation","i":"Thresh_Passive.png"},"Tristana":{"n":"Tir de précision","i":"Tristana_Passive.png","t":"range","p":{"k":0.01}},"Trundle":{"n":"Tribut du roi","i":"Trundle_Passive.png","t":"healKill","p":{"pct":0.01}},"Tryndamere":{"n":"Vague de violence","i":"Tryndamere_Passive.png"},"TwistedFate":{"n":"Dé pipé","i":"Cardmaster_SealFate.png","t":"gold","p":{"min":1,"max":6}},"Twitch":{"n":"Venin mortel","i":"Twitch_Passive.png"},"Udyr":{"n":"Canalisation des esprits","i":"Udyr_P.png","t":"cast","p":{"k":1}},"Urgot":{"n":"Flammes purificatrices","i":"Urgot_Passive.png","t":"cd","p":{"every":2.5,"k":1.2,"aoe":35}},"Varus":{"n":"Vengeance incarnée","i":"VarusPassive.png","t":"frenzy","p":{"dur":3}},"Vayne":{"n":"Chasseresse nocturne","i":"Vayne_NightHunter.png"},"Veigar":{"n":"Pouvoir maléfique phénoménal","i":"VeigarEntropy.png"},"Velkoz":{"n":"Décomposition organique","i":"VelKoz_Passive.png","t":"mark","p":{"n":3,"k":2.2}},"Vex":{"n":"Malheur et Désespoir","i":"Icons_Vex_Passive.png","t":"cd","p":{"every":6,"k":1,"fear":1,"aoe":40}},"Vi":{"n":"Bouclier antichoc","i":"ViPassive.png","t":"shield","p":{"every":9,"pct":0.1}},"Viego":{"n":"Assujettissement","i":"Viego_Passive.png","t":"healKill","p":{"pct":0.02}},"Viktor":{"n":"Glorieuse évolution","i":"Viktor_Passive.png","t":"stackDMG","p":{"per":0.002}},"Vladimir":{"n":"Pacte de sang","i":"VladimirP.png","t":"heal","p":{"v":0.1}},"Volibear":{"n":"Tempête impitoyable","i":"Volibear_Icon_P.png","t":"as","p":{"per":0.05,"max":5}},"Warwick":{"n":"Soif inextinguible","i":"WarwickP.png","t":"heal","p":{"v":0.06,"low":1}},"MonkeyKing":{"n":"Peau de pierre","i":"MonkeyKingStoneSkin.png","t":"dr","p":{"k":0.08}},"Xayah":{"n":"Plumes perçantes","i":"XayahPassive.png","t":"cast","p":{"k":1,"aoe":25}},"Xerath":{"n":"Afflux de mana","i":"Xerath_Passive1.png","t":"cdr","p":{"on":"kill","v":0.15}},"XinZhao":{"n":"Détermination","i":"XinZhaoReworkP.png","t":"nth","p":{"n":3,"k":1.5,"heal":0.03}},"Yasuo":{"n":"Voie du vagabond","i":"Yasuo_Passive.png"},"Yone":{"n":"Voie du chasseur","i":"YonePassive.png","t":"crit","p":{"mul":1.6}},"Yorick":{"n":"Berger des âmes","i":"Yorick_P.png","t":"pet","p":{"kind":"goule","every":5,"life":7}},"Yunara":{"n":"Serment aux Terres premières","i":"Yunara_Passive.png","t":"crit","p":{"mul":1.4}},"Yuumi":{"n":"Chat-maraderie","i":"YuumiP2.png","t":"healCast","p":{"pct":0.03}},"Zaahen":{"n":"Guerrier immortel","i":"ZaahenP.png","t":"as","p":{"per":0.04,"max":6}},"Zac":{"n":"Division cellulaire","i":"ZacPassive.png","t":"revive","p":{}},"Zed":{"n":"Mépris des faibles","i":"ZedP.png"},"Zeri":{"n":"Batterie vivante","i":"ZeriP.png","t":"cd","p":{"every":3,"k":1.6}},"Ziggs":{"n":"Mèche courte","i":"ZiggsPassiveReady.png","t":"cd","p":{"every":4,"k":2,"aoe":25}},"Zilean":{"n":"Temps dans une bouteille","i":"Zilean_Passive.png","t":"xp","p":{"k":0.25}},"Zoe":{"n":"Plus d'étincelles !","i":"Zoe_P.png","t":"cast","p":{"k":1.5}},"Zyra":{"n":"Jardin de ronces","i":"ZyraP.png","t":"pet","p":{"kind":"plante","every":4,"life":6}}};
+const HAND=new Set(['Darius','Mel','Chogath','Nasus','Veigar','Sion','Senna','Thresh','Smolder','AurelionSol','Brand','Twitch','Teemo','Kaisa','Vayne','Lux','Annie','Jinx','Katarina','Ahri','Zed','Garen','Ezreal','Tryndamere','Yasuo']);
+const psvImg=id=>CDN+'/img/passive/'+PSV[id].i;
+const pct0=v=>Math.round(v*100)+' %';
+/* description courte de la mécanique, en français */
+function psvText(id){ if(HAND.has(id)) return (PASS[id]||'').replace(/^[^:]{2,40}:\s*/,''); const P=PSV[id]; if(!P||!P.t) return ''; const q=P.p||{};
+  const T={
+    first:()=>'Le premier coup sur chaque ennemi inflige des dégâts bonus'+(q.pct?' selon ses PV':'')+(q.root?' et l’immobilise':'')+(q.heal?' et te soigne':'')+'.',
+    missing:()=>'Inflige jusqu’à +'+pct0(q.k)+' de dégâts selon les PV manquants de la cible.',
+    isolate:()=>'+'+pct0(q.k)+' de dégâts contre les ennemis isolés.',
+    exec:()=>'Ses coups achèvent les ennemis sous '+pct0(q.th)+' de PV.',
+    bonus:()=>'Ses coups infligent +'+pct0(q.k)+' de dégâts bruts.',
+    bonusHP:()=>'Ses coups infligent des dégâts bonus selon tes PV max.',
+    pct:()=>'Ses coups infligent '+(q.p*100).toFixed(1).replace('.',',')+' % des PV max de la cible'+(q.heal?' et te soignent':'')+'.',
+    slow:()=>'Ses coups ralentissent ; +'+pct0(q.k)+' de dégâts contre les ennemis ralentis.',
+    cast:()=>'Après chaque sort, son coup suivant est renforcé'+(q.double?' (double frappe)':'')+(q.aoe?' et touche autour':'')+(q.burn?' et enflamme':'')+(q.heal?' et te soigne':'')+'.',
+    cd:()=>'Toutes les '+String(q.every).replace('.',',')+' s, son coup suivant est renforcé'+(q.aoe?' en zone':'')+(q.pct?' selon les PV de la cible':'')+(q.burn?' et enflamme':'')+(q.fear?' et terrorise':'')+(q.heal?' et te soigne':'')+'.',
+    nth:()=>'Tous les '+q.n+' coups : '+(q.double?'frappe deux fois':'dégâts bonus')+(q.aoe?' en zone':'')+(q.exec?' selon les PV manquants':'')+(q.stun?' et étourdit':'')+(q.heal?', te soigne':'')+(q.shield?', te protège':'')+'.',
+    rage:()=>'Après '+q.n+' coups, entre en rage '+q.dur+' s : +'+pct0(q.k)+' de dégâts'+(q.big?' et grandit':'')+'.',
+    dot:()=>'Ses coups '+({burn:'brûlent',poison:'empoisonnent',bleed:'font saigner'}[q.kind])+' les ennemis'+(q.heal?' et te soignent':'')+'.',
+    mark:()=>'Au '+q.n+'e coup sur un même ennemi : explosion'+(q.stun?' qui étourdit':'')+(q.bleed?' et saignement':'')+(q.spd?', et tu accélères':'')+'.',
+    heal:()=>'Te soigne de '+pct0(q.v)+' des dégâts infligés'+(q.low?' (triple sous 50 % de PV)':'')+'.',
+    as:()=>'Chaque coup augmente la vitesse d’attaque de l’équipe de '+pct0(q.per)+' (jusqu’à '+q.max+' fois).',
+    amp:()=>'Ses coups maudissent : les ennemis touchés subissent +'+pct0(q.k)+' de dégâts.',
+    pix:()=>'Un compagnon féérique tire sur la cible de chacune de ses attaques.',
+    spd:()=>'Gagne de la vitesse après chaque '+({cast:'sort',hit:'coup',kill:'ennemi tué'}[q.on])+'.',
+    healCast:()=>'Chaque sort te soigne de '+(q.pct*100).toFixed(1).replace('.',',')+' % des PV max.',
+    shieldCast:()=>'Chaque sort te donne un bouclier.',
+    echo:()=>'Un sort sur '+q.n+' est lancé deux fois.',
+    cdr:()=>q.on==='kill'?'Chaque ennemi tué par ses sorts réduit leurs délais.':'Chaque coup réduit le délai de son ultime.',
+    shield:()=>'Bouclier de '+pct0(q.pct)+' des PV toutes les '+q.every+' s.',
+    shieldLow:()=>'Sous 35 % de PV : bouclier de '+pct0(q.pct)+(q.invis?' et invisibilité':'')+' (une fois toutes les 45 s).',
+    regen:()=>'Régénère '+(q.pct*100).toFixed(1).replace('.',',')+' % des PV par seconde.',
+    lowregen:()=>'Sous '+pct0(q.th)+' de PV, régénère vite.',
+    aura:()=>(q.poison?'Laisse un poison':'Brûle')+' autour de lui en continu.',
+    pet:()=>'Invoque régulièrement un(e) '+q.kind+' qui combat à ses côtés'+(q.fear?' et terrorise':'')+'.',
+    slam:()=>'Des tentacules frappent régulièrement les ennemis proches.',
+    revive:()=>'Te ressuscite une fois par partie.',
+    undying:()=>'Une fois toutes les 2 min, tu ne peux pas mourir pendant '+q.dur+' s.',
+    gold:()=>'Chaque ennemi tué rapporte de '+q.min+' à '+q.max+' PO en plus.',
+    xp:()=>'Expérience +'+pct0(q.k)+'.',
+    healKill:()=>'Chaque ennemi tué te soigne.',
+    petKill:()=>'Les ennemis tués deviennent parfois des serviteurs de glace.',
+    frenzy:()=>'Chaque ennemi tué : frénésie, vitesse d’attaque +30 % pendant '+q.dur+' s.',
+    dr:()=>'Dégâts subis -'+pct0(q.k)+'.',
+    stat:()=>[q.atk&&'ATK +'+pct0(q.atk-1),q.as_&&'vitesse d’attaque +'+pct0(q.as_-1),q.spd&&'vitesse +'+pct0(q.spd-1),q.dmg&&'dégâts des sorts +'+pct0(q.dmg-1),q.aaRange&&'portée +'+pct0(q.aaRange-1),q.aaExtra&&'les attaques touchent '+q.aaExtra+' cibles de plus',q.vamp&&'vol de vie '+pct0(q.vamp),q.thorns&&'renvoie les dégâts',q.taken&&'dégâts subis -'+pct0(1-q.taken)].filter(Boolean).join(', ')+'.',
+    crit:()=>'Chances de critique ×'+String(q.mul).replace('.',',')+'.',
+    range:()=>'La portée des attaques augmente à chaque niveau.',
+    discount:()=>'Objets de la boutique -'+pct0(q.k)+'.',
+    same:()=>'Frapper le même ennemi augmente les dégâts (jusqu’à +'+pct0(q.k*q.max)+').',
+    stackAS:()=>'Chaque ennemi tué : +'+(q.per*100).toFixed(1).replace('.',',')+' % de vitesse d’attaque pour toujours, sans limite.',
+    stackDR:()=>'Chaque ennemi tué : un peu moins de dégâts subis pour toujours.',
+    stackHP:()=>'Les ennemis tués lâchent des fragments d’âme : +'+q.hp+' PV max chacun, sans limite.',
+    stackDMG:()=>'Chaque ennemi tué : +'+(q.per*100).toFixed(1).replace('.',',')+' % de dégâts des sorts pour toujours, sans limite.',
+    hunt:()=>'Chaque élite ou monstre géant tué : +'+pct0(q.per)+' de dégâts des sorts pour toujours.'
+  };
+  return (T[P.t]||(()=>''))(); }
+const PSTACK=['stackAS','stackDR','stackHP','stackDMG','hunt'];
+/* cumuls infinis génériques : ajoutés au registre STK (nom et icône du passif) */
+for(const id in PSV){ const P=PSV[id]; if(P.t&&PSTACK.includes(P.t)) STK[id]={nm:P.n,c:'#c8aa6e',img:()=>psvImg(id),gen:1}; }
+const pst=id=>(G.pst[id]||(G.pst[id]={n:0,t:0,cd:0,ready:0}));
+const srcOf=s=>s&&(s.ch||(s.aa?champ().id:null));
+const ownerPos=id=>{ const c=CH_BY[id]; return (c&&c.i!==G.champ&&allyOf(c.i))||G.p; };
+function healP(v){ G.p.hp=Math.min(ST.hpMax,G.p.hp+v*ST.heal); }
+function shieldP(pct){ G.shieldHP=Math.max(G.shieldHP||0,ST.hpMax*pct*ST.shieldMul); G.shieldT=Math.max(G.shieldT||0,4); }
+function splash(e,r,dm,c){ inRadius(e.x,e.y,r,o=>{ if(o!==e) rawHit(o,dm,c); }); G.fx.push({k:'boom',x:e.x,y:e.y,r,t:.3,mt:.3,c}); }
+function genActive(){ const out=[]; for(const ci of ownedChamps()){ const id=CHAMPS[ci].id, P=PSV[id]; if(P&&P.t&&!HAND.has(id)) out.push(id); }
+  const m=champ().id; if(!out.includes(m)&&PSV[m]&&PSV[m].t&&!HAND.has(m)) out.push(m); return out; }
+/* avant les dégâts */
+function genMod(e,s,d){
+  if(e.ss&&e.ss.amp) d*=1+e.ss.amp;
+  const id=srcOf(s), P=id&&PSV[id]; if(!P||!P.t||HAND.has(id)||s.pix) return d;
+  const q=P.p||{}, S=pst(id), A=ST.atk, c='#c8aa6e';
+  switch(P.t){
+    case 'first': if(!(e.ss&&e.ss['f_'+id])){ ss(e)['f_'+id]=1; d+=(q.k||0)*A*2+(q.pct?e.hp*q.pct*(e.giant?.3:1):0);
+      if(q.root&&!e.giant) e.frz=Math.max(e.frz,.6); if(q.heal) healP(ST.hpMax*q.heal); G.fx.push({k:'ring',x:e.x,y:e.y,r0:3,r1:16,t:.25,mt:.25,c}); } break;
+    case 'missing': d*=1+q.k*(1-e.hp/e.max); break;
+    case 'isolate': { GRID.near(e.x,e.y,45,_n); if(!_n.some(o=>o!==e&&!o.dead&&Math.hypot(o.x-e.x,o.y-e.y)<45)) d*=1+q.k; } break;
+    case 'exec': if(!e.giant&&e.hp-d<e.max*q.th){ d=e.hp+1; G.fx.push({k:'slash',x:e.x,y:e.y,r:14,t:.3,mt:.3,c:'#4ad8c8',rot:0}); } break;
+    case 'bonus': d*=1+q.k; break;
+    case 'bonusHP': d+=ST.hpMax*q.k; break;
+    case 'pct': d+=e.max*q.p*(e.giant?.3:1); if(q.heal) healP(e.max*q.p*q.heal*.2); break;
+    case 'slow': if(e.slow>0) d*=1+q.k; e.slow=Math.max(e.slow,.25); e.slowT=Math.max(e.slowT,1.2); break;
+    case 'same': if(S.tg===e) S.n=Math.min(q.max,S.n+1); else { S.tg=e; S.n=0; } d*=1+q.k*S.n; break;
+    case 'rage': if(S.t>0) d*=1+q.k; break;
+    case 'cast': if(S.ready>0&&(s.aa||!s.ult)){ S.ready--; d+=q.k*A*2; if(q.double) d*=1.8; if(q.aoe) splash(e,q.aoe,q.k*A,c);
+      if(q.burn){ const b=ss(e).burn||(e.ss.burn={n:0,t:0,tk:0}); b.t=3; } if(q.heal) healP(ST.hpMax*q.heal); } break;
+    case 'cd': if(S.cd<=0){ S.cd=q.every; d+=q.k*A*2+(q.pct?e.max*q.pct*(e.giant?.3:1):0); if(q.aoe) splash(e,q.aoe,q.k*A,c);
+      if(q.heal) healP(ST.hpMax*q.heal); if(q.burn){ const b=ss(e).burn||(e.ss.burn={n:0,t:0,tk:0}); b.t=4; }
+      if(q.fear){ inRadius(e.x,e.y,q.aoe||30,o=>{ if(!o.giant){ o.frz=Math.max(o.frz,.8); push(o,e.x,e.y,30); } }); }
+      G.fx.push({k:'ring',x:e.x,y:e.y,r0:4,r1:(q.aoe||18),t:.3,mt:.3,c}); } break;
+    case 'nth': if(++S.n>=q.n){ S.n=0; d+=q.k*A*2; if(q.double) d*=2; if(q.exec) d*=1+(1-e.hp/e.max); if(q.aoe) splash(e,q.aoe,q.k*A,c);
+      if(q.stun&&!e.giant) e.frz=Math.max(e.frz,1); if(q.heal) healP(ST.hpMax*q.heal); if(q.shield) shieldP(q.shield);
+      G.fx.push({k:'ring',x:e.x,y:e.y,r0:4,r1:18,t:.3,mt:.3,c}); } break;
+  }
+  return d;
+}
+/* après les dégâts */
+function genHit(e,s,d){
+  const id=srcOf(s), P=id&&PSV[id]; if(!P||!P.t||HAND.has(id)||s.pix) return;
+  const q=P.p||{}, S=pst(id);
+  switch(P.t){
+    case 'dot': { const k=q.kind==='bleed'?'bleed':q.kind; const b=ss(e)[k]||(e.ss[k]={n:0,t:0,tk:0}); b.n=Math.min(q.max||1,b.n+1); b.t=4; if(q.heal) healP(ST.hpMax*q.heal*.1); break; }
+    case 'mark': { const k='m_'+id; ss(e)[k]=(e.ss[k]||0)+1; if(e.ss[k]>=q.n){ e.ss[k]=0; rawHit(e,ST.atk*q.k*2,'#c8aa6e'); if(e.dead) break;
+      if(q.stun&&!e.giant) e.frz=Math.max(e.frz,1); if(q.bleed){ const b=ss(e).bleed||(e.ss.bleed={n:0,t:0,tk:0}); b.n=Math.min(5,b.n+2); b.t=4; }
+      if(q.spd) G.buffs.spdP=1.5; G.fx.push({k:'boom',x:e.x,y:e.y,r:18,t:.3,mt:.3,c:'#c8aa6e'}); } break; }
+    case 'heal': healP(d*q.v*(q.low&&G.p.hp<ST.hpMax*.5?3:1)*.5); break;
+    case 'as': S.n=Math.min(q.max,S.n+1); S.t=4; break;
+    case 'amp': ss(e).amp=Math.max(e.ss.amp||0,q.k); break;
+    case 'rage': if(S.t<=0&&++S.n>=q.n){ S.n=0; S.t=q.dur; toast(P.n.toUpperCase()); if(q.big) G.rageBig=q.dur; } break;
+    case 'spd': if(q.on==='hit') G.buffs.spdP=1; break;
+    case 'cdr': if(q.on==='hit'){ const a=G.ab[abKey(CH_BY[id].i,3)]; if(a) a.t=Math.max(0,a.t-q.v); } break;
+    case 'pix': if(s.aa&&!e.dead){ const o=ownerPos(id), sp=PIX_S; sp.mul=ST.atk*ST.dmg; sp.dmg=q.k; const a=Math.atan2(e.y-o.y,e.x-o.x);
+      bullet({x:o.x,y:o.y-10,vx:Math.cos(a)*380,vy:Math.sin(a)*380,s:sp,r:4,life:.8,c:'#c58bff',home:e}); } break;
+  }
+}
+const PIX_S={ch:'Lulu',kk:'E',dmg:.5,mul:1,c:'#c58bff',cc:'',P:{},pix:1};
+function genKill(e){
+  const kid=srcOf(e.lastS);
+  for(const id of genActive()){ const P=PSV[id], q=P.p||{}, mine=kid===id;
+    switch(P.t){
+      case 'gold': { const g=q.min+Math.floor(Math.random()*(q.max-q.min+1)); G.po+=g; break; }
+      case 'healKill': if(Math.hypot(e.x-G.p.x,e.y-G.p.y)<260) healP(ST.hpMax*q.pct); break;
+      case 'petKill': if(Math.random()<q.chance) spawnPet(id,e.x,e.y,6,'serviteur'); break;
+      case 'frenzy': G.buffs.frenzy=q.dur; break;
+      case 'spd': if(q.on==='kill') G.buffs.spdP=1.5; break;
+      case 'cdr': if(q.on==='kill'&&mine) for(const k in G.ab){ const a=G.ab[k]; if(a.ci===CH_BY[id].i) a.t*=1-q.v; } break;
+      case 'stackAS': case 'stackDR': case 'stackDMG': if(mine) addStk(id,e.giant?5:e.elite?2:1); break;
+      case 'stackHP': if(Math.random()<q.chance) addStk(id,e.giant?5:1,e.x,e.y); break;
+      case 'hunt': if(mine&&(e.giant||e.elite)) addStk(id,e.giant?5:1,e.x,e.y); break;
+    } }
+}
+function genCast(s){
+  const id=s.ch, P=id&&PSV[id]; if(!P||!P.t||HAND.has(id)) return; const q=P.p||{}, S=pst(id);
+  switch(P.t){
+    case 'cast': S.ready=Math.min(2,S.ready+1); break;
+    case 'healCast': healP(ST.hpMax*q.pct); if(q.spd) G.buffs.spdP=1; break;
+    case 'shieldCast': shieldP(q.pct); break;
+    case 'spd': if(q.on==='cast') G.buffs.spdP=1.2; break;
+    case 'echo': if(!s._echo&&++S.n>=q.n){ S.n=0; later(.25,()=>{ s._echo=1; try{ CAST[s.fam](s); }finally{ s._echo=0; } }); } break;
+  }
+}
+function spawnPet(id,x,y,life,kind){ const sp={ch:id,kk:'Q',dmg:.7,mul:ST.atk*ST.dmg,c:'#c8aa6e',cc:'',P:{},pet:1};
+  G.turrets.push({x:x+rnd(-12,12),y:y+rnd(-12,12),t:life,mt:life,shot:.3,s:sp,big:false,pet:kind}); }
+function genUpdate(dt){
+  for(const id of genActive()){ const P=PSV[id], q=P.p||{}, S=pst(id), o=ownerPos(id);
+    switch(P.t){
+      case 'cd': if(S.cd>0) S.cd-=dt; break;
+      case 'as': case 'rage': if(S.t>0){ S.t-=dt; if(S.t<=0&&P.t==='as') S.n=0; } break;
+      case 'shield': S.t-=dt; if(S.t<=0){ S.t=q.every; shieldP(q.pct); } break;
+      case 'shieldLow': if(S.t>0) S.t-=dt; else if(G.p.hp<ST.hpMax*.35){ S.t=45; shieldP(q.pct); if(q.invis) G.p.iT=Math.max(G.p.iT,1.5); toast(P.n.toUpperCase()); } break;
+      case 'regen': healP(ST.hpMax*q.pct*dt); break;
+      case 'lowregen': if(G.p.hp<ST.hpMax*q.th) healP(ST.hpMax*q.pct*dt); break;
+      case 'aura': S.t-=dt; if(S.t<=0){ S.t=.5; inRadius(o.x,o.y,q.r,e=>{ rawHit(e,ST.atk*q.dps,q.poison?'#8fe040':'#ff9d5c'); if(q.poison){ const b=ss(e).poison||(e.ss.poison={n:1,t:0,tk:0}); b.t=2; } }); } break;
+      case 'pet': S.t-=dt; if(S.t<=0){ S.t=q.every; spawnPet(id,o.x,o.y,q.life,q.kind); if(q.fear) inRadius(o.x,o.y,60,e=>{ if(!e.giant){ e.frz=Math.max(e.frz,.8); push(e,o.x,o.y,40); } }); } break;
+      case 'slam': S.t-=dt; if(S.t<=0){ S.t=q.every; const e=nearest(o.x,o.y,160); if(e){ const x=e.x,y=e.y; G.fx.push({k:'mark',x,y,r:q.r,t:.5,mt:.5,c:'#4ad86a'});
+        later(.5,()=>{ inRadius(x,y,q.r,t=>rawHit(t,ST.atk*q.k,'#4ad86a')); G.fx.push({k:'boom',x,y,r:q.r,t:.35,mt:.35,c:'#4ad86a'}); shake(.08); }); } } break;
+      case 'revive': if(!S.given){ S.given=1; G.revive++; } break;
+    } }
+  if(G.rageBig>0) G.rageBig-=dt;
+}
+/* statistiques permanentes des passifs (appliquées à l'équipe) */
+function genStats(s){
+  for(const id of genActive()){ const P=PSV[id], q=P.p||{};
+    switch(P.t){
+      case 'dr': s.taken*=1-q.k; break;
+      case 'stat': if(q.atk) s.atk*=q.atk; if(q.as_) s.as*=q.as_; if(q.spd) s.spd*=q.spd; if(q.dmg) s.dmg*=q.dmg; if(q.aaRange) s.aaRange*=q.aaRange;
+        if(q.aaExtra) s.aaExtra+=q.aaExtra; if(q.vamp) s.vamp+=q.vamp; if(q.thorns) s.thorns=1; if(q.taken) s.taken*=q.taken; break;
+      case 'crit': s.crit*=q.mul; break;
+      case 'range': s.aaRange*=1+q.k*G.level; break;
+      case 'xp': s.xpMul*=1+q.k; break;
+      case 'stackAS': s.as*=1+q.per*stk(id); break;
+      case 'stackDR': s.taken*=Math.max(.5,1-q.per*stk(id)); break;
+      case 'stackHP': s.hpMax+=q.hp*stk(id); break;
+      case 'stackDMG': case 'hunt': s.dmg*=1+q.per*stk(id); break;
+    } }
+}
+/* bonus de vitesse d'attaque des passifs (Jax, Irelia, Varus…) */
+function genAS(){ let m=1; for(const id of genActive()){ const P=PSV[id]; if(P.t==='as') m*=1+P.p.per*pst(id).n; } if(G.buffs.frenzy>0) m*=1.3; return m; }
+function shopDisc(){ let k=0; for(const id of genActive()) if(PSV[id].t==='discount') k=Math.max(k,PSV[id].p.k); return k; }
+
+/* =========================================================================
+   5c. OR, BOUTIQUE ET ALLIÉS
+   Chaque ennemi tué rapporte des pièces d'or (PO). La boutique (bouton 🛒)
+   met le jeu en pause : chaque champion a 6 emplacements d'objets.
+   Les champions dont tu prends des sorts te rejoignent en alliés : ils te
+   suivent, attaquent et lancent leurs propres sorts depuis leur position.
+   ========================================================================= */
+const PO_VAL={melee:3, caster:2, siege:8, super:12, void:2, herald:200, baron:400};
+function goldOf(e){ return Math.round((PO_VAL[e.def.forme]||3)*(1+.12*(e.rank||0))*(e.elite?3:1)*(G.poMul||1)); }
+function earnPo(e){ const g=goldOf(e); G.po+=g;
+  if(g>=15&&G.nums.length<60) G.nums.push({x:e.x,y:e.y-e.r-6,vy:-30,t:.8,v:'+'+g+' PO',crit:false,c:'#f0c040'}); }
+/* place un objet dans le premier emplacement libre (principal d'abord) ; renvoie le champion ou -1 */
+function giveItem(id,ci){
+  const order=ci!=null?[ci]:[G.champ,...allyCis()];
+  for(const c of order){ const inv=invOf(c), i=inv.indexOf(null); if(i>=0){ inv[i]=id; if(id==='3026') G.revive++; computeStats(); return c; } }
+  return -1; }
+const SHOP={sel:null,cat:'legend',sell:null};
+function openShop(){ if(G.phase!=='run'&&G.phase!=='pause') return; G.phase='shop'; if(SHOP.sel==null||!ownedChamps().includes(SHOP.sel)) SHOP.sel=G.champ; SHOP.sell=null; renderShop(); show('shop'); }
+function closeShop(){ G.phase='run'; show(null); renderKit(); saveRun(); }
+function renderShop(){
+  $('shopPo').textContent=G.po;
+  $('shopTeam').innerHTML=ownedChamps().map(ci=>{ const c=CHAMPS[ci], inv=invOf(ci), sel=ci===SHOP.sel;
+    return `<div class="srow${sel?' sel':''}" data-ci="${ci}"><div class="kp">${imgTag(champImg(c))}</div><div class="snm">${esc(c.n)}<small>${ci===G.champ?'principal':'allié'}</small></div>`+
+      inv.map((id,i)=>`<div class="slot${id?'':' empty'}${SHOP.sell&&SHOP.sell.ci===ci&&SHOP.sell.i===i?' sell':''}" data-ci="${ci}" data-i="${i}">${id?imgTag(itemImg(id)):''}${SHOP.sell&&SHOP.sell.ci===ci&&SHOP.sell.i===i?`<span>+${Math.round(ITEM_BY[id].price*.7)}</span>`:''}</div>`).join('')+`</div>`; }).join('');
+  $('shopTabs').innerHTML=[['legend','Légendaires'],['epique','Intermédiaires'],['bottes','Bottes'],['base','Basiques']].map(([k,n])=>`<button class="tab${k===SHOP.cat?' sel':''}" data-cat="${k}">${n}</button>`).join('');
+  const full=!invOf(SHOP.sel).includes(null);
+  const dk=1-shopDisc();
+  $('shopList').innerHTML=ITEMS.filter(it=>it.cat===SHOP.cat).sort((a,b)=>a.price-b.price).map(it=>{ const pr=Math.round(it.price*dk), ok=G.po>=pr&&!full;
+    return `<button class="sitem${ok?'':' no'}" data-id="${it.id}"><span class="ic">${imgTag(itemImg(it.id))}</span><span class="t"><b>${esc(it.nm)}</b><small>${it.d}</small></span><span class="pr">${pr}</span></button>`; }).join('');
+  $('shopHint').textContent=full?'Inventaire plein : touche un objet pour le revendre (70 %).':'Pour : '+CHAMPS[SHOP.sel].n+(SHOP.sel===G.champ?'':' — renforce ses attaques et ses sorts ; ses PV protègent l’équipe');
+}
+function shopClick(ev){
+  const row=ev.target.closest('.srow'), slot=ev.target.closest('.slot'), tab=ev.target.closest('[data-cat]'), it=ev.target.closest('.sitem');
+  if(slot&&!slot.classList.contains('empty')){ const ci=+slot.dataset.ci, i=+slot.dataset.i;
+    if(SHOP.sell&&SHOP.sell.ci===ci&&SHOP.sell.i===i){ const id=invOf(ci)[i], v=Math.round(ITEM_BY[id].price*.7); invOf(ci)[i]=null; G.po+=v;
+      if(id==='3026') G.revive=Math.max(0,G.revive-1); SHOP.sell=null; computeStats(); toast('VENDU +'+v+' PO'); AU.play(520,.08,'triangle',.03); }
+    else SHOP.sell={ci,i}; SHOP.sel=ci; renderShop(); return; }
+  if(row){ SHOP.sel=+row.dataset.ci; SHOP.sell=null; renderShop(); return; }
+  if(tab){ SHOP.cat=tab.dataset.cat; renderShop(); return; }
+  if(it){ const item=ITEM_BY[it.dataset.id], inv=invOf(SHOP.sel), i=inv.indexOf(null);
+    if(i<0){ toast('INVENTAIRE PLEIN'); return; }
+    const pr=Math.round(item.price*(1-shopDisc()));
+    if(G.po<pr){ toast('IL MANQUE '+(pr-G.po)+' PO'); return; }
+    G.po-=pr; inv[i]=item.id; if(item.id==='3026') G.revive++; computeStats(); AU.play(880,.1,'triangle',.03); SHOP.sell=null; renderShop(); }
+}
+/* --- alliés ----------------------------------------------------------- */
+function syncAllies(){ if(!G.allies) G.allies=[];
+  for(const ci of allyCis()) if(!G.allies.find(a=>a.ci===ci)){ const a=rnd(0,TAU);
+    G.allies.push({ci,x:G.p.x+Math.cos(a)*30,y:G.p.y+Math.sin(a)*30,vx:0,vy:0,dx:1,dy:0,face:1,anim:0,cast:0,aaT:.5,hitT:0,r:11,
+      aaS:{aa:1,dmg:1,mul:1,c:CATS[CHAMPS[ci].c].c,cc:'',P:{},ch:CHAMPS[ci].id}});
+    toast(CHAMPS[ci].n.toUpperCase()+' TE REJOINT'); }
+  G.allies=G.allies.filter(a=>a.ci!==G.champ&&ownedChamps().includes(a.ci)); }
+const allyOf=ci=>G.allies&&G.allies.find(a=>a.ci===ci);
+function updateAllies(dt){
+  const p=G.p, fa=Math.atan2(p.dy,p.dx);
+  G.allies.forEach((a,i)=>{ const c=CHAMPS[a.ci], S=statsFor(a.ci), melee=c.m;
+    /* place dans la formation, derrière le champion */
+    const off=fa+Math.PI+(i?-.9:.9), R=30+i*6; let tx=p.x+Math.cos(off)*R, ty=p.y+Math.sin(off)*R;
+    const t=nearest(a.x,a.y,melee?120:210);
+    if(t&&melee&&Math.hypot(t.x-p.x,t.y-p.y)<170){ const d=Math.hypot(t.x-a.x,t.y-a.y)||1; tx=t.x-(t.x-a.x)/d*(t.r+8); ty=t.y-(t.y-a.y)/d*(t.r+8); }
+    const dx=tx-a.x, dy=ty-a.y, d=Math.hypot(dx,dy), sp=ST.spd*1.25;
+    if(Math.hypot(a.x-p.x,a.y-p.y)>360){ a.x=p.x+Math.cos(off)*R; a.y=p.y+Math.sin(off)*R; }
+    const k=d>4?Math.min(1,d/40):0; a.vx=lerp(a.vx,dx/(d||1)*sp*k,.25); a.vy=lerp(a.vy,dy/(d||1)*sp*k,.25);
+    a.x+=a.vx*dt; a.y+=a.vy*dt; a.anim+=dt*(Math.hypot(a.vx,a.vy)>8?10:2.5);
+    if(Math.abs(a.vx)>3) a.face=a.vx>0?1:-1; if(Math.hypot(a.vx,a.vy)>8){ a.dx=a.vx; a.dy=a.vy; }
+    if(a.cast>0) a.cast-=dt;
+    /* attaque de base de l'allié */
+    a.aaT-=dt*S.as*(G.buffs.excited>0?1.4:1)*genAS();
+    if(a.aaT<=0){ const rg=(melee?52:190)*S.aaRange, tg=nearest(a.x,a.y,rg);
+      if(!tg) a.aaT=.15;
+      else { a.aaT=melee?.6:.7; const s=a.aaS; s.mul=S.atk; s.dmg=melee?1.7:1.3; s.crit=S.crit; s.critMul=S.critMul; s.vamp=S.vamp; s.rylai=S.rylai;
+        const an=Math.atan2(tg.y-a.y,tg.x-a.x); a.dx=Math.cos(an); a.dy=Math.sin(an); a.face=a.dx>0?1:-1; a.cast=.15;
+        if(melee){ inRadius(a.x,a.y,rg,e=>{ let q=Math.atan2(e.y-a.y,e.x-a.x)-an; while(q>Math.PI)q-=TAU; while(q<-Math.PI)q+=TAU; if(Math.abs(q)<1.2) hit(e,s,1,a.x,a.y); });
+          G.fx.push({k:'swipe',x:a.x,y:a.y,a:an,r:rg,t:.18,mt:.18}); }
+        else { const n=1+S.aaExtra, list=[tg].concat(nearestList(a.x,a.y,n,rg).filter(e=>e!==tg).slice(0,S.aaExtra));
+          for(const e of list){ const b=Math.atan2(e.y-a.y,e.x-a.x); bullet({x:a.x,y:a.y,vx:Math.cos(b)*480,vy:Math.sin(b)*480,s,r:4,life:rg/480+.1,aa:1,c:s.c}); } } } }
+  });
+}
+/* lance un sort depuis la position d'un allié */
+function castFrom(al,fn){ const px=G.p.x, py=G.p.y; G.p.x=al.x; G.p.y=al.y; G.lastDash=null;
+  try{ return fn(); } finally { G.p.x=px; G.p.y=py; if(G.lastDash){ al.x=G.lastDash.x; al.y=G.lastDash.y; } al.cast=.15; } }
+function drawAlly(a){ const c=CHAMPS[a.ci], col=CATS[c.c].c;
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(a.x,a.y+(R3.on?0:9),9,R3.on?9:3,0,0,TAU); ctx.fill();
+  ctx.strokeStyle=col; ctx.globalAlpha=.7; ctx.lineWidth=1.2; ctx.beginPath(); ctx.ellipse(a.x,a.y+(R3.on?0:9),12,R3.on?12:4,0,0,TAU); ctx.stroke(); ctx.globalAlpha=1;
+  const in3D=R3.on&&R3.allies&&R3.allies.get(a.ci)&&R3.has(c.id);
+  if(!in3D){ ctx.save(); ctx.translate(a.x,a.y+8); ctx.scale(1.1,1.1); ctx.translate(-a.x,-a.y-8); drawChibi(a,c); ctx.restore(); }
+  const y=in3D?a.y-(PLAYER_H*.92+2)*KH/KY-4:a.y-30;
+  ctx.font='bold 6px system-ui,sans-serif'; ctx.textAlign='center'; ctx.lineWidth=2; ctx.strokeStyle='#010a13'; ctx.strokeText(c.n,a.x,y); ctx.fillStyle=col; ctx.fillText(c.n,a.x,y); }
 
 /* --- grille spatiale ---------------------------------------------------- */
 const GRID={m:new Map(), c:56,
@@ -671,7 +1060,7 @@ function applyCC(e,s,ox,oy){
   else if(cc==='knock'){ if(!imm) e.frz=Math.max(e.frz,.5); push(e,ox,oy,imm?20:80); }
   else if(cc==='fear'){ if(!imm) e.frz=Math.max(e.frz,.7); push(e,ox,oy,imm?10:45); }
   else if(cc==='slow'){ e.slow=Math.max(e.slow,.45); e.slowT=1.8; }
-  if(ST.rylai){ e.slow=Math.max(e.slow,.2); e.slowT=Math.max(e.slowT,1); }
+  if(s.rylai||ST.rylai){ e.slow=Math.max(e.slow,.2); e.slowT=Math.max(e.slowT,1); }
 }
 function push(e,ox,oy,f){ const a=Math.atan2(e.y-oy,e.x-ox); e.kx+=Math.cos(a)*f*2; e.ky+=Math.sin(a)*f*2; }
 function hit(e,s,k,ox,oy){
@@ -679,11 +1068,15 @@ function hit(e,s,k,ox,oy){
   let d=s.dmg*(k||1)*s.mul*dynMul()*rnd(.92,1.08);
   if(s.exec && e.hp<e.max*.35) d*=1.6;
   d=passMod(e,s,d);
-  const crit=Math.random()<ST.crit; if(crit) d*=ST.critMul;
+  if(e.giant&&s.giantMul) d*=s.giantMul;
+  if(s.execB&&e.hp<e.max*.4) d*=1+s.execB;
+  const crit=Math.random()<(s.crit!=null?s.crit:ST.crit); if(crit) d*=(s.critMul||ST.critMul);
   e.hp-=d; e.hitT=.09; e.lastS=s;
-  if(s.cc||ST.rylai) applyCC(e,s,ox!=null?ox:G.p.x,oy!=null?oy:G.p.y);
+  const ry=s.rylai!=null?s.rylai:ST.rylai;
+  if(s.cc||ry) applyCC(e,s,ox!=null?ox:G.p.x,oy!=null?oy:G.p.y);
+  if(s.liandry&&!s.aa){ const b=ss(e).burn||(e.ss.burn={n:0,t:0,tk:0}); b.t=3; }
   if(s.ch==='Annie'&&G.pyroT>G.t&&!e.giant) e.frz=Math.max(e.frz,1);
-  if(ST.vamp) G.p.hp=Math.min(ST.hpMax,G.p.hp+d*ST.vamp*.4);
+  const vp=s.vamp!=null?s.vamp:ST.vamp; if(vp) G.p.hp=Math.min(ST.hpMax,G.p.hp+d*vp*.4);
   if(SAVE.opt.dmgnum && G.nums.length<50)
     G.nums.push({x:e.x+rnd(-5,5),y:e.y-e.r,vy:crit?-70:-52,t:.6,v:Math.round(d),crit,c:crit?'#ffd75e':(s.aa?'#f0e6d2':s.c)});
   if(e.hp<=0) kill(e); else onHitPass(e,s,d);
@@ -694,7 +1087,7 @@ function rawHit(e,d,c){ if(e.dead) return; e.hp-=d; e.hitT=.06;
   if(e.hp<=0) kill(e); }
 function boom(x,y,r,s,k,c){ inRadius(x,y,r,e=>hit(e,s,k,x,y)); G.fx.push({k:'boom',x,y,r,t:.4,mt:.4,c:c||s.c,s,rot:rnd(0,TAU)}); burst(x,y,c||s.c,10,1.2); }
 function kill(e){
-  if(e.dead) return; e.dead=true; G.kills++; onKillPass(e);
+  if(e.dead) return; e.dead=true; G.kills++; onKillPass(e); earnPo(e);
   if(!e.giant) G.fx.push({k:'corpse',e,x:e.x,y:e.y,r:e.r,t:.35,mt:.35});
   burst(e.x,e.y,e.c,e.giant?40:e.elite?14:5,1);
   if(e.def.ia==='split'&&!e.mini) for(let i=0;i<2;i++) spawn(e.type,{x:e.x+rnd(-10,10),y:e.y+rnd(-10,10),mini:1});
@@ -718,6 +1111,7 @@ function hurtPlayer(d,src){
   p.hp-=d; p.iT=.5; p.hitT=.22; shake(.28); AU.hurt(); G.lastHurt=G.t;
   if(p.hp<=0&&G.undy>0) p.hp=1;
   if(p.hp<=0&&hasSp('Tryndamere',3)&&!(G.undyCD>G.t)){ p.hp=1; G.undy=4; G.undyCD=G.t+60; toast('RAGE IMMORTELLE'); flashScr('#ff2020'); }
+  if(p.hp<=0&&genActive().includes('Karthus')&&!(G.undyK>G.t)){ p.hp=1; G.undy=5; G.undyK=G.t+120; toast(PSV.Karthus.n.toUpperCase()); flashScr('#5affb0'); }
   if(navigator.vibrate&&SAVE.opt.shake) try{navigator.vibrate(30);}catch(e){}
   if(p.hp<=0){
     if(G.revive>0){ G.revive--; p.hp=ST.hpMax*.6; p.iT=2.5; killScreen(); toast('ANGE GARDIEN'); return; }
@@ -853,8 +1247,9 @@ const CAST={
   laser(s){ const t=needTarget(s); if(!t) return false; const P=s.P, a=Math.atan2(t.y-G.p.y,t.x-G.p.x);
     const L=Math.max(P.L||220,(s.ult?320:200))*(s.ult?1.3:1), w=(P.w||(s.ult?40:22))*.9*s.size, wind=s.ult?.45:.12;
     const col=(VFX.kit(s)&&VFX.kit(s).col)||s.c; G.fx.push({k:'aim',x:G.p.x,y:G.p.y,a,L,w,t:wind,mt:wind,c:col,s});
-    later(wind,()=>{ const x2=G.p.x+Math.cos(a)*L, y2=G.p.y+Math.sin(a)*L;
-      segHit(G.p.x,G.p.y,x2,y2,w/2,e=>hit(e,s,1,G.p.x,G.p.y)); G.fx.push({k:'beam',x:G.p.x,y:G.p.y,x2,y2,w,t:s.ult?.55:.3,mt:s.ult?.55:.3,c:col,s}); if(s.ult) shake(.25); }); },
+    const ox=G.p.x, oy=G.p.y;
+    later(wind,()=>{ const x2=ox+Math.cos(a)*L, y2=oy+Math.sin(a)*L;
+      segHit(ox,oy,x2,y2,w/2,e=>hit(e,s,1,ox,oy)); G.fx.push({k:'beam',x:ox,y:oy,x2,y2,w,t:s.ult?.55:.3,mt:s.ult?.55:.3,c:col,s}); if(s.ult) shake(.25); }); },
   /* orbite : des projectiles tournent autour du champion puis foncent sur les ennemis */
   orbite(s){ if(!needTarget({range:s.range})) return false; const P=s.P, n=(P.n||3)+s.count-1;
     for(let i=0;i<n;i++) G.orbit.push({a:i/n*TAU,t:0,life:Math.min(2.4,P.life||2.4),s,R:(s.ult?46:36)*s.size,w:(P.sp||280)/40,hit:new Map()}); },
@@ -869,7 +1264,7 @@ const CAST={
     G.fx.push({k:'cone',x:G.p.x,y:G.p.y,a,w,r:R,t:.35,mt:.35,c:s.c,s}); },
   ruee(s){ const t=needTarget(s); if(!t) return false; const a=Math.atan2(t.y-G.p.y,t.x-G.p.x), L=Math.min(s.P.L||s.range,220)*(s.ult?1.5:1)*s.size, w=(s.P.w?clamp(s.P.w,16,40):(s.ult?34:22))*s.size;
     const x2=G.p.x+Math.cos(a)*L, y2=G.p.y+Math.sin(a)*L;
-    segHit(G.p.x,G.p.y,x2,y2,w,e=>hit(e,s,1,G.p.x,G.p.y)); G.p.iT=Math.max(G.p.iT,.25);
+    segHit(G.p.x,G.p.y,x2,y2,w,e=>hit(e,s,1,G.p.x,G.p.y)); G.p.iT=Math.max(G.p.iT,.25); G.lastDash={x:x2,y:y2};
     G.fx.push({k:'dash',x:G.p.x,y:G.p.y,x2,y2,w,t:.35,mt:.35,c:s.c,s}); },
   frappe(s){ const t=needTarget(s); if(!t) return false; s.exec=1;
     hit(t,s,1); inRadius(t.x,t.y,30*s.size,e=>{ if(e!==t) hit(e,s,.35); });
@@ -893,11 +1288,11 @@ const CAST={
 
 /* attaque de base : à distance ou au corps à corps selon le champion */
 function autoAttack(dt){
-  G.aaT-=dt*(G.buffs.emp>0?1.6:1)*(G.buffs.excited>0?1.4:1)*(G.ezr&&G.ezr.t>0?1+.1*G.ezr.n:1); if(G.aaT>0) return;
+  G.aaT-=dt*(G.buffs.emp>0?1.6:1)*(G.buffs.excited>0?1.4:1)*(G.ezr&&G.ezr.t>0?1+.1*G.ezr.n:1)*genAS(); if(G.aaT>0) return;
   const melee=champ().m, R=(melee?74:210)*ST.aaRange, t=nearest(G.p.x,G.p.y,R);
   if(!t){ G.aaT=.1; return; }
   G.aaT=(melee?.55:.62)/ST.as; G.aaN=(G.aaN||0)+1;
-  const s=G.aaS||(G.aaS={aa:1,dmg:1,mul:1,c:'#f0e6d2',cc:''});
+  const s=G.aaS||(G.aaS={aa:1,dmg:1,mul:1,c:'#f0e6d2',cc:'',P:{}}); s.ch=champ().id;
   s.mul=ST.atk; s.dmg=(melee?1.9:1.4)*(ST.kraken&&G.aaN%3===0?3:1);
   const a=Math.atan2(t.y-G.p.y,t.x-G.p.x);
   if(melee){ inRadius(G.p.x,G.p.y,R,e=>{ let d=Math.atan2(e.y-G.p.y,e.x-G.p.x)-a; while(d>Math.PI)d-=TAU; while(d<-Math.PI)d+=TAU; if(Math.abs(d)<1.25) hit(e,s,1); });
@@ -914,11 +1309,12 @@ function castAll(dt){
   autoAttack(dt);
   for(const key in G.ab){
     const a=G.ab[key], s=abStats(key);
-    if(s.fam==='aura'){ a.t-=dt; if(a.t<=0){ a.t=.5; const r=60*s.size*(s.ult?1.6:1); a.pulse=.25;
-        inRadius(G.p.x,G.p.y,r,e=>hit(e,s,1)); } continue; }
+    const al=a.ci!==G.champ?allyOf(a.ci):null;
+    if(s.fam==='aura'){ a.t-=dt; if(a.t<=0){ a.t=.5; const r=60*s.size*(s.ult?1.6:1), o=al||G.p; a.pulse=.25;
+        inRadius(o.x,o.y,r,e=>hit(e,s,1,o.x,o.y)); } continue; }
     a.t-=dt;
-    if(a.t<=0){ VFX.warm(s); const ok=CAST[s.fam](s); if(ok===false){ a.t=.25; continue; } onCastPass(s);
-      a.t=s.cd; G.p.cast=.15; if(s.ult){ AU.play(180,.4,'sawtooth',.05); } else AU.play(420+a.k*90,.08,'triangle',.02); }
+    if(a.t<=0){ VFX.warm(s); const ok=al?castFrom(al,()=>CAST[s.fam](s)):CAST[s.fam](s); if(ok===false){ a.t=.25; continue; } onCastPass(s);
+      a.t=s.cd; if(!al) G.p.cast=.15; if(s.ult){ AU.play(180,.4,'sawtooth',.05); } else AU.play(420+a.k*90,.08,'triangle',.02); }
   }
   for(let i=G.lobs.length-1;i>=0;i--){ const l=G.lobs[i]; l.t+=dt;
     if(l.t>=l.T){ G.lobs.splice(i,1); boom(l.x1,l.y1,l.r,l.s,1); if(l.s.ult) shake(.2); } }
@@ -1029,7 +1425,7 @@ function update(dt){
   G.t+=dt; G.frame=(G.frame||0)+1;
   const p=G.p, v=inputVec();
   if(G.pslow>0) G.pslow-=dt;
-  const sp=ST.spd*(G.buffs.emp>0?1.15:1)*(G.pslow>0?.6:1)*(G.buffs.excited>0?1.2:1);
+  const sp=ST.spd*(G.buffs.emp>0?1.15:1)*(G.pslow>0?.6:1)*(G.buffs.excited>0?1.2:1)*(G.buffs.spdP>0?1.25:1);
   p.vx=lerp(p.vx,v.x*sp,.3); p.vy=lerp(p.vy,v.y*sp,.3);
   p.x+=p.vx*dt; p.y+=p.vy*dt;
   if(Math.abs(v.x)>.1||Math.abs(v.y)>.1){ p.dx=v.x; p.dy=v.y; }
@@ -1038,7 +1434,7 @@ function update(dt){
   if(p.iT>0) p.iT-=dt; if(p.hitT>0) p.hitT-=dt; if(p.cast>0) p.cast-=dt;
   p.hp=Math.min(ST.hpMax,p.hp+ST.regen*dt);
   for(const k in G.buffs) if(G.buffs[k]>0) G.buffs[k]-=dt;
-  director(dt); castAll(dt); updatePass(dt); updateEnemies(dt); updateBullets(dt); updatePickups(dt); updateSpikes(dt);
+  director(dt); castAll(dt); updateAllies(dt); updatePass(dt); updateEnemies(dt); updateBullets(dt); updatePickups(dt); updateSpikes(dt);
   for(let i=G.later.length-1;i>=0;i--){ const l=G.later[i]; l.t-=dt; if(l.t<=0){ G.later.splice(i,1); l.fn(); } }
   for(let i=G.fx.length-1;i>=0;i--){ const f=G.fx[i]; f.t-=dt; if(f.t<=0) G.fx.splice(i,1); }
   for(let i=G.parts.length-1;i>=0;i--){ const q=G.parts[i]; q.t-=dt; q.x+=q.vx*dt; q.y+=q.vy*dt; q.vx*=.9; q.vy*=.9; if(q.t<=0) G.parts.splice(i,1); }
@@ -1396,7 +1792,7 @@ function drawPlayer(){
   const p=G.p, c=champ(), col=CATS[c.c].c, R=13, bob=Math.sin(p.anim)*.8, inv=p.iT>0&&Math.floor(G.t*20)%2;
   ctx.fillStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(p.x,p.y+10,9,3,0,0,TAU); ctx.fill();
   for(const key in G.ab){ const a=G.ab[key], s=abStats(key); if(s.fam!=='aura') continue;
-    const r=60*s.size*(s.ult?1.6:1), pu=a.pulse>0?a.pulse/.25:0;
+    const r=60*s.size*(s.ult?1.6:1), pu=a.pulse>0?a.pulse/.25:0, p=(a.ci!==G.champ&&allyOf(a.ci))||G.p;
     ctx.globalCompositeOperation='lighter'; VFX.warm(s);
     const ag=VFX.get(s,'g')||VFX.get(s,'h'); if(ag){ VFX.draw(ag,p.x,p.y,r*2.1,r*2.1,G.t*.8,.35+.45*pu); }
     ctx.globalAlpha=.1+.15*pu; ctx.fillStyle=s.c; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.fill();
@@ -1601,12 +1997,13 @@ function render(){
   for(const o of G.orbs){ if(!vis(v,o.x,o.y,10)) continue; ctx.fillStyle='#f4fbff'; ctx.beginPath(); ctx.arc(o.x,o.y+Math.sin(o.t*3)*1.2,o.r*.5,0,TAU); ctx.fill(); }
   for(const k of G.items) if(vis(v,k.x,k.y,20)) drawItem(k);
   for(const f of G.fx) if(f.k==='corpse'&&!(R3.on&&f.e&&R3.has(modelKeyFor(f.e)))) drawFx(f);
-  for(const u of G.turrets){ ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(u.x,u.y+6,8,3,0,0,TAU); ctx.fill();
+  for(const u of G.turrets){ if(u.pet){ drawPet(u); continue; } ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(u.x,u.y+6,8,3,0,0,TAU); ctx.fill();
     ctx.fillStyle='#3a4658'; ctx.strokeStyle=OUT; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(u.x-6,u.y+6); ctx.lineTo(u.x-3,u.y-8); ctx.lineTo(u.x+3,u.y-8); ctx.lineTo(u.x+6,u.y+6); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.globalCompositeOperation='lighter'; drawGlow(u.x,u.y-11,u.big?14:9,u.s.c,.9*Math.min(1,u.t)); ctx.globalCompositeOperation='source-over'; }
   const list=[]; for(const e of G.en) if(!e.dead&&vis(v,e.x,e.y,e.r+10)) list.push(e);
   list.sort((a,b)=>a.y-b.y); let pd=false;
   drawSouls();
+  for(const a of G.allies||[]) if(vis(v,a.x,a.y,30)) drawAlly(a);
   for(const e of list){ if(!pd&&e.y>G.p.y){ drawPlayer(); pd=true; } if(R3.on&&R3.has(modelKeyFor(e))) drawEnemyBar(e); else drawEnemy(e); if(e.ss) drawStatus(e); }
   if(!pd) drawPlayer();
   for(const z of G.traps) if(z.k==='neige') drawTrap(z);
@@ -1677,7 +2074,7 @@ function show(id){
   document.querySelectorAll('.ovl').forEach(o=>o.classList.toggle('on',o.id===id));
   const run=id===null;
   $('hud').style.display=run?'block':'none';
-  $('pauseBtn').style.display=run?'block':'none';
+  $('pauseBtn').style.display=run?'block':'none'; $('shopBtn').style.display=run?'block':'none';
   $('kit').style.display=run||id==='choice'?'flex':'none';
 }
 let toastT=0;
@@ -1719,10 +2116,11 @@ function cardHtml(o,i){
     return `<button class="card${ult?' ult':''}" data-i="${i}"><span class="ic">${imgTag(spellImg(sp[6]))}<span class="k">${KEYS[o.kk]}</span></span>
       <span class="nm">${esc(sp[0])}<span class="lv ${a?'':'new'}">${lvl}</span></span>
       <span class="who">${esc(c.n)} · ${CATS[c.c].nm} · ${f.nm}${!a&&!ult?' · kit '+kitLine(o.ci):''}</span>
-      <span class="fx">${fx}</span>${PASS[c.id]&&!owns(c.id)?`<span class="fx" style="color:#c8aa6e">Passif — ${esc(PASS[c.id])}</span>`:''}<span class="ds">${esc(sp[1])}</span></button>`; }
-  if(o.k==='item'){ const it=ITEMS.find(x=>x.id===o.id), r=RAR[it.r];
+      <span class="fx">${fx}</span>${PSV[c.id]&&!owns(c.id)?`<span class="fx" style="color:#c8aa6e">Passif — ${esc(PSV[c.id].n)} : ${esc(psvText(c.id))}</span>`:''}<span class="ds">${esc(sp[1])}</span></button>`; }
+  if(o.k==='item'){ const it=ITEM_BY[o.id], r=RAR[it.r];
     return `<button class="card r-${it.r}" data-i="${i}"><span class="ic">${imgTag(itemImg(it.id))}</span>
-      <span class="nm">${esc(it.nm)}</span><span class="who" style="color:${r.c}">${r.nm}</span><span class="fx">${it.d}</span></button>`; }
+      <span class="nm">${esc(it.nm)}</span><span class="who" style="color:${r.c}">${r.nm} · offert (valeur ${it.price} PO)</span><span class="fx">${it.d}</span></button>`; }
+  if(o.k==='po') return `<button class="card" data-i="${i}"><span class="ic" style="color:#f0c040">🪙</span><span class="nm">Bourse</span><span class="fx">+${o.v} pièces d'or pour la boutique.</span></button>`;
   if(o.k==='heal') return `<button class="card" data-i="${i}"><span class="ic" style="color:#3fc75f">✚</span><span class="nm">Potion de soin</span><span class="fx">Rend 40 % des PV.</span></button>`;
   if(o.k==='gold') return `<button class="card" data-i="${i}"><span class="ic" style="color:#7fd6ff">◈</span><span class="nm">Essence bleue</span><span class="fx">+${o.v} essence bleue.</span></button>`;
   return '';
@@ -1740,9 +2138,10 @@ function levelOptions(){
   return out;
 }
 function chestOptions(rare){
-  const pool=ITEMS.filter(it=>!G.arts.includes(it.id)).map(it=>({id:it.id,w:RAR[it.r].w*(rare?{commun:.2,rare:.8,epique:2.5,legend:4}[it.r]:1)}));
-  const out=[]; while(out.length<3&&pool.length){ const o=wpick(pool); out.push({k:'item',id:o.id}); pool.splice(pool.indexOf(o),1); }
-  while(out.length<3) out.push(out.length?{k:'gold',v:60}:{k:'heal'});
+  /* coffre : deux objets offerts au choix, ou une bourse de pièces d'or */
+  const pool=ITEMS.filter(it=>it.cat==='legend'||(!rare&&it.cat==='epique')).map(it=>({id:it.id,w:it.cat==='legend'?(rare?3:1):2}));
+  const out=[]; while(out.length<2&&pool.length){ const o=wpick(pool); out.push({k:'item',id:o.id}); pool.splice(pool.indexOf(o),1); }
+  out.push({k:'po',v:Math.round((rare?500:250)+G.clock*.6)});
   return out;
 }
 $('chCards').addEventListener('click',e=>{
@@ -1752,15 +2151,19 @@ $('chCards').addEventListener('click',e=>{
     if(a){ a.lv++; a.s=null; }
     else { G.ab[key]={ci:o.ci,k:o.kk,lv:1,t:.3};
       if(o.kk===3){ toast('ULTIME : '+CHAMPS[o.ci].s[3][0].toUpperCase()); SAVE.ults++; flashScr('#c8aa6e'); }
-      else if(hasKit(o.ci)&&!G.ab[abKey(o.ci,3)]) toast('KIT COMPLET : R DE '+CHAMPS[o.ci].n.toUpperCase()+' DISPONIBLE'); } }
-  if(o.k==='item'){ G.arts.push(o.id); computeStats(); if(o.id==='3026') G.revive++; }
+      else if(hasKit(o.ci)&&!G.ab[abKey(o.ci,3)]) toast('KIT COMPLET : R DE '+CHAMPS[o.ci].n.toUpperCase()+' DISPONIBLE');
+      syncAllies(); computeStats(); } }
+  if(o.k==='item'){ const who=giveItem(o.id); if(who<0){ const v=Math.round(ITEM_BY[o.id].price*.7); G.po+=v; toast('INVENTAIRE PLEIN : VENDU +'+v+' PO'); } else toast(ITEM_BY[o.id].nm.toUpperCase()+' → '+CHAMPS[who].n.toUpperCase()); }
+  if(o.k==='po') G.po+=o.v;
+  computeStats();
   if(o.k==='heal') G.p.hp=Math.min(ST.hpMax,G.p.hp+ST.hpMax*.4);
   if(o.k==='gold') G.gold+=o.v;
   if(G.queue.length) openChoice(); else closeChoice();
+  saveRun();
 });
 
 /* --- partie ------------------------------------------------------------- */
-function clearField(){ Object.assign(G,{souls:[],stk:{},heartHP:0,mel:0,annie:0,pyroT:0,hs:null,hsT:3,ezr:null,undy:0,undyCD:0,lastHurt:0,ahriN:0,stkDirty:1,lobs:[],orbit:[],en:[],bul:[],ebul:[],zones:[],fx:[],parts:[],nums:[],orbs:[],items:[],traps:[],later:[],turrets:[],spikes:[],ab:{},arts:[],wave:null}); }
+function clearField(){ Object.assign(G,{pst:{},rageBig:0,souls:[],stk:{},heartHP:0,mel:0,annie:0,pyroT:0,hs:null,hsT:3,ezr:null,undy:0,undyCD:0,lastHurt:0,ahriN:0,stkDirty:1,lobs:[],orbit:[],en:[],bul:[],ebul:[],zones:[],fx:[],parts:[],nums:[],orbs:[],items:[],traps:[],later:[],turrets:[],spikes:[],ab:{},inv:{},allies:[],po:0,wave:null}); }
 function startRun(){
   AU.init();
   const c=CH_BY[SAVE.champ];
@@ -1782,7 +2185,7 @@ function buildHtml(){
   let h='';
   for(const ci of ownedChamps()){ const c=CHAMPS[ci]; h+=`<img src="${champImg(c)}" alt="" style="border-radius:50%;border-color:#c8aa6e">`;
     for(let k=0;k<4;k++){ const a=G.ab[abKey(ci,k)]; if(a) h+=imgTag(spellImg(c.s[k][6])); } }
-  for(const id of G.arts) h+=imgTag(itemImg(id));
+  for(const ci of ownedChamps()) for(const id of invOf(ci)) if(id) h+=imgTag(itemImg(id));
   return h;
 }
 function fillOver(){
@@ -1794,12 +2197,12 @@ function fillOver(){
 }
 function endRun(){
   if(G.phase==='over') return;
-  G.phase='over'; SAVE.runs++; SAVE.kills+=G.kills; fillOver();
+  G.phase='over'; SAVE.runs++; SAVE.kills+=G.kills; fillOver(); clearRun(); Store.save();
   $('ovTitle').textContent='DÉFAITE'; $('ovEyebrow').textContent=G.infinite?'Le mode infini a eu raison de toi':'Tu as été exécuté';
   $('infBtn').style.display='none'; $('againBtn').style.display='block'; show('over');
 }
 function victory(){
-  G.phase='over'; G.cleared=true; const first=!SAVE.cleared[G.stage]; SAVE.cleared[G.stage]=true; fillOver();
+  G.phase='over'; G.cleared=true; const first=!SAVE.cleared[G.stage]; SAVE.cleared[G.stage]=true; fillOver(); clearRun(); Store.save();
   const nxt=STAGE_IDS.find(k=>STAGES[k].apres===G.stage);
   $('ovTitle').textContent='VICTOIRE'; $('ovEyebrow').textContent=first&&nxt?'Nouvelle carte débloquée : '+STAGES[nxt].nm:'Tu as repoussé les trois vagues du Néant';
   $('infBtn').style.display='block'; $('againBtn').style.display='none'; flashScr('#c8aa6e'); show('over');
@@ -1812,16 +2215,20 @@ function togglePause(){
     $('pauseStats').innerHTML=[['Champion',champ().n],['Temps',fmtT(G.clock)],['Niveau',G.level],['Ennemis',G.kills],
       ['ATK',Math.round(ST.atk)],['Critique',pct(ST.crit)],['Vitesse d\'attaque',pct(ST.as)],['PV',Math.ceil(G.p.hp)+' / '+Math.round(ST.hpMax)]]
       .map(([a,b])=>`<div><span>${a}</span><b>${esc(b)}</b></div>`).join('');
-    $('pauseBuild').innerHTML=buildHtml(); show('pause'); }
+    $('pauseBuild').innerHTML=buildHtml();
+    $('pausePass').innerHTML=[...new Set([champ().id,...ownedChamps().map(ci=>CHAMPS[ci].id)])].filter(id=>PSV[id]).map(id=>`<div class="pp"><img src="${psvImg(id)}" alt=""><span><b>${esc(PSV[id].n)}</b> · ${esc(CH_BY[id].n)}<small>${esc(psvText(id))}</small></span></div>`).join('');
+    show('pause'); }
   else if(G.phase==='pause'){ G.phase='run'; show(null); }
 }
 $('pauseBtn').onclick=togglePause; $('resumeBtn').onclick=togglePause;
+$('shopBtn').onclick=openShop; $('pauseShop').onclick=openShop; $('shopBack').onclick=closeShop; $('shop').addEventListener('click',shopClick);
 $('abandonBtn').onclick=()=>{ G.phase='run'; endRun(); };
 document.addEventListener('visibilitychange',()=>{ if(document.hidden&&G.phase==='run') togglePause(); });
 
 /* --- menus -------------------------------------------------------------- */
 function refreshMenu(){
   $('goldMenu').textContent=SAVE.gold;
+  const rr=loadRun(), rb=$('resumeRunBtn'); rb.style.display=rr?'block':'none'; if(rr) rb.textContent='Reprendre — '+CHAMPS[rr.champ].n+' · '+fmtT(rr.clock||0);
   $('menuStats').innerHTML=[['Parties',SAVE.runs],['Ennemis vaincus',SAVE.kills],['Cartes gagnées',STAGE_IDS.filter(k=>SAVE.cleared[k]).length+' / '+STAGE_IDS.length],
     ['Champions',SAVE.owned.length+' / '+CHAMPS.length],['Champion',CH_BY[SAVE.champ].n],['Ultimes obtenus',SAVE.ults]]
     .map(([a,b])=>`<div><span>${a}</span><b>${esc(b)}</b></div>`).join('');
@@ -1847,6 +2254,7 @@ $('catTabs').addEventListener('click',e=>{ const b=e.target.closest('.tab'); if(
 $('champGrid').addEventListener('click',e=>{ const b=e.target.closest('.ch'); if(!b) return; SAVE.champ=b.dataset.id; Store.save(); renderPrep(); });
 $('stageList').addEventListener('click',e=>{ const b=e.target.closest('.opt'); if(!b||!stageOpen(b.dataset.s)) return; SAVE.stage=G.stage=b.dataset.s; SOL=null; R3.stageGround(); Store.save(); renderPrep(); });
 $('playBtn').onclick=()=>{ AU.init(); openPrep(); };
+$('resumeRunBtn').onclick=()=>{ AU.init(); resumeRun(); };
 $('prepBack').onclick=()=>{ refreshMenu(); show('menu'); };
 $('goBtn').onclick=()=>{
   if(!champOwned(SAVE.champ)){ if(SAVE.gold<CHAMP_COST){ $('goBtn').animate([{transform:'translateX(-4px)'},{transform:'translateX(4px)'},{transform:'none'}],{duration:200}); return; }
@@ -1869,7 +2277,8 @@ function renderSettings(){ $('setList').innerHTML=OPTS.map(([k,n])=>`<div class=
 $('setList').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const k=b.dataset.o; SAVE.opt[k]=SAVE.opt[k]?0:1; Store.save(); if(k==='d3') location.reload(); renderSettings(); });
 $('setBtn').onclick=()=>{ renderSettings(); show('settings'); };
 $('setBack').onclick=()=>{ refreshMenu(); show('menu'); };
-$('wipeBtn').onclick=()=>{ if(!confirm('Effacer toute la progression (essence, runes, champions, cartes) ?')) return; SAVE=DEFAULT_SAVE(); Store.save(); refreshMenu(); renderSettings(); };
+$('expBtn').onclick=exportSave; $('impBtn').onclick=importSave;
+$('wipeBtn').onclick=()=>{ if(!confirm('Effacer toute la progression (essence, runes, champions, cartes) ?')) return; SAVE=DEFAULT_SAVE(); Store.save(); clearRun(); refreshMenu(); renderSettings(); };
 
 
 /* =========================================================================
@@ -2222,6 +2631,14 @@ function render3D(){
       const s=PLAYER_H*bigness()*(1+atk*.06); pm.scale.set(s,s,s);
       const red=p.hitT>0; pm.children.forEach(m=>m.material.color.setRGB(red?2:1,red?.6:1,red?.6:1));
       shadow(p.x,p.y,24*bigness()); } }
+  /* alliés en 3D */
+  if(!R3.allies) R3.allies=new Map(); const keep=new Set();
+  if(G.phase!=='menu') for(const a of G.allies||[]){ const id=CHAMPS[a.ci].id; let m=R3.allies.get(a.ci); keep.add(a.ci);
+    if(!m){ if(R3.models[id]){ m=R3.mesh(id); R3.scene.add(m); R3.allies.set(a.ci,m); } else { R3.load(id).catch(()=>{}); continue; } }
+    let d=Math.atan2(a.dx,a.dy)-(a.rot||0); while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU; a.rot=(a.rot||0)+d*.25;
+    const mv=Math.hypot(a.vx,a.vy)>8, sc=PLAYER_H*.92; m.position.set(a.x,0,a.y); m.rotation.set(0,a.rot,0); m.scale.set(sc,sc,sc);
+    R3.pose(m,a.cast>0?atkFrame(1-a.cast/.15):mv?walkFrame(a.anim*.7):0); shadow(a.x,a.y,20); }
+  for(const [ci,m] of R3.allies) if(!keep.has(ci)){ R3.scene.remove(m); R3.allies.delete(ci); }
   R3.shadows.count=ns; R3.shadows.instanceMatrix.needsUpdate=true;
   R3.rings.count=nr; R3.rings.instanceMatrix.needsUpdate=true; if(R3.rings.instanceColor) R3.rings.instanceColor.needsUpdate=true;
   R3.ren.render(R3.scene,R3.cam);
@@ -2246,16 +2663,19 @@ const PREV3D={ren:null,scene:null,cam:null,obj:null,key:null,
 let last=performance.now(), hudT=0;
 function hud(){
   $('xpFill').style.width=(G.level>=100?100:G.xp/G.need*100)+'%';
-  $('lvTxt').textContent=G.level; $('killTxt').textContent=G.kills; $('goldTxt').textContent=G.gold;
+  $('lvTxt').textContent=G.level; $('poTxt').textContent=G.po; $('killTxt').textContent=G.kills; $('goldTxt').textContent=G.gold;
   const ck=$('clock'); ck.textContent=fmtT(G.clock); ck.classList.toggle('stop',!!G.dc);
   $('death').style.display=G.dc?'block':'none';
   if(G.dc){ $('deathFill').style.width=(G.dc.t/DEATH_LEN*100)+'%'; $('deathLbl').textContent=(G.dcIdx===2&&!G.infinite?'NASHOR · ':'')+'NÉANT '+(G.dcIdx+1)+(G.infinite?'':' / 3'); }
   updateKitCD();
 }
+let saveT=5, bankN=0;
 function frame(now){
   requestAnimationFrame(frame);
   let dt=(now-last)/1000; last=now; if(dt>.05) dt=.05;
-  if(G.phase==='run'){ update(dt); hudT-=dt; if(hudT<=0){ hudT=.08; hud(); } }
+  if(G.phase==='run'){ update(dt); hudT-=dt; if(hudT<=0){ hudT=.08; hud(); }
+    /* sauvegarde continue : la partie toutes les 5 s, l'essence gagnée toutes les 10 s */
+    if((saveT-=dt)<=0){ saveT=5; saveRun(); if((bankN=(bankN||0)+1)%2===0){ bank(); Store.save(); } } }
   else if(G.phase==='menu'){ G.t+=dt; G.cam.x=Math.cos(G.t*.05)*300; G.cam.y=Math.sin(G.t*.04)*300; }
   if(toastT>0){ toastT-=dt; if(toastT<=0) $('toast').style.opacity=0; }
   render();
@@ -2269,6 +2689,8 @@ function frame(now){
     drawChibi({x:0,y:0,vx:30,vy:0,anim:t*9,face:1,cast:(t%1.6)<.15?.15-(t%1.6):0,hitT:0},CH_BY[SAVE.champ]); ctx=main; }
 }
 addEventListener('resize',()=>{ resize(); VIG=null; R3.size(); });
+addEventListener('pagehide',()=>{ saveRun(); if(['run','pause','shop','choice'].includes(G.phase)){ bank(); Store.save(); } });
+document.addEventListener('visibilitychange',()=>{ if(document.hidden){ saveRun(); if(['run','pause','shop','choice'].includes(G.phase)){ bank(); Store.save(); } } });
 resize(); Store.load(); G.stage=SAVE.stage; G.champ=CH_BY[SAVE.champ].i; buildGround(); R3.init(); R3.stageGround(); refreshMenu(); show('menu');
 requestAnimationFrame(frame);
 </script>

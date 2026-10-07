@@ -115,6 +115,15 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
   <a class="play" id="jouer" href="index.html">▶ Jouer</a>
 </section>
 
+<section class="game" aria-labelledby="game2-title">
+  <img src="poche-icon.png" alt="" style="image-rendering:pixelated">
+  <div class="info">
+    <h2 id="game2-title">Aventure de Poche</h2>
+    <p>Mon deuxième jeu : une aventure en pixel art façon anciens jeux de monstres de poche, en couleur. Pour l'instant : le village, la route et ton dresseur qui se balade.</p>
+  </div>
+  <a class="play" id="jouer2" href="poche.html">▶ Jouer</a>
+</section>
+
 <script>
 // ✏️ Modifie ces valeurs avec ton prénom, ton nom et tes messages
 const PRENOM = "Loan";
@@ -314,7 +323,8 @@ const SCENE = 3000;
 let scene = null;
 const lisse = t => t * t * (3 - 2 * t);
 
-function lancerTrouNoir(retour){
+function lancerTrouNoir(retour, cible){
+  cible = cible || "index.html";
   if (scene) return;
   const voile = document.createElement("div");
   voile.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(3,2,8," + (retour ? 1 : 0) + ")";
@@ -330,15 +340,15 @@ function lancerTrouNoir(retour){
   banner.style.setProperty("--rx", "0deg"); banner.style.setProperty("--ry", "0deg");
   banner.style.overflow = "visible";
   document.getElementById("msg").style.display = "inline-block";
-  const carte = document.querySelector(".game");
+  const cartes = [...document.querySelectorAll(".game")];
   const morceaux = [...document.querySelectorAll(".name .l"), document.getElementById("msg"),
     document.querySelector(".msg .caret"), document.querySelector(".hint"),
-    carte.querySelector("img"), carte.querySelector("h2"), carte.querySelector("p"), jouer];
+    ...cartes.flatMap(c => [c.querySelector("img"), c.querySelector("h2"), c.querySelector("p"), c.querySelector(".play")])];
   const centre = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
   const loin = el => { const [x, y] = centre(el); return Math.hypot(x - cx, y - cy); };
   morceaux.sort((a, b) => loin(a) - loin(b));
   const plan = morceaux.map((el, i) => ({ el, debut: 250 + i / (morceaux.length - 1) * 1450 + Math.random() * 120 }));
-  for (const boite of [banner, carte]){
+  for (const boite of [banner, ...cartes]){
     const fin = Math.max(...plan.filter(p => boite.contains(p.el)).map(p => p.debut));
     plan.push({ el: boite, debut: fin + 180, flou: true });
   }
@@ -373,7 +383,7 @@ function lancerTrouNoir(retour){
     if (ecoule >= SCENE + 80){
       fini = true;
       if (retour) remettre();
-      else location.href = "index.html?portail=1";
+      else location.href = cible + "?portail=1";
       return;
     }
     requestAnimationFrame(boucle);
@@ -387,10 +397,10 @@ function remettre(){
   scene = null;
 }
 const reduit = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-jouer.addEventListener("click", e => {
+for (const b of document.querySelectorAll(".play")) b.addEventListener("click", e => {
   if (reduit()) return;
   e.preventDefault();
-  lancerTrouNoir(false);
+  lancerTrouNoir(false, b.getAttribute("href"));
 });
 if (/[?&]retour=1/.test(location.search)){
   history.replaceState(null, "", location.pathname);

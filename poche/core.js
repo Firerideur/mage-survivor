@@ -67,7 +67,7 @@ const MUS={song:null,t:0,i:0,on:true,play(n){ if(this.song===SONGS[n]) return; t
 let UIBUSY=0;
 function el(cls,html,css){ const d=document.createElement('div'); d.className=cls; if(html!=null) d.innerHTML=html; if(css) d.style.cssText=css; UI.appendChild(d); return d; }
 /* coupe en lignes de 18 caractères */
-function wrapText(text,w){ w=w||18; const out=[]; for(const para of String(text).split('\n')){ let line=''; for(const word of para.split(' ')){ if((line+' '+word).trim().length>w&&line){ out.push(line); line=word; } else line=(line+' '+word).trim(); } out.push(line); } return out; }
+function wrapText(text,w){ w=w||20; const out=[]; for(const para of String(text).split('\n')){ let line=''; for(const word of para.split(' ')){ if((line+' '+word).trim().length>w&&line){ out.push(line); line=word; } else line=(line+' '+word).trim(); } out.push(line); } return out; }
 let TEXT_SPEED=1;
 async function say(text,opt){ opt=opt||{}; UIBUSY++; const box=el('box'); const lines=wrapText(text);
   try{ for(let i=0;i<lines.length;i+=2){ const pg=lines.slice(i,i+2).join('\n'), last=i+2>=lines.length;
@@ -97,6 +97,12 @@ function saveGame(){ try{ const s=Object.assign({},GS,{pos:{map:P.map,x:P.x,y:P.
 function loadGame(){ try{ return JSON.parse(localStorage.getItem(SAVE_KEY)||localStorage.getItem(SAVE_KEY+'_bak')||'null'); }catch(e){ return null; } }
 
 /* --- dimensions de l'écran ----------------------------------------------- */
-function fit(){ const aw=Math.min(innerWidth-48,900), ah=innerHeight-320; let s=Math.min(aw/W,ah/H); s=s>=2?Math.floor(s):Math.max(1,s);
+const LAND=matchMedia('(orientation:landscape) and (max-height:600px)');
+function fit(){ const land=LAND.matches, aw=land?innerWidth-330:Math.min(innerWidth-48,900), ah=land?innerHeight-40:innerHeight-320; let s=Math.min(aw/W,ah/H); s=s>=2?Math.floor(s):Math.max(1,s);
   cv.style.width=W*s+'px'; cv.style.height=H*s+'px'; UI.style.transform='scale('+s+')'; }
-addEventListener('resize',fit);
+addEventListener('resize',fit); addEventListener('orientationchange',()=>setTimeout(fit,200));
+/* pas de zoom au double appui / pincement */
+document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+let lastTouch=0; document.addEventListener('touchend',e=>{ const t=Date.now(); if(t-lastTouch<400) e.preventDefault(); lastTouch=t; },{passive:false});
+document.addEventListener('touchmove',e=>{ if(e.touches.length>1) e.preventDefault(); },{passive:false});
+for(const g of ['gesturestart','gesturechange','gestureend']) document.addEventListener(g,e=>e.preventDefault(),{passive:false});

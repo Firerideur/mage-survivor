@@ -203,7 +203,7 @@ async function checkFaints(){
       if(B.me.m.hp<=0){ const r=await meFainted(); if(r) return r; }
       await say(B.trainer.name+" envoie "+monName(B.foe.m)+" !"); await sendOut(B.foe); return null; }
     if(B.trainer){ MUS.play('victory'); BA.trainer=npcSprites(B.trainer.look||{}).down; BA.foe.vis=1; BA.foe.x=60; await tween(400,k=>{ BA.foe.x=60*(1-k); });
-      await say(GS.name+" a battu "+B.trainer.name+" !"); GS.money+=B.trainer.money; await say(GS.name+" remporte "+B.trainer.money+" $ !"); }
+      await say(GS.name+" a battu "+B.trainer.name+" !"); GS.money+=B.trainer.money; await say(GS.name+" remporte "+B.trainer.money+" Berrys !"); }
     return 'win'; }
   if(B.me.m.hp<=0) return meFainted();
   return null; }
@@ -243,21 +243,21 @@ async function evolve(m,to){ const from=m.n; lock++; EVO={from,to,k:0,show:from,
 
 /* --- défaite --------------------------------------------------------------- */
 async function blackout(){ await say(GS.name+" n'a plus de personnage en forme !"); const lost=Math.floor(GS.money/2); GS.money-=lost;
-  await say(GS.name+" panique et perd "+lost+" $…"); await say("… … …"); healAll();
+  await say(GS.name+" panique et perd "+lost+" Berrys…"); await say("… … …"); healAll();
   const c=GS.lastCenter; P.map=c.map; P.zone=c.zone; P.x=c.x; P.y=c.y; P.dir='up'; P.mv=null;
   if(c.map==='centre'){ const b=WORLD.build.find(b=>b.kind==='centre'&&b.zone===c.zone); if(b) P.ret={x:b.door[0],y:b.door[1]+1}; }
   else P.ret={x:6,y:WORLD.zones.find(z=>z.id==='home').y0+22}; }
 
 /* --- capture ------------------------------------------------------------- */
-async function throwBall(id){ const it=ITEMS[id], m=B.foe.m; await say(GS.name+" lance une "+it.nm+" !");
-  if(B.trainer){ BA.ball={t:0}; await tween(500,k=>{ BA.ball.t=k; }); BA.ball=null; await say("Le dresseur dévie la balle !"); await say("Voler, c'est mal !"); return false; }
+async function throwBall(id){ const it=ITEMS[id], m=B.foe.m; await say(GS.name+" utilise : "+it.nm+" !");
+  if(B.trainer){ BA.ball={t:0}; await tween(500,k=>{ BA.ball.t=k; }); BA.ball=null; await say("Le dresseur brise le sceau !"); await say("Voler, c'est mal !"); return false; }
   BA.ball={t:0,col:id==='masterOrbe'?'#a040c0':id==='hyperOrbe'?'#f0c020':id==='superOrbe'?'#3070e0':'#e03030'}; AU.jump(); await tween(550,k=>{ BA.ball.t=k; });
   await tween(250,k=>{ BA.foe.sc=1-k; }); BA.foe.sc=0; BA.ball.t=1;
   let shakes=0; const rate=SPECIES[m.n].catch, stb=m.st==='slp'||m.st==='frz'?2:m.st?1.5:1;
   const a=((3*m.maxhp-2*m.hp)*rate*it.ball)/(3*m.maxhp)*stb;
   if(it.ball>=255||a>=255) shakes=4; else { const b=1048560/Math.sqrt(Math.sqrt(16711680/a)); while(shakes<4&&Math.random()*65536<b) shakes++; }
   for(let i=0;i<Math.min(3,shakes);i++){ await sleep(350); AU.shake(); BA.ball.wob=1; await sleep(200); BA.ball.wob=0; }
-  if(shakes>=4){ await sleep(300); AU.catch_(); BA.ball.done=1; await say("Gotcha !\n"+SPECIES[m.n].name+" est attrapé !"); const isNew=!GS.dex.caught[m.n];
+  if(shakes>=4){ await sleep(300); AU.catch_(); BA.ball.done=1; await say("Scellé !\n"+SPECIES[m.n].name+" est capturé !"); const isNew=!GS.dex.caught[m.n];
     if(isNew){ caught(m.n); await say("Les données de "+SPECIES[m.n].name+" sont ajoutées à l'Animédex !"); await dexEntry(m.n); }
     m.st=m.st==='tox'?'psn':m.st; const w=addMon(m); if(w==='box') await say(SPECIES[m.n].name+" est envoyé dans le PC.");
     return true; }
@@ -281,7 +281,7 @@ function renderBattle(){ const th=BG_THEME[(P.map==='world'?zoneAt(P.y).theme:'r
     drawBall(Math.round(x+wob),Math.round(k>=1?54:y),BA.ball.col||'#e03030'); if(BA.ball.done){ for(let i=0;i<3;i++){ ctx.fillStyle='#f8e040'; ctx.fillRect(116+Math.cos(T*4+i*2)*10,48+Math.sin(T*4+i*2)*6,2,2); } } }
   if(BA.fx) drawFX(BA.fx);
   if(BA.flash){ ctx.fillStyle='#f8f8f8'; ctx.fillRect(0,0,W,H); } }
-function drawBall(x,y,col){ ctx.fillStyle='#202028'; ctx.fillRect(x-3,y-4,6,8); ctx.fillRect(x-4,y-3,8,6); ctx.fillStyle=col; ctx.fillRect(x-3,y-3,6,3); ctx.fillStyle='#f8f8f8'; ctx.fillRect(x-3,y+1,6,2); ctx.fillStyle='#202028'; ctx.fillRect(x-4,y,8,1); ctx.fillStyle='#f8f8f8'; ctx.fillRect(x-1,y-1,2,2); }
+function drawBall(x,y,col){ /* parchemin / carte de capture */ ctx.fillStyle='#202028'; ctx.fillRect(x-5,y-4,10,8); ctx.fillStyle='#f0e0b0'; ctx.fillRect(x-4,y-3,8,6); ctx.fillStyle=col; ctx.fillRect(x-4,y-1,8,2); ctx.fillStyle='#806040'; ctx.fillRect(x-5,y-4,1,8); ctx.fillRect(x+4,y-4,1,8); }
 function drawFX(f){ const on=f.on==='foe', cx=on?120:40, cy=on?36:72, k=f.t, col=f.col; ctx.save();
   const parts=(n,fn)=>{ for(let i=0;i<n;i++) fn(i,i/n); };
   if(f.kind==='buff'){ ctx.globalAlpha=1-k; ctx.strokeStyle=col; ctx.lineWidth=2; parts(3,(i)=>{ ctx.beginPath(); ctx.ellipse(cx,cy+20-k*40+i*10,18,4,0,0,Math.PI*2); ctx.stroke(); }); ctx.restore(); return; }

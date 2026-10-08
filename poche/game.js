@@ -4,29 +4,30 @@
    ========================================================================= */
 const GYMS=WORLD.gyms, ELITE=WORLD.elite;
 const ITEMS={
-  orbe:{nm:'Orbe',price:200,ball:1,d:"Capture un personnage sauvage."},
-  superOrbe:{nm:'Super Orbe',price:600,ball:1.5,badges:2,d:"Meilleure chance de capture."},
-  hyperOrbe:{nm:'Hyper Orbe',price:1200,ball:2,badges:5,d:"Très bonne chance de capture."},
-  masterOrbe:{nm:'Master Orbe',price:0,ball:255,d:"Capture à coup sûr."},
-  potion:{nm:'Potion',price:300,heal:20,d:"Rend 20 PV."},
-  superPotion:{nm:'Super Potion',price:700,heal:50,badges:2,d:"Rend 50 PV."},
-  hyperPotion:{nm:'Hyper Potion',price:1200,heal:200,badges:4,d:"Rend 200 PV."},
-  rappel:{nm:'Rappel',price:1500,revive:1,badges:3,d:"Ranime un personnage K.O."},
-  antidote:{nm:'Antidote',price:100,cure:['psn','tox'],d:"Soigne le poison."},
-  antiPara:{nm:'Anti-Para',price:200,cure:['par'],d:"Soigne la paralysie."},
-  reveil:{nm:'Réveil',price:250,cure:['slp'],d:"Réveille un personnage."},
-  antiBrule:{nm:'Anti-Brûle',price:250,cure:['brn'],d:"Soigne une brûlure."},
-  totalSoin:{nm:'Total Soin',price:600,cure:['psn','tox','par','slp','brn','frz'],badges:4,d:"Soigne tous les statuts."},
-  repousse:{nm:'Repousse',price:350,repel:100,d:"Éloigne les sauvages pendant 100 pas."},
-  superBonbon:{nm:'Super Bonbon',price:0,candy:1,d:"Monte d'un niveau."},
-  pierreEau:{nm:'Pierre Eau',price:2100,stone:1,shop:'psyche',d:"Fait évoluer certains personnages."},
-  pierreFoudre:{nm:'Pierre Foudre',price:2100,stone:1,shop:'psyche',d:"Fait évoluer certains personnages."},
-  pierreFeu:{nm:'Pierre Feu',price:2100,stone:1,shop:'psyche',d:"Fait évoluer certains personnages."}};
+  orbe:{nm:'Parchemin de Sceau',price:200,ball:1,d:"Parchemin ninja (Naruto). Scelle un personnage sauvage."},
+  superOrbe:{nm:'Carte Greed Island',price:600,ball:1.5,badges:2,d:"Carte vierge (Hunter x Hunter). Meilleure chance de capture."},
+  hyperOrbe:{nm:'Kidō de Scellement',price:1200,ball:2,badges:5,d:"Sort des Shinigamis (Bleach). Très bonne chance de capture."},
+  masterOrbe:{nm:'Prison Dimension.',price:0,ball:255,d:"Prison Dimensionnelle (Jujutsu Kaisen). Elle a scellé Gojo : capture à coup sûr."},
+  potion:{nm:"Ramen d'Ichiraku",price:300,heal:20,d:"Le ramen préféré de Naruto. Rend 20 PV."},
+  superPotion:{nm:'Viande de Luffy',price:700,heal:50,badges:2,d:"Un énorme morceau de viande (One Piece). Rend 50 PV."},
+  hyperPotion:{nm:'Haricot Magique',price:1200,heal:200,badges:4,d:"Un haricot Senzu (Dragon Ball). Rend 200 PV."},
+  rappel:{nm:"Soin d'Orihime",price:1500,revive:1,badges:3,d:"Le pouvoir de rejet d'Orihime (Bleach). Ranime un personnage K.O."},
+  antidote:{nm:'Remède Glycine',price:100,cure:['psn','tox'],d:"Remède de Shinobu à la glycine (Demon Slayer). Soigne le poison."},
+  antiPara:{nm:'Pilule du Soldat',price:200,cure:['par'],d:"Pilule ninja (Naruto). Soigne la paralysie."},
+  reveil:{nm:'Remède de Chopper',price:250,cure:['slp'],d:"Médecine du Dr Chopper (One Piece). Réveille un personnage."},
+  antiBrule:{nm:'Neige de Rukia',price:250,cure:['brn'],d:"Neige de Sode no Shirayuki (Bleach). Soigne une brûlure."},
+  totalSoin:{nm:'Soin de Tsunade',price:600,cure:['psn','tox','par','slp','brn','frz'],badges:4,d:"Ninjutsu médical de Tsunade (Naruto). Soigne tous les statuts."},
+  repousse:{nm:'Aura de Haki',price:350,repel:100,d:"Haki des Rois (One Piece). Les faibles s'enfuient pendant 100 pas."},
+  superBonbon:{nm:'Pomme de Ryuk',price:0,candy:1,d:"Une pomme du monde des humains (Death Note). Monte d'un niveau."},
+  pierreEau:{nm:"Clé d'Aquarius",price:2100,stone:1,shop:'psyche',d:"Clé céleste du Zodiaque (Fairy Tail). Fait évoluer Lucy."},
+  pierreFoudre:{nm:'Clé du Lion',price:2100,stone:1,shop:'psyche',d:"Clé céleste du Zodiaque (Fairy Tail). Fait évoluer Lucy."},
+  pierreFeu:{nm:'Clé du Taureau',price:2100,stone:1,shop:'psyche',d:"Clé céleste du Zodiaque (Fairy Tail). Fait évoluer Lucy."}};
+const CUR=' ฿';
 const GROUND_ITEMS=['potion','orbe','superBonbon','antidote','superPotion','orbe','reveil','rappel','superBonbon','hyperPotion','superOrbe','pierreEau','totalSoin','superBonbon','hyperOrbe','pierreFeu','pierreFoudre','masterOrbe'];
 
 /* --- état de la partie ------------------------------------------------- */
 let GS=null;
-function newGame(){ GS={name:'LOAN',rival:'KENJI',money:3000,badges:[],flags:{},party:[],box:[],bag:{potion:1},dex:{seen:{},caught:{}},
+function newGame(){ GS={name:'LOAN',rival:'KENJI',money:3000,ver:2,badges:[],flags:{},party:[],box:[],bag:{potion:1},dex:{seen:{},caught:{}},
   lastCenter:{map:'maison',zone:'home',x:4,y:6},starter:0,time:0,repel:0,steps:0}; }
 /* --- personnages (instances) ------------------------------------------- */
 const STAT_NAMES=['PV','ATTAQUE','DÉFENSE','SPÉCIAL','VITESSE'];
@@ -78,7 +79,7 @@ function buildNPCs(){ NPCS=[];
     NPCS.push({id:'inf_'+z.id,map:'centre',zone:z.id,x:4,y:1,dir:'down',look:{girl:1,hair:'#f080b0',top:'#f8f8f8',pants:'#f8f8f8'},script:'infirmiere'});
     NPCS.push({id:'pcx_'+z.id,map:'centre',zone:z.id,x:1,y:4,dir:'right',look:LOOKS[(z.y0/3|0)%LOOKS.length],text:pick(["Le PC à droite sert à ranger tes personnages en trop.","Au-delà de 6 personnages, les nouvelles captures vont directement dans le PC.","Soigne-toi souvent ! Les champions d'arène ne font pas de cadeau."])});
     NPCS.push({id:'vend_'+z.id,map:'boutique',zone:z.id,x:1,y:1,dir:'down',look:{cap:'#4070d0',top:'#4070d0',pants:'#303030'},script:'vendeur'});
-    NPCS.push({id:'hab_'+z.id,map:'maison',zone:z.id,x:5,y:4,dir:'down',look:LOOKS[(z.y0/7|0)%LOOKS.length],text:pick(["Le type Eau bat le Feu, le Feu bat la Plante, la Plante bat l'Eau. La base !","Les personnages évoluent en gagnant des niveaux. Certains ont besoin d'une pierre !","Le Spectre ne craint pas les attaques Normal ni Combat.","On dit qu'un être très puissant attendrait au nord du Plateau des Héros…","Les attaques du même type que le personnage font 50 % de dégâts en plus !","Les Super Bonbons font gagner un niveau d'un coup."])});
+    NPCS.push({id:'hab_'+z.id,map:'maison',zone:z.id,x:5,y:4,dir:'down',look:LOOKS[(z.y0/7|0)%LOOKS.length],text:pick(["Le type Eau bat le Feu, le Feu bat la Plante, la Plante bat l'Eau. La base !","Les personnages évoluent en gagnant des niveaux. Lucy, elle, a besoin d'une Clé céleste !","Le Spectre ne craint pas les attaques Normal ni Combat.","On dit qu'un être très puissant attendrait au nord du Plateau des Héros…","Les attaques du même type que le personnage font 50 % de dégâts en plus !","Les Super Bonbons font gagner un niveau d'un coup."])});
     const gym=GYMS.find(g=>g.zone===z.id); if(!gym) continue;
     NPCS.push({id:'champ_'+z.id,map:'arene',zone:z.id,x:4,y:2,dir:'down',look:{nocap:1,hair:shade(gym.col,.6),top:gym.col,pants:'#303030',girl:['MARINA','FLORA','TOXA','VOLTA'].includes(gym.leader)?1:0},gymLeader:gym,flag:'badge_'+z.id});
     gym.trainers.forEach((team,i)=>NPCS.push({id:'gt_'+z.id+i,map:'arene',zone:z.id,x:i?7:2,y:i?5:8,dir:i?'left':'right',sight:4,look:{nocap:1,hair:'#303030',top:gym.col,pants:'#303030',girl:i},
@@ -187,14 +188,14 @@ const SCRIPTS={
     await say("Félicitations, "+GS.name+" ! Ton nom entre au Panthéon des Héros avec ton équipe : "+GS.party.map(monName).join(', ')+".");
     await say("FIN… ou presque ! Des êtres légendaires sont apparus dans la région, et le Prof. Érable a un cadeau pour toi."); saveGame(); }
 };
-/* choix du starter : les 3 orbes sur la table du labo */
+/* choix du starter : les 3 parchemins sur la table du labo */
 async function labTable(x){ if(GS.starter) return say("La table est vide."); const opts=[1,4,7], i=x-3; if(i<0||i>2) return; const n=opts[i];
   lock++; try{ PREVIEW={n,t:0}; const ok=await yesNo("C'est "+SPECIES[n].name+" ("+SPECIES[n].types.join('/')+"). Tu le choisis ?"); PREVIEW=null; if(!ok) return;
     GS.starter=n; const m=makeMon(n,5); addMon(m); AU.catch_(); await say(GS.name+" reçoit "+SPECIES[n].name+" !");
     const rs={1:4,4:7,7:1}[n]; GS.flags.rivalStarter=rs; await say(GS.rival+" : Alors moi je prends "+SPECIES[rs].name+" ! Allez, combat !");
     const r=await startBattle({trainer:{name:GS.rival,rival:1,team:[makeMon(rs,5)],money:200,look:{nocap:1,hair:'#c03030',top:'#303848',pants:'#202020'}},noLose:1});
     GS.flags.rival1=1; if(r==='win') await say(GS.rival+" : Quoi ?! Bon, j'irai m'entraîner sur la route !"); else await say(GS.rival+" : Ha ! Je suis le meilleur ! On se reverra !");
-    healAll(); await say("PROF. ÉRABLE : Prends aussi ces 5 Orbes pour capturer des personnages. Et ton Animédex !"); giveItem('orbe',5); GS.flags.dex=1; saveGame(); } finally{ lock--; } }
+    healAll(); await say("PROF. ÉRABLE : Prends aussi ces 5 Parchemins de Sceau pour capturer des personnages. Et ton Animédex !"); giveItem('orbe',5); GS.flags.dex=1; saveGame(); } finally{ lock--; } }
 let PREVIEW=null;
 
 /* --- entrées / sorties des bâtiments ----------------------------------- */

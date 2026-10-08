@@ -3,7 +3,9 @@
    ========================================================================= */
 let onPress=null;
 function restore(s){ GS=s; const p=s.pos||{}; delete GS.pos; delete GS.t;
-  for(const m of GS.party.concat(GS.box)) calcStats(m), m.hp=Math.min(m.hp,m.maxhp);
+  for(const m of GS.party.concat(GS.box)){ calcStats(m); m.hp=Math.min(m.hp,m.maxhp);
+    if(!GS.ver){ const ids=[...new Set(SPECIES[m.n].learn.filter(([l])=>l<=m.lv).map(([,i])=>i))].slice(-4); m.moves=ids.map(i=>({id:i,pp:MOVES[i].pp})); } }
+  GS.ver=2;
   P.map=p.map||'maison'; P.x=p.x??4; P.y=p.y??6; P.dir=p.dir||'down'; P.zone=s.zoneNow||(P.map==='world'?zoneAt(P.y).id:'home'); P.ret=s.retNow||null; }
 const _save=saveGame; saveGame=function(){ if(!GS||title) return; GS.zoneNow=P.zone; GS.retNow=P.ret; _save(); };
 function renderTitle(){ ctx.fillStyle='#283878'; ctx.fillRect(0,0,W,H); const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#f8a040'); g.addColorStop(.55,'#d04870'); g.addColorStop(1,'#302060'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);

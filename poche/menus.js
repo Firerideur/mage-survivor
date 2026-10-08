@@ -59,7 +59,7 @@ async function bagMenu(opt){ opt=opt||{}; UIBUSY++; const bg=panel('bag-bg'); le
 
 /* --- Animédex ----------------------------------------------------------------- */
 function dexText(n){ const s=SPECIES[n], st=s.st, best=['PV','ATTAQUE','DÉFENSE','SPÉCIAL','VITESSE'][st.indexOf(Math.max(...st))];
-  const evo=s.evo&&s.evo.lvl?" Évolue au niveau "+s.evo.lvl+".":s.evo&&s.evo.stones?" Évolue avec une pierre.":s.leg?" Un être légendaire.":"";
+  const evo=s.evo&&s.evo.lvl?" Évolue au niveau "+s.evo.lvl+".":s.evo&&s.evo.stones?" Évolue avec une Clé céleste.":s.leg?" Un être légendaire.":"";
   return "Venu du monde de « "+s.serie+" ». Son point fort : "+best.toLowerCase()+"."+evo; }
 async function dexEntry(n){ UIBUSY++; const s=SPECIES[n], c=GS.dex.caught[n];
   const p=panel('dexe',`<img class="big" src="${icon(n)}"><div class="sh"><div>N°${String(n).padStart(3,'0')}</div><div>${esc(s.name)}</div>${s.types.map(t=>`<b class="ty" style="background:${TCOL[t]}">${esc(t.toUpperCase())}</b>`).join('')}</div><div class="dt">${c?esc(dexText(n)):'Pas encore capturé.'}</div>`);
@@ -73,7 +73,7 @@ async function dexMenu(){ UIBUSY++; const bg=panel('dex-bg'); const ns=Object.ke
 /* --- carte du joueur -------------------------------------------------------- */
 async function trainerCard(){ UIBUSY++; const t=Math.floor(GS.time), h=Math.floor(t/3600), mn=Math.floor(t/60)%60;
   const badges=GYMS.map(g=>`<i title="${esc(g.badge)}" style="background:${GS.badges.includes(g.zone)?g.col:'#c8c8d0'}"></i>`).join('');
-  const p=panel('card',`<div>NOM : ${esc(GS.name)}</div><div>ARGENT : ${GS.money} $</div><div>ANIMÉDEX : ${Object.keys(GS.dex.caught).length}</div><div>TEMPS : ${h}:${String(mn).padStart(2,'0')}</div><div class="bd">BADGES ${GS.badges.length}/8</div><div class="badges">${badges}</div>${GS.flags.champion?'<div class="ch">★ MAÎTRE DE LA LIGUE ★</div>':''}`);
+  const p=panel('card',`<div>NOM : ${esc(GS.name)}</div><div>BERRYS : ${GS.money}</div><div>ANIMÉDEX : ${Object.keys(GS.dex.caught).length}</div><div>TEMPS : ${h}:${String(mn).padStart(2,'0')}</div><div class="bd">BADGES ${GS.badges.length}/8</div><div class="badges">${badges}</div>${GS.flags.champion?'<div class="ch">★ MAÎTRE DE LA LIGUE ★</div>':''}`);
   try{ await waitAB(); } finally{ p.remove(); UIBUSY--; } }
 
 /* --- menu START ----------------------------------------------------------- */
@@ -86,19 +86,19 @@ async function optionsMenu(){ for(;;){ const i=await choose(['TEXTE : '+(TEXT_SP
   if(i===0) TEXT_SPEED=TEXT_SPEED>1?1:2; else if(i===1){ AU.on=!AU.on; } else return; try{ localStorage.setItem('aventure_poche_opt',JSON.stringify({ts:TEXT_SPEED,snd:AU.on})); }catch(e){} } }
 
 /* --- boutique ---------------------------------------------------------- */
-async function qtyPicker(price,max){ UIBUSY++; let q=1; const b=el('qty'); const draw=()=>{ b.innerHTML=`×${String(q).padStart(2,'0')}<span>${q*price} $</span>`; }; draw();
+async function qtyPicker(price,max){ UIBUSY++; let q=1; const b=el('qty'); const draw=()=>{ b.innerHTML=`×${String(q).padStart(2,'0')}<span>${q*price}${CUR}</span>`; }; draw();
   try{ for(;;){ const k=await nextKey(); if(k==='up') q=q>=max?1:q+1; else if(k==='down') q=q<=1?max:q-1; else if(k==='right') q=Math.min(max,q+10); else if(k==='left') q=Math.max(1,q-10); else if(k==='A') return q; else if(k==='B') return 0; draw(); AU.select(); } }
   finally{ b.remove(); UIBUSY--; } }
-async function shopMenu(){ const money=el('money'); const upd=()=>money.innerHTML='ARGENT<br>'+GS.money+' $'; upd();
+async function shopMenu(){ const money=el('money'); const upd=()=>money.innerHTML='BERRYS<br>'+GS.money+CUR; upd();
   try{ await say("Bonjour ! Que puis-je faire pour toi ?",{});
   for(;;){ const c=await choose(['ACHETER','VENDRE','AU REVOIR'],{cls:'start'}); if(c<0||c===2) break;
     if(c===0){ const ids=Object.keys(ITEMS).filter(k=>ITEMS[k].price>0&&(ITEMS[k].badges||0)<=GS.badges.length&&(!ITEMS[k].shop||ITEMS[k].shop===P.zone));
-      let start=0; for(;;){ const desc=el('bdesc'); const i=await choose(ids.map(k=>`${esc(ITEMS[k].nm)}<span>${ITEMS[k].price} $</span>`),{cls:'bag',start,onMove:j=>{ desc.innerHTML=esc(ITEMS[ids[j]].d); }}); desc.remove(); if(i<0) break; start=i;
+      let start=0; for(;;){ const desc=el('bdesc'); const i=await choose(ids.map(k=>`${esc(ITEMS[k].nm)}<span>${ITEMS[k].price}${CUR}</span>`),{cls:'bag',start,onMove:j=>{ desc.innerHTML=esc(ITEMS[ids[j]].d); }}); desc.remove(); if(i<0) break; start=i;
         const it=ITEMS[ids[i]], max=Math.min(99,Math.floor(GS.money/it.price)); if(max<1){ await say("Tu n'as pas assez d'argent."); continue; }
-        const q=await qtyPicker(it.price,max); if(!q) continue; if(!await yesNo(it.nm+" ×"+q+" pour "+(q*it.price)+" $. D'accord ?")) continue;
-        GS.money-=q*it.price; giveItem(ids[i],q); upd(); AU.catch_(); await say("Voilà ! Merci !"); if(ids[i]==='orbe'&&q>=10){ giveItem('superOrbe'); await say("En cadeau, voici une Super Orbe !"); } } }
+        const q=await qtyPicker(it.price,max); if(!q) continue; if(!await yesNo(it.nm+" ×"+q+" pour "+(q*it.price)+" Berrys. D'accord ?")) continue;
+        GS.money-=q*it.price; giveItem(ids[i],q); upd(); AU.catch_(); await say("Voilà ! Merci !"); if(ids[i]==='orbe'&&q>=10){ giveItem('superOrbe'); await say("En cadeau : une Carte Greed Island !"); } } }
     if(c===1){ for(;;){ const id=await bagMenu({sell:1}); if(!id) break; const it=ITEMS[id]; if(!it.price){ await say("Je ne peux pas acheter ça."); continue; }
-        const half=it.price>>1, q=await qtyPicker(half,GS.bag[id]); if(!q) continue; if(!await yesNo("Je t'en donne "+(q*half)+" $. D'accord ?")) continue;
+        const half=it.price>>1, q=await qtyPicker(half,GS.bag[id]); if(!q) continue; if(!await yesNo("Je t'en donne "+(q*half)+" Berrys. D'accord ?")) continue;
         GS.bag[id]-=q; GS.money+=q*half; upd(); AU.catch_(); } } }
   await say("Merci ! À bientôt !"); } finally{ money.remove(); saveGame(); } }
 

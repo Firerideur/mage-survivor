@@ -49,20 +49,6 @@ const AU={ac:null,on:true,init(){ if(this.ac) return; try{ this.ac=new (window.A
   heal(){ [880,1100,1320,1760].forEach((f,i)=>this.beep(f,.12,'square',.035,0,i*.1)); }, faint(){ this.beep(600,.6,'square',.05,80); },
   catch_(){ [523,659,784,1046].forEach((f,i)=>this.beep(f,.15,'square',.04,0,i*.13)); }, lvl(){ [784,988,1175,1568].forEach((f,i)=>this.beep(f,.1,'square',.04,0,i*.09)); },
   shake(){ this.beep(300,.08,'square',.04,200); }, select(){ this.beep(1000,.04,'square',.03); }};
-/* musiques originales en boucle (une note de mélodie + une basse) */
-const SONGS={
-  town:{tempo:.19,mel:[[72,1],[76,1],[79,2],[77,1],[76,1],[74,2],[72,1],[74,1],[76,1],[72,1],[69,2],[71,2],[72,1],[76,1],[79,2],[81,1],[79,1],[77,2],[76,1],[74,1],[72,1],[74,1],[72,4]],bass:[48,48,55,55,53,53,55,55,48,48,55,55,53,55,48,48]},
-  route:{tempo:.16,mel:[[67,1],[72,1],[74,1],[76,2],[74,1],[72,1],[74,2],[67,2],[69,1],[71,1],[72,2],[74,1],[76,1],[77,2],[76,1],[74,1],[72,4]],bass:[48,55,52,55,50,57,53,57,48,55,52,55,43,50,47,50]},
-  battle:{tempo:.12,mel:[[64,1],[64,1],[67,1],[64,1],[69,1],[67,1],[64,2],[62,1],[62,1],[65,1],[62,1],[67,1],[65,1],[62,2],[64,1],[67,1],[71,1],[72,2],[71,1],[69,1],[67,1],[64,1],[65,1],[62,1],[64,4]],bass:[40,40,47,40,38,38,45,38,40,47,43,47,38,45,40,40]},
-  gym:{tempo:.13,mel:[[69,1],[72,1],[76,1],[72,1],[69,1],[76,1],[74,2],[67,1],[71,1],[74,1],[71,1],[67,1],[74,1],[72,2],[69,1],[72,1],[77,1],[76,1],[74,1],[72,1],[71,1],[69,4]],bass:[45,45,52,52,43,43,50,50,41,41,48,48,40,40,47,47]},
-  victory:{tempo:.14,mel:[[72,1],[72,1],[72,1],[72,3],[68,3],[70,3],[72,2],[70,1],[72,6]],bass:[48,48,44,46,48,48],once:1}};
-const MUS={song:null,t:0,i:0,on:true,play(n){ if(this.song===SONGS[n]) return; this.song=SONGS[n]||null; this.i=0; this.t=0; },
-  tick(dt){ if(!AU.ac||!this.on||!AU.on||!this.song) return; this.t-=dt; if(this.t>0) return; const s=this.song;
-    if(s.once&&this.i>=s.mel.length){ this.song=null; return; }
-    const [n,len]=s.mel[this.i%s.mel.length], f=440*Math.pow(2,(n-69)/12);
-    AU.beep(f,len*s.tempo*.9,'square',.016); if(this.i%2===0){ const b=s.bass[(this.i>>1)%s.bass.length]; AU.beep(440*Math.pow(2,(b-69)/12),s.tempo*1.8,'triangle',.028); }
-    this.t=len*s.tempo; this.i++; }};
-
 /* --- interface : boîte de texte, choix, menus ---------------------------- */
 let UIBUSY=0;
 function el(cls,html,css){ const d=document.createElement('div'); d.className=cls; if(html!=null) d.innerHTML=html; if(css) d.style.cssText=css; UI.appendChild(d); return d; }

@@ -30,7 +30,7 @@ const SIDX={atk:1,def:2,spe:3,vit:4};
 const stageMul=s=>s>=0?(2+s)/2:2/(2-s), accMul=s=>s>=0?(3+s)/3:3/(3-s);
 
 let B=null; /* combat en cours */
-const BA={foe:{x:0,y:0,vis:1,blink:0,drop:0,sc:1},me:{x:0,y:0,vis:1,blink:0,drop:0,sc:1},fx:null,flash:0,ball:null,trainer:null,player:0,shake:0};
+const BA={foe:{x:0,y:0,vis:1,blink:0,drop:0,sc:1,sx:1,sy:1,flip:0},me:{x:0,y:0,vis:1,blink:0,drop:0,sc:1,sx:1,sy:1,flip:0},fx:null,flash:0,ball:null,trainer:null,player:0,shake:0};
 async function tween(ms,f){ const t0=performance.now(); for(;;){ const k=Math.min(1,(performance.now()-t0)/ms); f(k); if(k>=1) return; await sleep(16); } }
 const battler=m=>({m,stg:{atk:0,def:0,spe:0,vit:0,acc:0,eva:0},conf:0,flinch:0,seed:0,protect:0,lastProt:0,toxN:1,charge:0});
 const nm=(s)=>(s===B.foe&&!B.trainer?(B.wild?'':'')+monName(s.m)+' sauvage':s===B.foe?monName(s.m)+' ennemi':monName(s.m));
@@ -62,9 +62,9 @@ async function startBattle(opt){ inBattle=true; const prevSong=MUS.song; lock++;
   B={wild:!!opt.wild,trainer:opt.trainer||null,legend:opt.legend,noLose:opt.noLose,run:0,part:new Set(),turn:0,potions:opt.trainer&&opt.trainer.leader?2:0};
   B.foeTeam=B.trainer?B.trainer.team:[opt.wild]; B.foeIdx=0; B.foe=battler(B.foeTeam[0]);
   const first=GS.party.findIndex(m=>m.hp>0); B.meIdx=first; B.me=battler(GS.party[first]); B.part.add(first);
-  Object.assign(BA.foe,{x:0,y:0,vis:1,blink:0,drop:0,sc:1}); Object.assign(BA.me,{x:0,y:0,vis:1,blink:0,drop:0,sc:1}); BA.fx=null; BA.ball=null;
+  Object.assign(BA.foe,{x:0,y:0,vis:1,blink:0,drop:0,sc:1,sx:1,sy:1,flip:0}); Object.assign(BA.me,{x:0,y:0,vis:1,blink:0,drop:0,sc:1,sx:1,sy:1,flip:0}); BA.fx=null; BA.ball=null;
   BA.trainer=B.trainer?npcSprites(B.trainer.look||{}).down:null; BA.player=1;
-  MUS.play(B.trainer&&B.trainer.leader||B.legend?'gym':'battle');
+  MUS.play(B.legend?'legend':B.trainer&&B.trainer.leader?'leader':B.trainer?'trainer':'battle');
   /* transition */
   AU.beep(200,.5,'square',.04,800); for(let i=0;i<3;i++){ BA.flash=1; await sleep(80); BA.flash=0; await sleep(80); }
   B.intro=1; BA.foe.x=-120; BA.me.x=120; await tween(600,k=>{ BA.foe.x=-120*(1-k); BA.me.x=120*(1-k); }); B.intro=0;
@@ -72,7 +72,7 @@ async function startBattle(opt){ inBattle=true; const prevSong=MUS.song; lock++;
   try{
     if(B.trainer){ await say(B.trainer.name+" veut se battre !"); await tween(300,k=>{ BA.foe.x=k*80; }); BA.trainer=null; BA.foe.x=0;
       seen(B.foe.m.n); hpBoxes(); await say(B.trainer.name+" envoie "+monName(B.foe.m)+" !"); await sendOut(B.foe); }
-    else { seen(B.foe.m.n); hpBoxes(); await say("Un "+monName(B.foe.m)+" sauvage apparaît !"); }
+    else { seen(B.foe.m.n); hpBoxes(); entryAnim(B.foe); await say("Un "+monName(B.foe.m)+" sauvage apparaît !"); }
     await tween(250,k=>{ BA.me.x=-k*70; }); BA.player=0; BA.me.x=0; drawHP(); await say("Vas-y, "+monName(B.me.m)+" !"); await sendOut(B.me);
     result=await battleLoop();
   } finally {
@@ -81,16 +81,28 @@ async function startBattle(opt){ inBattle=true; const prevSong=MUS.song; lock++;
     if(result==='lose'&&!B.noLose) await blackout();
     else if(result==='lose') healAll();
     const evos=[]; if(result!=='lose') for(const i of B.leveled||[]){ const m=GS.party[i]; const e=m&&SPECIES[m.n].evo; if(e&&e.lvl&&m.lv>=e.lvl) evos.push(m); }
-    inBattle=false; B=null; MUS.song=prevSong; MUS.i=0;
+    inBattle=false; B=null; MUS.play(zoneMusic());
     for(const m of evos) await evolve(m,SPECIES[m.n].evo.to);
     lock--; saveGame(); }
   return result; }
-async function sendOut(s){ const a=s===B.foe?BA.foe:BA.me; AU.beep(800,.15,'square',.04,300); a.sc=0; await tween(260,k=>{ a.sc=k; }); a.sc=1; drawHP(); }
+async function sendOut(s){ const a=s===B.foe?BA.foe:BA.me; AU.beep(800,.15,'square',.04,300); a.sc=0; await tween(260,k=>{ a.sc=k; }); a.sc=1; drawHP(); await entryAnim(s); }
+/* animation d'entrée propre à chaque personnage (selon son type), avec son cri */
+const ENTRY={Combat:'hop',Normal:'hop',Sol:'hop','Électrique':'shake',Insecte:'shake',Feu:'stretch',Eau:'stretch',Poison:'stretch',Psy:'float','Fée':'float',Spectre:'float',
+  Dragon:'grow',Roche:'grow',Acier:'grow',Glace:'grow','Ténèbres':'spin',Vol:'spin',Plante:'spin'};
+async function entryAnim(s){ const a=s===B.foe?BA.foe:BA.me, kind=ENTRY[SPECIES[s.m.n].types[0]]||'hop'; cry(s.m.n);
+  await tween(650,k=>{ const S=Math.sin(k*Math.PI), S2=Math.sin(k*Math.PI*2);
+    if(kind==='hop') a.y=-Math.abs(Math.sin(k*Math.PI*2))*8;
+    else if(kind==='shake') a.x=Math.sin(k*Math.PI*8)*3*(1-k);
+    else if(kind==='stretch'){ a.sy=1+S2*.14; a.sx=1-S2*.08; }
+    else if(kind==='float') a.y=-S*10;
+    else if(kind==='grow'){ a.sx=a.sy=1+S*.14; }
+    else if(kind==='spin') a.flip=(k>.2&&k<.4)||(k>.6&&k<.8)?1:0; });
+  Object.assign(a,{x:0,y:0,sx:1,sy:1,flip:0}); }
 
 /* --- boucle de tour -------------------------------------------------------- */
 async function battleLoop(){ B.leveled=new Set();
-  for(;;){ B.turn++; B.me.protect=0; B.foe.protect=0; B.me.flinch=0; B.foe.flinch=0;
-    const act=await playerAction(); if(act==='run') return 'run'; if(act&&act.end) return act.end;
+  for(;;){ B.menu=0; B.turn++; B.me.protect=0; B.foe.protect=0; B.me.flinch=0; B.foe.flinch=0;
+    const act=await playerAction(); B.menu=0; if(act==='run') return 'run'; if(act&&act.end) return act.end;
     const foeAct=foeChoose();
     /* ordre */
     let order;
@@ -106,9 +118,9 @@ async function battleLoop(){ B.leveled=new Set();
 
 /* --- choix du joueur ------------------------------------------------------- */
 async function playerAction(){
-  for(;;){ const c=await choose(['ATTAQUE','ÉQUIPE','SAC','FUITE'],{cls:'bmenu',noCancel:1,cols:2,start:B.lastCmd||0}); B.lastCmd=c;
+  for(;;){ B.menu=1; const c=await choose(['ATTAQUE','ÉQUIPE','SAC','FUITE'],{cls:'bmenu',noCancel:1,cols:2,start:B.lastCmd||0}); B.lastCmd=c;
     if(c===0){ const m=B.me.m; if(m.moves.every(x=>x.pp<=0)) return {kind:'move',mv:{id:-1}};
-      const info=el('minfo'); const r=await choose(m.moves.map(x=>esc(MOVES[x.id].n)),{cls:'mmenu',start:B.lastMv||0,onMove:i=>{ const mv=MOVES[m.moves[i].id]; info.innerHTML=`TYPE/<br>${esc(mv.t.toUpperCase())}<br>PP ${m.moves[i].pp}/${mv.pp}`; }});
+      const info=el('minfo'); B.menu=1; const r=await choose(m.moves.map(x=>esc(MOVES[x.id].n)),{cls:'mmenu',start:B.lastMv||0,onMove:i=>{ const mv=MOVES[m.moves[i].id]; info.innerHTML=`TYPE/<br>${esc(mv.t.toUpperCase())}<br>PP ${m.moves[i].pp}/${mv.pp}`; }});
       info.remove(); if(r<0) continue; if(m.moves[r].pp<=0){ await say("Plus de PP pour cette attaque !"); continue; } B.lastMv=r; return {kind:'move',mv:m.moves[r]}; }
     if(c===1){ const i=await partyMenu({battle:1}); if(i<0||i===B.meIdx) continue; await switchTo(i,true); return {kind:'switch'}; }
     if(c===2){ const r=await bagMenu({battle:1}); if(!r) continue; if(r.end) return r; return {kind:'item'}; }
@@ -197,7 +209,8 @@ async function endTurn(s){ const m=s.m;
 
 /* --- K.O., expérience ------------------------------------------------------ */
 async function checkFaints(){
-  if(B.foe.m.hp<=0){ AU.faint(); await tween(400,k=>{ BA.foe.drop=k; }); BA.foe.vis=0; BA.foe.drop=0; drawHP(); await say(nm(B.foe)+" est K.O. !");
+  if(B.foe.m.hp<=0){ cry(B.foe.m.n,1); AU.faint(); await tween(400,k=>{ BA.foe.drop=k; }); BA.foe.vis=0; BA.foe.drop=0; drawHP(); await say(nm(B.foe)+" est K.O. !");
+    if(!B.trainer||B.foeIdx+1>=B.foeTeam.length) MUS.play('victory');
     await giveXP(B.foe.m);
     B.foeIdx++; if(B.trainer&&B.foeIdx<B.foeTeam.length){ B.foe=battler(B.foeTeam[B.foeIdx]); seen(B.foe.m.n); B.part=new Set(GS.party[B.meIdx].hp>0?[B.meIdx]:[]); HPUI.df=B.foe.m.hp; BA.foe.vis=1;
       if(B.me.m.hp<=0){ const r=await meFainted(); if(r) return r; }
@@ -207,7 +220,7 @@ async function checkFaints(){
     return 'win'; }
   if(B.me.m.hp<=0) return meFainted();
   return null; }
-async function meFainted(){ AU.faint(); await tween(400,k=>{ BA.me.drop=k; }); BA.me.vis=0; BA.me.drop=0; drawHP(); await say(monName(B.me.m)+" est K.O. !"); B.part.delete(B.meIdx);
+async function meFainted(){ cry(B.me.m.n,1); AU.faint(); await tween(400,k=>{ BA.me.drop=k; }); BA.me.vis=0; BA.me.drop=0; drawHP(); await say(monName(B.me.m)+" est K.O. !"); B.part.delete(B.meIdx);
   if(!GS.party.some(m=>m.hp>0)){ return 'lose'; }
   let i; do{ i=await partyMenu({battle:1,forced:1}); } while(i<0||GS.party[i].hp<=0);
   BA.me.vis=1; await switchTo(i,false); return null; }
@@ -232,18 +245,19 @@ async function learnMove(m,id){ if(m.moves.some(x=>x.id===id)) return; const mv=
 /* --- évolution ----------------------------------------------------------- */
 let EVO=null;
 async function evolve(m,to){ const from=m.n; lock++; EVO={from,to,k:0,show:from,white:0};
-  MUS.song=null; try{ await say("Quoi ?\n"+monName(m)+" évolue !");
+  MUS.play('evo'); cry(from); try{ await say("Quoi ?\n"+monName(m)+" évolue !");
     let cancelled=false; const watch=(async()=>{ for(;;){ const k=await nextKey(); if(k==='B'||!EVO) { cancelled=k==='B'; return; } } })();
     for(let i=0;i<24&&!cancelled;i++){ EVO.show=i%2?to:from; EVO.white=1; AU.beep(400+i*40,.08,'square',.03); await sleep(Math.max(60,260-i*9)); }
     if(cancelled){ EVO.show=from; EVO.white=0; await say("Hein ? "+monName(m)+" n'évolue plus !"); return; }
-    EVO.show=to; EVO.white=0; const oldName=monName(m); m.n=to; const oldMax=m.maxhp; calcStats(m); m.hp+=m.maxhp-oldMax; caught(to); AU.catch_();
+    EVO.show=to; EVO.white=0; const oldName=monName(m); m.n=to; const oldMax=m.maxhp; calcStats(m); m.hp+=m.maxhp-oldMax; caught(to); MUS.play('victory'); cry(to);
     await say("Félicitations ! "+oldName+" a évolué en "+SPECIES[to].name+" !");
     for(const [l,id] of SPECIES[to].learn) if(l===m.lv) await learnMove(m,id);
-  } finally{ EVO=null; lock--; saveGame(); } }
+  } finally{ EVO=null; lock--; if(!inBattle) MUS.play(zoneMusic()); saveGame(); } }
 
 /* --- défaite --------------------------------------------------------------- */
 async function blackout(){ await say(GS.name+" n'a plus de personnage en forme !"); const lost=Math.floor(GS.money/2); GS.money-=lost;
   await say(GS.name+" panique et perd "+lost+" Berrys…"); await say("… … …"); healAll();
+  if(!GS.flags.champion) for(let i=0;i<4;i++) delete GS.flags['elite'+i];
   const c=GS.lastCenter; P.map=c.map; P.zone=c.zone; P.x=c.x; P.y=c.y; P.dir='up'; P.mv=null;
   if(c.map==='centre'){ const b=WORLD.build.find(b=>b.kind==='centre'&&b.zone===c.zone); if(b) P.ret={x:b.door[0],y:b.door[1]+1}; }
   else P.ret={x:6,y:WORLD.zones.find(z=>z.id==='home').y0+22}; }
@@ -272,10 +286,14 @@ function renderBattle(){ const th=BG_THEME[(P.map==='world'?zoneAt(P.y).theme:'r
   ctx.fillStyle=th[1]; ctx.beginPath(); ctx.ellipse(120,58,36,9,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle=th[2]; ctx.beginPath(); ctx.ellipse(120,60,30,6,0,0,Math.PI*2); ctx.fill();
   ctx.fillStyle=th[1]; ctx.beginPath(); ctx.ellipse(40,94,42,10,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle=th[2]; ctx.beginPath(); ctx.ellipse(40,96,34,7,0,0,Math.PI*2); ctx.fill();
   if(!B){ return; }
-  const drawMon=(img,a,cx,by,size)=>{ if(!a.vis||a.blink||a.sc<=0) return; const s=size*a.sc, dh=a.drop*s; ctx.save(); ctx.beginPath(); ctx.rect(0,0,W,by+1); ctx.clip();
-    ctx.drawImage(img,Math.round(cx-s/2+a.x+sh),Math.round(by-s+a.y+dh),Math.round(s),Math.round(s)); ctx.restore(); };
-  if(BA.trainer) ctx.drawImage(BA.trainer,Math.round(96+BA.foe.x),8,48,48); else drawMon(charSprite(B.foe.m.n),BA.foe,120,62,56);
-  if(BA.player) ctx.drawImage(PS.up,Math.round(16+BA.me.x),48,48,48); else if(!B.intro||1) drawMon(charSprite(B.me.m.n,true),BA.me,40,98,56);
+  const drawMon=(img,a,cx,by,size,breath)=>{ if(!a.vis||a.blink||a.sc<=0) return; const s=size*a.sc, dh=a.drop*s;
+    const w=Math.round(s*a.sx), h=Math.round(s*a.sy-breath); ctx.save(); ctx.beginPath(); ctx.rect(0,0,W,by+1); ctx.clip();
+    const x=Math.round(cx-w/2+a.x+sh), y=Math.round(by-h+a.y+dh);
+    if(a.flip){ ctx.translate(x+w,y); ctx.scale(-1,1); ctx.drawImage(img,0,0,w,h); } else ctx.drawImage(img,x,y,w,h); ctx.restore(); };
+  const idle=!B.intro&&!BA.fx;
+  const fb=idle&&BA.foe.drop===0?Math.floor(T*2.2)%2:0, mb=idle&&B.menu?Math.floor(T*3.2)%2*2:0;
+  if(BA.trainer) ctx.drawImage(BA.trainer,Math.round(96+BA.foe.x),8,48,48); else drawMon(charSprite(B.foe.m.n),BA.foe,120,62,56,fb);
+  if(BA.player) ctx.drawImage(PS.up,Math.round(16+BA.me.x),48,48,48); else if(!B.intro||1) { BA.me.y+=mb; drawMon(charSprite(B.me.m.n,true),BA.me,40,98,56,0); BA.me.y-=mb; }
   if(B.intro&&!BA.player){}
   if(BA.ball&&!BA.ball.done||BA.ball&&BA.ball.done){ const k=BA.ball.t, x=40+(116-40)*k, y=80-(Math.sin(k*Math.PI)*50)+(k>=1?-26:0)*0+(k*-26)+ (k>=1?0:0); const wob=BA.ball.wob?Math.sin(T*40)*2:0;
     drawBall(Math.round(x+wob),Math.round(k>=1?54:y),BA.ball.col||'#e03030'); if(BA.ball.done){ for(let i=0;i<3;i++){ ctx.fillStyle='#f8e040'; ctx.fillRect(116+Math.cos(T*4+i*2)*10,48+Math.sin(T*4+i*2)*6,2,2); } } }

@@ -27,7 +27,7 @@ const GROUND_ITEMS=['potion','orbe','superBonbon','antidote','superPotion','orbe
 
 /* --- état de la partie ------------------------------------------------- */
 let GS=null;
-function newGame(){ GS={name:'LOAN',rival:'KENJI',money:3000,ver:2,badges:[],flags:{},party:[],box:[],bag:{potion:1},dex:{seen:{},caught:{}},
+function newGame(){ GS={name:'LOAN',rival:'KENJI',money:3000,ver:3,badges:[],flags:{},party:[],box:[],bag:{potion:1},dex:{seen:{},caught:{}},
   lastCenter:{map:'maison',zone:'home',x:4,y:6},starter:0,time:0,repel:0,steps:0}; }
 /* --- personnages (instances) ------------------------------------------- */
 const STAT_NAMES=['PV','ATTAQUE','DÉFENSE','SPÉCIAL','VITESSE'];
@@ -60,6 +60,16 @@ function buildNPCs(){ NPCS=[];
     NPCS.push({id:'garde_'+z.id,map:'world',x:11,y:z.y0+1,dir:'down',look:{cap:'#303060',top:'#303060',pants:'#202040'},gate:need,
       text:z.id==='home'?"Les hautes herbes sont dangereuses sans compagnon ! Va voir le Prof. Érable au labo.":"Halte ! Il faut le "+gym.badge.toUpperCase()+" de "+z.name+" pour passer."});
     NPCS.push({id:'barriere_'+z.id,map:'world',x:12,y:z.y0+1,barrier:1,gate:need}); }
+  /* habitants qui se promènent dans chaque ville */
+  const TALK=["Il paraît que Saitama bat tout le monde d'un seul coup de poing…","Mon Naruto a appris le Rasengan au niveau 16 !","Les Parchemins de Sceau marchent mieux quand le personnage est affaibli.",
+    "Endormi ou gelé, un personnage sauvage est bien plus facile à sceller !","Le Ramen d'Ichiraku, c'est bon pour les PV… et pour le moral !","Un Haricot Magique rend presque tous les PV. Garde-en pour les arènes.",
+    "Une Aura de Haki fait fuir les personnages sauvages faibles.","Lucy évolue avec les Clés célestes. Laquelle choisir ?","Le type Spectre ne craint pas les coups Normal ni Combat.",
+    "Les attaques de son propre type font 50 % de dégâts en plus !","Le Death Note… une attaque qui met K.O. d'un coup. Mais elle rate souvent.","Gojo Satoru ? On dit qu'il attend au sommet du Plateau des Héros…"];
+  let vi=0; for(const z of WORLD.zones){ if(!(GYMS.find(g=>g.zone===z.id)||z.id==='home')) continue; let placed=0, seed=z.y0*7+3;
+    for(let k=0;k<400&&placed<2;k++){ seed=(seed*1103515245+12345)&0x7fffffff; const x=3+seed%18, y=z.y0+5+((seed>>8)%Math.max(1,z.y1-z.y0-9)); const t=tileAt('world',x,y);
+      if(!(t==='.'||t==='=')) continue; let ok=true; for(const [dx,dy] of [[0,1],[0,-1],[1,0],[-1,0],[0,2]]){ const u=tileAt('world',x+dx,y+dy); if(SOLID_OUT.has(u)||u==='D'||u==='B') ok=false; }
+      if(!ok||NPCS.some(n=>n.map==='world'&&Math.abs(n.x-x)+Math.abs(n.y-y)<4)) continue;
+      NPCS.push({id:'vil_'+z.id+placed,map:'world',x,y,hx:x,hy:y,dir:'down',wander:1,look:LOOKS[(vi+3)%LOOKS.length],text:TALK[vi%TALK.length]}); placed++; vi++; } }
   /* rivale sur les routes */
   const rz=id=>WORLD.zones.find(z=>z.id===id);
   NPCS.push({id:'rival1',map:'world',x:12,y:rz('r3').y0+14,dir:'down',look:{nocap:1,hair:'#c03030',top:'#303848',pants:'#202020'},rival:2,flag:'rival2'});
@@ -89,11 +99,18 @@ function buildNPCs(){ NPCS=[];
   ELITE.forEach((e,i)=>NPCS.push({id:'elite'+i,map:'arene',zone:'e'+i,x:4,y:2,dir:'down',look:{nocap:1,hair:shade(e.col,.5),top:e.col,pants:'#202020',girl:i%2===0?1:0},elite:i}));
   NPCS.push({id:'champion',map:'arene',zone:'champ',x:4,y:2,dir:'down',look:{nocap:1,hair:'#c03030',top:'#303848',pants:'#202020'},script:'champion'});
 }
+function npcTick(dt){ for(const n of NPCS){ if(n.map!==P.map||!npcVisible(n)) continue;
+    if(n.mv){ n.mv.t+=dt; if(n.mv.t>=n.mv.dur){ n.x=n.mv.tx; n.y=n.mv.ty; n.mv=null; n.foot^=1; } continue; }
+    const turner=n.wander||(n.text&&!n.gate&&!n.trainer); if(!turner) continue;
+    n.tm=(n.tm??rnd(1,4))-dt; if(n.tm>0) continue; n.tm=rnd(1.4,4); const d=pick(['up','down','left','right']); n.dir=d; if(!n.wander) continue;
+    const [dx,dy]=DIRV[d], tx=n.x+dx, ty=n.y+dy, t=tileAt(n.map,tx,ty);
+    if(Math.abs(tx-n.hx)>2||Math.abs(ty-n.hy)>2||solidTile(n.map,tx,ty)||t==='D'||t===':'||npcAt(tx,ty)||(tx===P.x&&ty===P.y)||(P.mv&&tx===P.mv.tx&&ty===P.mv.ty)) continue;
+    n.mv={fx:n.x,fy:n.y,tx,ty,t:0,dur:.38}; } }
 function npcVisible(n){ if(n.map!==P.map) return false; if(n.zone&&n.zone!==P.zone) return false;
   if(n.gate) return !gateOpen(n.gate); if(n.ball) return !GS.flags[n.id]; if(n.legend){ if(n.legend.after&&!GS.flags[n.legend.after]) return false; return !GS.flags[n.id]; }
   if(n.rival) return !GS.flags[n.flag]&&GS.starter>0; if(n.id==='rivalLabo') return !GS.flags.rival1; return true; }
 function gateOpen(need){ return need==='starter'?GS.starter>0:GS.badges.includes(need.replace('badge_','')); }
-function npcAt(x,y){ return NPCS.find(n=>npcVisible(n)&&n.x===x&&n.y===y); }
+function npcAt(x,y){ return NPCS.find(n=>npcVisible(n)&&((n.x===x&&n.y===y)||(n.mv&&n.mv.tx===x&&n.mv.ty===y))); }
 
 /* --- déplacements ------------------------------------------------------- */
 const DIRV={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
@@ -107,19 +124,25 @@ function tryMove(d){ const [dx,dy]=DIRV[d], tx=P.x+dx, ty=P.y+dy, t=tileAt(P.map
   P.mv={fx:P.x,fy:P.y,tx,ty,t:0,dur:run?.13:.26}; }
 async function arrive(){ const m=P.mv; P.x=m.tx; P.y=m.ty; P.mv=null; P.foot^=1; GS.steps++;
   if(GS.repel>0){ GS.repel--; if(GS.repel===0){ lock++; await say("L'effet du Repousse s'est dissipé."); lock--; } }
-  if(P.map==='world'){ const z=zoneAt(P.y); if(z.id!==P.zone){ P.zone=z.id; showZone(z.name); MUS.play(GYMS.find(g=>g.zone===z.id)||z.id==='home'||z.id==='plateau'?'town':'route'); } }
+  if(P.map==='world'){ const z=zoneAt(P.y); if(z.id!==P.zone){ P.zone=z.id; showZone(z.name); MUS.play(zoneMusic()); } }
   if(await checkSight()) return;
-  if(P.map==='world'&&tileAt('world',P.x,P.y)===':'){ AU.grass(); rustle=.3; if(GS.repel<=0&&Math.random()<1/9) await wildEncounter(); }
+  if(P.map==='world'&&tileAt('world',P.x,P.y)===':'){ AU.grass(); rustle=.3; if(Math.random()<1/9) await wildEncounter(); }
   if(GS.steps%20===0) saveGame(); }
+function zoneMusic(){ if(P.map==='centre') return 'centre'; if(P.map==='arene') return P.zone[0]==='e'||P.zone==='champ'?'league':'gym'; if(P.map==='ligue') return 'league';
+  if(P.map!=='world') return P.zone==='home'||P.zone==='rival'?'town':'city';
+  const z=zoneAt(P.y).id; if(z==='home') return 'town'; if(z==='plateau'||z==='victoire') return 'league'; if(z==='foret') return 'forest'; return GYMS.find(g=>g.zone===z)?'city':'route'; }
 let zoneBanner=null; function showZone(name){ zoneBanner={name,t:2.2}; }
 
 /* --- regard des dresseurs ----------------------------------------------- */
 async function checkSight(){ for(const n of NPCS){ if(!npcVisible(n)||!(n.trainer||n.rival||n.gymLeader)||!n.sight&&!n.rival) continue; if(GS.flags[n.trainer?n.trainer.id:n.flag]) continue;
+    if(n.rival&&P.map==='world'&&Math.abs(P.x-n.x)<=1&&P.y>n.y&&P.y-n.y<=4){ lock++; try{ n.dir='down'; await trainerSpotted(n,P.y-n.y,P.x); } finally{ lock--; } return true; }
     const sight=n.sight||4; const [dx,dy]=DIRV[n.dir];
     for(let i=1;i<=sight;i++){ const x=n.x+dx*i, y=n.y+dy*i; if(x===P.x&&y===P.y){ lock++; try{ await trainerSpotted(n,i); } finally{ lock--; } return true; } if(solidTile(P.map,x,y)||npcAt(x,y)) break; } }
   return false; }
-async function trainerSpotted(n,dist){ AU.beep(1200,.15,'square',.05); emote={n,t:.7}; await sleep(700);
-  const [dx,dy]=DIRV[n.dir]; for(let i=1;i<dist;i++){ n.x+=dx; n.y+=dy; await sleep(200); }
+async function stepNPC(n,dx,dy){ n.mv={fx:n.x,fy:n.y,tx:n.x+dx,ty:n.y+dy,t:0,dur:.26}; await tween(260,k=>{ n.mv.t=k*.26; }); n.x+=dx; n.y+=dy; n.mv=null; n.foot^=1; }
+async function trainerSpotted(n,dist,px){ AU.beep(1200,.15,'square',.05); emote={n,t:.7}; await sleep(700);
+  if(px!=null&&px!==n.x){ const sx=Math.sign(px-n.x); if(!npcAt(n.x+sx,n.y)){ n.dir=sx>0?'right':'left'; await stepNPC(n,sx,0); n.dir='down'; } }
+  const [dx,dy]=DIRV[n.dir]; for(let i=1;i<dist;i++) await stepNPC(n,dx,dy);
   P.dir={up:'down',down:'up',left:'right',right:'left'}[n.dir];
   await talkTo(n); }
 
@@ -158,7 +181,7 @@ async function rivalBattle(stage,n){ const st=GS.flags.rivalStarter, lvl={2:16,3
 async function gymBattle(n){ const g=n.gymLeader, z=g.zone;
   if(GS.badges.includes(z)) return say(g.leader+" : Tu as mon "+g.badge+". Continue ton voyage, et deviens Maître !");
   await say(g.leader+" : Bienvenue dans mon arène ! Je suis "+g.leader+", maître du type "+g.type.toUpperCase()+". Prépare-toi !");
-  MUS.play('gym'); const r=await startBattle({trainer:{name:(['MARINA','FLORA','TOXA','VOLTA'].includes(g.leader)?'Championne ':'Champion ')+g.leader,team:g.team.map(([s,l])=>makeMon(s,l)),money:g.team[g.team.length-1][1]*100,leader:1,look:n.look}});
+  const r=await startBattle({trainer:{name:(['MARINA','FLORA','TOXA','VOLTA'].includes(g.leader)?'Championne ':'Champion ')+g.leader,team:g.team.map(([s,l])=>makeMon(s,l)),money:g.team[g.team.length-1][1]*100,leader:1,look:n.look}});
   if(r!=='win') return; GS.badges.push(z); GS.flags['badge_'+z]=1; AU.catch_();
   await say(g.leader+" : Incroyable… Tu as mérité le "+g.badge.toUpperCase()+" !"); await say(GS.name+" reçoit le "+g.badge+" !");
   if(GS.badges.length===8) await say(g.leader+" : Avec 8 badges, la Route Victoire t'est ouverte. La Ligue t'attend tout au nord !"); saveGame(); }
@@ -169,7 +192,7 @@ async function eliteBattle(n){ const e=ELITE[n.elite]; if(GS.flags['elite'+n.eli
 const SCRIPTS={
   async maman(){ await say("MAMAN : Tu pars à l'aventure ? Repose-toi un peu d'abord !"); if(GS.party.length){ healAll(); AU.heal(); await say("Ton équipe est en pleine forme !"); } },
   async infirmiere(){ if(!await yesNo("Bienvenue au Centre de Soin ! Veux-tu soigner ton équipe ?")) return say("À bientôt !");
-    healAll(); AU.heal(); GS.lastCenter={map:'centre',zone:P.zone,x:4,y:4}; await sleep(600); await say("Ton équipe est en pleine forme ! À bientôt !"); saveGame(); },
+    healAll(); MUS.play('heal'); GS.lastCenter={map:'centre',zone:P.zone,x:4,y:4}; await sleep(1500); MUS.play(zoneMusic()); await say("Ton équipe est en pleine forme ! À bientôt !"); saveGame(); },
   async vendeur(){ await shopMenu(); },
   async prof(){ if(GS.starter){ if(GS.flags.champion&&!GS.flags.cadeauStarters){ GS.flags.cadeauStarters=1; await say("PROF. ÉRABLE : Champion ! Tiens, prends les deux autres compagnons du début. Ils seront mieux avec toi.");
         for(const s of [1,4,7]) if(s!==GS.starter){ const w=addMon(makeMon(s,30)); await say(GS.name+" reçoit "+SPECIES[s].name+" !"+(w==='box'?" (envoyé au PC)":"")); } return; }
@@ -202,18 +225,19 @@ let PREVIEW=null;
 function enterBuilding(x,y){ const b=WORLD.build.find(b=>b.door[0]===x&&b.door[1]===y); if(!b) return;
   const map={centre:'centre',boutique:'boutique',arene:'arene',maison:'maison',maisonJoueur:'maison',maisonRival:'maison',labo:'labo',ligue:'ligue'}[b.kind];
   const zone=b.kind==='maisonRival'?'rival':b.kind==='ligue'?'hall':b.zone;
-  const M0=MAPS[map]; warp(map,zone,4,M0.h-1,'up',{x,y:y+1}); if(b.kind==='arene') MUS.play('gym'); }
+  const M0=MAPS[map]; warp(map,zone,4,M0.h-1,'up',{x,y:y+1}); }
 function exitInterior(){ if(P.map==='arene'&&P.zone&&P.zone[0]==='e'||P.zone==='champ'){ warp('ligue','hall',4,7,'down',P.ret); return; }
   const r=P.ret||{x:6,y:WORLD.zones.find(z=>z.id==='home').y0+22}; warp('world',zoneAt(r.y).id,r.x,r.y,'down',null); }
 function warp(map,zone,x,y,dir,ret){ AU.door(); lock++; fade={t:0,d:.5,then:()=>{ P.map=map; P.zone=zone; P.x=x; P.y=y; P.dir=dir; P.mv=null; if(ret!==undefined) P.ret=ret||P.ret;
-  if(map==='world') MUS.play(GYMS.find(g=>g.zone===zone)||zone==='home'?'town':'route'); saveGame(); },done:()=>lock--}; }
+  MUS.play(zoneMusic()); saveGame(); },done:()=>lock--}; }
 /* portes de la Ligue : la porte du haut mène à la salle suivante */
 function leaguePortal(){ if(P.map==='ligue'&&P.zone==='hall'&&P.y===2&&(P.x===4||P.x===5)){ if(GS.badges.length<8) return false; warp('arene','e0',4,10,'up',P.ret); return true; }
   if(P.map==='arene'&&P.zone[0]==='e'&&P.y===2&&(P.x===4||P.x===5)){ const i=+P.zone[1]; if(!GS.flags['elite'+i]) return false; warp('arene',i<3?'e'+(i+1):'champ',4,10,'up',P.ret); return true; } return false; }
 
 /* --- rencontres sauvages ------------------------------------------------ */
 async function wildEncounter(){ const z=zoneAt(P.y), tab=WORLD.enc[z.id]; if(!tab) return; let tot=0; for(const e of tab) tot+=e[3]; let r=Math.random()*tot, e=tab[0];
-  for(const x of tab){ r-=x[3]; if(r<=0){ e=x; break; } } lock++; try{ await startBattle({wild:makeMon(e[0],rint(e[1],e[2]))}); } finally{ lock--; } }
+  for(const x of tab){ r-=x[3]; if(r<=0){ e=x; break; } } const lv=rint(e[1],e[2]), lead=GS.party.find(m=>m.hp>0);
+  if(GS.repel>0&&lead&&lv<lead.lv) return; lock++; try{ await startBattle({wild:makeMon(e[0],lv)}); } finally{ lock--; } }
 
 /* --- mise à jour ------------------------------------------------------- */
 function update(dt){
@@ -222,7 +246,7 @@ function update(dt){
   if(zoneBanner){ zoneBanner.t-=dt; if(zoneBanner.t<=0) zoneBanner=null; }
   if(emote){ emote.t-=dt; if(emote.t<=0) emote=null; }
   if(title||inBattle||lock>0||UIBUSY>0) return;
-  if(P.bumpT>0) P.bumpT-=dt; if(rustle>0) rustle-=dt;
+  npcTick(dt); if(P.bumpT>0) P.bumpT-=dt; if(rustle>0) rustle-=dt;
   if(P.mv){ P.mv.t+=dt; if(P.mv.t>=P.mv.dur){ lock++; arrive().finally(()=>{ lock--; if(leaguePortal()); }); } return; }
   const d=heldDir();
   if(!d) P.turnT=0;
@@ -271,11 +295,12 @@ function renderWorld(){
   for(let ty=y0;ty<=y0+9;ty++) for(let tx=x0;tx<=x0+10;tx++) drawTile(P.map,tileAt(P.map,tx,ty),tx,ty,tx*16-cx,ty*16-cy);
   for(const b of M.build) if(b.y*16-cy<H&&(b.y+b.h)*16-cy>0) ctx.drawImage(b.img,b.x*16-cx,b.y*16-cy);
   /* PNJ */
-  for(const n of NPCS){ if(!npcVisible(n)) continue; const sx=n.x*16-cx, sy=n.y*16-cy-4; if(sx<-16||sx>W||sy<-20||sy>H) continue;
+  for(const n of NPCS){ if(!npcVisible(n)) continue; let nx=n.x, ny=n.y, walk=false; if(n.mv){ const k=Math.min(1,n.mv.t/n.mv.dur); nx=n.mv.fx+(n.mv.tx-n.mv.fx)*k; ny=n.mv.fy+(n.mv.ty-n.mv.fy)*k; walk=k<.5; }
+    const sx=Math.round(nx*16-cx), sy=Math.round(ny*16-cy-4); if(sx<-16||sx>W||sy<-20||sy>H) continue;
     if(n.ball){ ctx.drawImage(BALLART,sx+2,sy+8); continue; }
     if(n.barrier){ ctx.fillStyle=PAL.k; ctx.fillRect(sx+3,sy+8,10,10); ctx.fillStyle='#e8e8f0'; ctx.fillRect(sx+4,sy+9,8,8); ctx.fillStyle='#e04040'; ctx.fillRect(sx+4,sy+11,8,2); continue; }
     if(n.legend){ const s=charSprite(n.legend.n); ctx.drawImage(s,sx-8,sy-14+Math.sin(T*3)*1.5,32,32); continue; }
-    ctx.drawImage(npcSprites(n.look)[n.dir],sx,sy);
+    ctx.drawImage(spriteFor(npcSprites(n.look),n.dir,walk,n.foot),sx,sy);
     if(emote&&emote.n===n){ ctx.fillStyle='#f8f8f8'; ctx.fillRect(sx+4,sy-12,8,10); ctx.fillStyle=PAL.k; ctx.strokeStyle=PAL.k; ctx.strokeRect(sx+4.5,sy-11.5,7,9); ctx.fillRect(sx+7,sy-10,2,4); ctx.fillRect(sx+7,sy-5,2,1); } }
   /* joueur */
   const sx=Math.round(px-cx), sy=Math.round(py-cy)-4;
@@ -286,5 +311,5 @@ function renderWorld(){
   if(M.outdoor&&tileAt(P.map,gx,gy)===':'&&!jz){ const th=themeTiles(zoneAt(gy).theme); ctx.drawImage(th.tall,0,8,16,8,gx*16-cx,gy*16-cy+8,16,8); }
   if(zoneBanner){ const k=Math.min(1,zoneBanner.t*3,(2.2-zoneBanner.t)*6); ctx.fillStyle='rgba(248,248,248,.95)'; ctx.fillRect(4,Math.round(-20+24*k),Math.max(60,zoneBanner.name.length*4+12),14);
     ctx.fillStyle=PAL.k; ctx.fillRect(4,Math.round(-20+24*k)+13,Math.max(60,zoneBanner.name.length*4+12),1); pixText(ctx,zoneBanner.name,10,Math.round(-20+24*k)+5,'#202028'); }
-  if(PREVIEW){ const s=charSprite(PREVIEW.n); ctx.fillStyle='rgba(248,248,248,.92)'; ctx.fillRect(48,16,64,64); ctx.strokeStyle=PAL.k; ctx.strokeRect(48.5,16.5,63,63); ctx.drawImage(s,52,20); }
+  if(PREVIEW){ const s=charSprite(PREVIEW.n); ctx.fillStyle='rgba(248,248,248,.92)'; ctx.fillRect(48,16,64,64); ctx.strokeStyle=PAL.k; ctx.strokeRect(48.5,16.5,63,63); ctx.drawImage(s,52,20+(Math.floor(T*3)%2)); }
 }

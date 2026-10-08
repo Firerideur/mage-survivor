@@ -113,6 +113,9 @@ html,body{touch-action:none;-webkit-text-size-adjust:100%;overscroll-behavior:no
  .sm::after{content:attr(data-l);position:absolute;top:21px;left:-10px;right:-10px;text-align:center;font-size:7px;color:#b8b0d8}
  #hint{display:none}
 }
+@keyframes ico{0%,49%{transform:translateY(0)}50%,100%{transform:translateY(-2px)}}
+#ui .menu.party img{animation:ico .6s infinite}#ui .menu.party>div.sel img{animation-duration:.3s}
+#ui .big{animation:ico 1.1s infinite}
 #ui .money{left:0;top:0;padding:5px 6px;line-height:10px;font-size:6px;z-index:4}
 </style>
 </head>
@@ -131,14 +134,15 @@ html,body{touch-action:none;-webkit-text-size-adjust:100%;overscroll-behavior:no
   <div class="lbl"><span>SELECT</span><span>START</span></div>
 </div>
 <div id="hint">Flèches / ZQSD : marcher · X (maintenu) : courir · Espace / W : A · Entrée : START</div>
-<script src="poche/data.js?v=2"></script>
-<script src="poche/content.js?v=2"></script>
-<script src="poche/sprites.js?v=2"></script>
-<script src="poche/core.js?v=2"></script>
-<script src="poche/world.js?v=2"></script>
-<script src="poche/game.js?v=2"></script>
-<script src="poche/battle.js?v=2"></script>
-<script src="poche/menus.js?v=2"></script>
-<script src="poche/main.js?v=2"></script>
+<script src="poche/data.js?v=3"></script>
+<script src="poche/content.js?v=3"></script>
+<script src="poche/sprites.js?v=3"></script>
+<script src="poche/core.js?v=3"></script>
+<script src="poche/music.js?v=3"></script>
+<script src="poche/world.js?v=3"></script>
+<script src="poche/game.js?v=3"></script>
+<script src="poche/battle.js?v=3"></script>
+<script src="poche/menus.js?v=3"></script>
+<script src="poche/main.js?v=3"></script>
 </body>
 </html>

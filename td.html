@@ -232,94 +232,207 @@ const lathe=(pts,seg)=>new THREE.LatheGeometry(pts.map(([r,y])=>new THREE.Vector
 const cyl=(rt,rb,h,s)=>new THREE.CylinderGeometry(rt,rb,h,s||14);
 const sph=(r,w,h)=>new THREE.SphereGeometry(r,w||16,h||12);
 
-/* ---------- visage d'anime (texture) ---------- */
+/* =========================================================================
+   FICHES DE DESIGN — chaque héros fidèle à son anime
+   ========================================================================= */
+const DESIGN={
+  60:{hair:{s:'naruto',c:'#f8c418'},eye:'#2a78e0',face:{whisk:1,grin:1},top:{c:'#f27a14',sleeve:'long',sh:'#24242c',zip:'#f0f0f0'},pants:{c:'#f27a14'},shoes:{c:'#2a3a7a',t:'sandal'},band:{c:'#2a4ab8'},pouch:'#c8b080'},
+  16:{hair:{s:'luffy',c:'#141418'},eye:'#1e1e24',face:{scarEye:1,grin:1},top:{c:'#d8282a',sleeve:'none',open:.55},pants:{c:'#2a5ab8',len:'shorts'},shoes:{c:'#8a5a2a',t:'sandal'},hat:'straw',sash:'#e8c040',scale:.95},
+  7:{hair:{s:'tanjiro',c:'#5a1414',tip:'#b0302a'},eye:'#a8242e',face:{scarHead:1},top:{c:'#1a1a26',sleeve:'long'},pants:{c:'#1a1a26'},shoes:{c:'#f0f0f0',t:'sandal'},haori:{tex:'checker',a:'#1a7a5a',b:'#121216'},earring:'hanafuda',katana:{c:'#141414',g:'#7a5a2a'},belt:'#f0f0f0'},
+  25:{hair:{s:'zenitsu',c:'#f8d03a',tip:'#f0801e'},eye:'#c8861e',face:{nervous:1},top:{c:'#1a1a26',sleeve:'long'},pants:{c:'#1a1a26'},shoes:{c:'#f0f0f0',t:'sandal'},haori:{tex:'tri',a:'#f4bc22',b:'#fff6e0'},katana:{c:'#f0c040',g:'#c8a020'},belt:'#f0f0f0'},
+  1:{hair:{s:'gon',c:'#1a1e1a',tip:'#3a7a3a'},eye:'#6a3a1a',face:{grin:1},top:{c:'#2a8a3a',sleeve:'long',zip:'#1e6a2a'},pants:{c:'#2a8a3a',len:'shorts'},shoes:{c:'#f0eee4',t:'boot'},scale:.9},
+  83:{hair:{s:'zoro',c:'#3aa44a'},eye:'#1e1e1e',face:{scarClosed:1,frown:1},top:{c:'#f4f4f0',sleeve:'short',open:.5},pants:{c:'#1a1a1e'},shoes:{c:'#1a1a1e',t:'boot'},sash:'#2a7a3a',sashH:.45,swords3:1,earring:'gold',bandArm:'#1a1a1a'},
+  84:{hair:{s:'killua',c:'#eceef8'},eye:'#3a78d8',top:{c:'#4a3a8a',sleeve:'long',under:'#f2f2f2'},pants:{c:'#2a2a4a',len:'shorts'},shoes:{c:'#4a4a5a',t:'boot'},scale:.9},
+  90:{hair:{s:'rukia',c:'#121218'},eye:'#5a4aa0',top:{c:'#121216',sleeve:'wide',vcol:'#f2f2f2'},pants:{c:'#121216',len:'hakama'},shoes:{c:'#f2f2f2',t:'sandal'},katana:{c:'#f2f2f2',g:'#c8c8e0'},belt:'#f2f2f2',scale:.88},
+  100:{hair:{s:'bakugo',c:'#f0e6a0'},eye:'#d82a2a',face:{angry:1},top:{c:'#1a1a20',sleeve:'none',xmark:'#f07a1a'},pants:{c:'#1a1a20'},shoes:{c:'#1a1a1a',t:'boot'},gaunt:'#2e2e34',neck:'#f07a1a'},
+  125:{hair:{s:'kakashi',c:'#d4d4dc'},eye:'#2a2a2a',face:{mask:'#1c2a42',eyeband:'#2a4ab8'},top:{c:'#1c2a42',sleeve:'long'},vest:'#4a6a3e',pants:{c:'#1c2a42'},shoes:{c:'#1c2a42',t:'sandal'}},
+  30:{hair:{s:'ssj',c:'#ffd83a'},eye:'#1e9a9a',face:{frown:1},top:{c:'#f27a14',sleeve:'none',under:'#2a46b0',open:.35},pants:{c:'#f27a14'},shoes:{c:'#2a46b0',t:'boot'},sash:'#2a46b0',wrist:'#2a46b0',aura:'#ffe050',build:1.12},
+  93:{hair:{s:'ichigo',c:'#f2781e'},eye:'#6a3a1a',face:{frown:1},top:{c:'#121216',sleeve:'wide',vcol:'#f2f2f2'},pants:{c:'#121216',len:'hakama'},shoes:{c:'#f2f2f2',t:'sandal'},zangetsu:1,belt:'#f2f2f2',build:1.05},
+  145:{hair:{s:'sasuke',c:'#1a1e30'},eye:'#d81e1e',face:{sharingan:1},top:{c:'#f4f4f4',sleeve:'long',open:1},pants:{c:'#26263a'},shoes:{c:'#26263a',t:'sandal'},rope:'#7a4ab0',katana:{c:'#2a2a3a',g:'#c8c8d8',back:1}},
+  56:{hair:{s:'itadori',c:'#f2a0b4',under:'#3a2626'},eye:'#8a4a36',face:{grin:1},top:{c:'#1e2442',sleeve:'long',high:1,buttons:'#e8c040'},hood:'#c8302a',pants:{c:'#1e2442'},shoes:{c:'#c8302a',t:'boot'}},
+  150:{hair:{s:'gojo',c:'#f4f4fc'},face:{blind:1,smile:1},top:{c:'#141420',sleeve:'long',high:1},pants:{c:'#141420'},shoes:{c:'#141420',t:'boot'},scale:1.08},
+  151:{hair:{s:'bald'},face:{bored:1},top:{c:'#f4d82a',sleeve:'long',zip:'#d4b414'},pants:{c:'#f4d82a'},gloves:'#d82a2a',shoes:{c:'#d82a2a',t:'boot'},cape:'#f6f6f6',belt:'#1a1a1a'},
+  98:{skin:'#6a88c4',hair:{s:'kisame',c:'#2a4898'},eye:'#f2f2f2',face:{gills:1,small:1,grin:1},top:{c:'#141418',sleeve:'long'},pants:{c:'#141418'},shoes:{c:'#2a2a3a',t:'sandal'},cloak:'akatsuki',samehada:1,build:1.1},
+  99:{skin:'#5a7ab8',hair:{s:'kisame',c:'#2a4898'},eye:'#f2f2f2',face:{gills:1,small:1,grin:1},top:{c:'#141418',sleeve:'long'},pants:{c:'#141418'},shoes:{c:'#2a2a3a',t:'sandal'},cloak:'akatsuki',samehada:1,build:1.15,aura:'#4a90f0'},
+  23:{skin:'#f2eef2',hair:{s:'long',c:'#141418'},eye:'#d8b420',face:{snake:1},top:{c:'#e8e2d2',sleeve:'wide'},pants:{c:'#2a2a3a',len:'hakama'},shoes:{c:'#2a2a3a',t:'sandal'},rope:'#7a4ab0'},
+  27:{hair:{s:'gaara',c:'#b0261c'},eye:'#4ab0a0',face:{rings:1,kanji:1},top:{c:'#7a1e1e',sleeve:'long'},pants:{c:'#7a1e1e'},shoes:{c:'#3a2a2a',t:'sandal'},strap:'#e6d6ae',gourd:'#b48250'},
+};
+const PLAYER_D={hair:{s:'tanjiro',c:'#5a3a2a',tip:'#8a5a3a'},eye:'#2a7ae0',face:{smile:1},top:{c:'#2f6fd0',sleeve:'long',zip:'#f0f0f0'},pants:{c:'#2a2a3a'},shoes:{c:'#f0f0f0',t:'boot'},band:{c:'#e04050'}};
+/* fiche générique dérivée des données (ennemis, autres) */
+function deriveD(sp){ const HS={spiky:'naruto',spikyUp:'ssj',messy:'luffy',short:'zoro',long:'long',bob:'rukia',duck:'sasuke',slant:'kakashi',bald:'bald',wild:'bakugo',longspiky:'ssj'};
+  const o=sp.o||'shirt', long=['jacket','coat','robe','kimono','haori','uniform','suit','gi','armor','dress','maid','sailor'].includes(o);
+  const D={hair:{s:HS[sp.hs]||'luffy',c:sp.hc||'#2a2020'},eye:sp.ey,skin:sp.sk,top:{c:sp.c1||'#3050c0',sleeve:o==='vest'?'none':long?'long':'short'},pants:{c:sp.c2||'#202028'},shoes:{c:shade(sp.c2||'#202028',.5),t:'sandal'},face:{}};
+  const hb=accOf(sp,'headband'); if(hb) D.band={c:hb===true?'#4060c0':hb};
+  const m=accOf(sp,'mask'); if(m) D.face.mask=m===true?'#203040':m; if(accOf(sp,'whiskers')) D.face.whisk=1; if(accOf(sp,'blindfold')) D.face.blind=1;
+  if(accOf(sp,'straw')) D.hat='straw'; const cap=accOf(sp,'cap'); if(cap) D.cap=cap; const cape=accOf(sp,'cape'); if(cape) D.cape=cape;
+  if(accOf(sp,'sword')) D.katana={c:'#c8d0e0',g:'#c0a040',back:1}; if(accOf(sp,'bigsword')) D.zangetsu=1; if(accOf(sp,'swords3')) D.swords3=1; if(accOf(sp,'gourd')) D.gourd='#b48250';
+  const au=accOf(sp,'aura'); if(au) D.aura=au; const gl=accOf(sp,'gloves'); if(gl) D.gloves=gl; if(['robe','kimono','coat','haori'].includes(o)) D.robe=1; return D; }
+
+/* ---------- motifs de tissu ---------- */
+const PATTERN={};
+function pattern(kind,a,b){ const key=kind+a+b; if(PATTERN[key]) return PATTERN[key]; const c=document.createElement('canvas'); c.width=c.height=256; const g=c.getContext('2d');
+  if(kind==='checker'){ const n=8; for(let y=0;y<n;y++) for(let x=0;x<n*2;x++){ g.fillStyle=(x+y)%2?a:b; g.fillRect(x*256/(n*2),y*256/n,256/(n*2)+1,256/n+1); } }
+  if(kind==='tri'){ g.fillStyle=a; g.fillRect(0,0,256,256); g.fillStyle=b; for(let y=0;y<4;y++) for(let x=0;x<8;x++){ const X=x*32+(y%2)*16, Y=y*64+40; g.beginPath(); g.moveTo(X,Y); g.lineTo(X+16,Y-26); g.lineTo(X+32,Y); g.fill(); } }
+  if(kind==='akatsuki'){ g.fillStyle='#141418'; g.fillRect(0,0,256,256); const cl=(x,y,s)=>{ g.save(); g.translate(x,y); g.scale(s,s); g.fillStyle='#f2f2f2'; g.beginPath(); for(const [cx,cy,r] of [[0,0,15],[16,-6,13],[30,2,12],[10,8,12],[24,10,11]]){ g.moveTo(cx+r+2,cy); g.arc(cx,cy,r+2,0,7); } g.fill();
+      g.fillStyle='#d01e1e'; g.beginPath(); for(const [cx,cy,r] of [[0,0,15],[16,-6,13],[30,2,12],[10,8,12],[24,10,11]]){ g.moveTo(cx+r,cy); g.arc(cx,cy,r,0,7); } g.fill(); g.restore(); };
+    cl(30,60,1.1); cl(150,40,.9); cl(90,150,1.2); cl(200,170,1); cl(40,220,.9); cl(210,240,.8); }
+  const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=4; return PATTERN[key]=t; }
+
+/* ---------- visage d'anime ---------- */
 const FACES={};
-function faceTex(sp){ const key=JSON.stringify([sp.ey,sp.sk,sp.a,sp.hc]); if(FACES[key]) return FACES[key];
+function faceTex(D){ const F=D.face||{}, key=JSON.stringify([D.eye,D.skin,F,D.hair&&D.hair.c]); if(FACES[key]) return FACES[key];
   const S=256, c=document.createElement('canvas'); c.width=c.height=S; const g=c.getContext('2d');
-  const ey=sp.ey||'#3a2a5a', blind=accOf(sp,'blindfold'), mask=accOf(sp,'mask'), eb=accOf(sp,'eyeband'), brow=shade(sp.hc&&sp.hc!=='#f8d0b0'?sp.hc:'#3a2a20',.7);
-  const eye=(cx,flip)=>{ g.save(); g.translate(cx,134); g.scale(flip?-1.12:1.12,1.12);
-    g.fillStyle='#fff'; g.beginPath(); g.ellipse(0,4,24,30,0,0,Math.PI*2); g.fill();
-    const gr=g.createLinearGradient(0,-18,0,28); gr.addColorStop(0,shade(ey,.35)); gr.addColorStop(.55,ey); gr.addColorStop(1,shade(ey,1.6)); g.fillStyle=gr; g.beginPath(); g.ellipse(2,8,18,25,0,0,Math.PI*2); g.fill();
-    g.fillStyle=shade(ey,.2); g.beginPath(); g.ellipse(2,6,8,12,0,0,Math.PI*2); g.fill();
-    g.fillStyle='#fff'; g.beginPath(); g.ellipse(-5,-5,6.5,8,0,0,Math.PI*2); g.fill(); g.beginPath(); g.ellipse(9,20,3,3.5,0,0,Math.PI*2); g.fill();
-    g.strokeStyle='#1e1424'; g.lineCap='round'; g.lineWidth=7; g.beginPath(); g.moveTo(-26,-14); g.quadraticCurveTo(0,-36,28,-18); g.stroke(); g.lineWidth=5; g.beginPath(); g.moveTo(26,-18); g.lineTo(36,-8); g.stroke();
-    g.strokeStyle=brow; g.lineWidth=5; g.beginPath(); g.moveTo(-18,-38); g.quadraticCurveTo(2,-46,22,-38); g.stroke(); g.restore(); };
-  if(!blind){ eye(86,true); eye(170,false); }
-  g.strokeStyle=shade(sp.sk||'#f6d2b8',.72); g.lineWidth=2.5; g.beginPath(); g.moveTo(128,170); g.lineTo(125,180); g.stroke();
-  g.fillStyle='rgba(255,120,120,.25)'; g.beginPath(); g.ellipse(70,182,16,7,0,0,7); g.fill(); g.beginPath(); g.ellipse(186,182,16,7,0,0,7); g.fill();
-  if(accOf(sp,'whiskers')){ g.strokeStyle='#5a3a2a'; g.lineWidth=3; for(const y of [172,184,196]){ g.beginPath(); g.moveTo(30,y); g.lineTo(62,y-4); g.stroke(); g.beginPath(); g.moveTo(226,y); g.lineTo(194,y-4); g.stroke(); } }
-  if(accOf(sp,'scar')){ g.strokeStyle='#b04040'; g.lineWidth=3; g.beginPath(); g.moveTo(70,178); g.lineTo(100,172); g.stroke(); }
-  if(accOf(sp,'mark')){ g.fillStyle='#c02020'; g.font='bold 30px serif'; g.fillText('愛',40,70); }
-  if(mask){ g.fillStyle=mask===true?'#203040':mask; g.beginPath(); g.moveTo(0,160); g.quadraticCurveTo(128,150,256,160); g.lineTo(256,256); g.lineTo(0,256); g.fill(); }
-  else { g.strokeStyle='#8a3a3a'; g.lineWidth=3.5; g.lineCap='round'; g.beginPath(); g.moveTo(116,204); g.quadraticCurveTo(128,212,140,204); g.stroke(); }
-  if(eb){ g.save(); g.translate(128,120); g.rotate(-.32); g.fillStyle=eb; g.fillRect(-200,-14,400,28); g.fillStyle='#c8c8d8'; g.fillRect(-20,-11,40,22); g.restore(); }
+  const sk=D.skin||'#f6d2b8', ey=D.eye||'#3a2a5a', brow=shade(D.hair&&D.hair.c&&D.hair.s!=='bald'?D.hair.c:'#4a3a2a',.62);
+  const eye=(cx,flip)=>{ g.save(); g.translate(cx,134); const s=F.small?.8:1.12; g.scale(flip?-s:s,F.bored?.6*s:s);
+    if(F.bored){ g.fillStyle='#fff'; g.beginPath(); g.ellipse(0,6,20,16,0,0,7); g.fill(); g.fillStyle='#1a1a1a'; g.beginPath(); g.arc(2,6,4,0,7); g.fill(); g.strokeStyle='#1e1424'; g.lineWidth=4; g.beginPath(); g.moveTo(-20,-4); g.lineTo(22,-4); g.stroke(); g.restore(); return; }
+    g.fillStyle='#fff'; g.beginPath(); g.ellipse(0,4,24,30,0,0,7); g.fill();
+    const ir=F.angry?13:18;
+    const gr=g.createLinearGradient(0,-18,0,28); gr.addColorStop(0,shade(ey,.35)); gr.addColorStop(.55,ey); gr.addColorStop(1,shade(ey,1.6)); g.fillStyle=gr; g.beginPath(); g.ellipse(2,8,ir,ir*1.38,0,0,7); g.fill();
+    if(F.sharingan){ g.fillStyle='#1a0a0a'; g.beginPath(); g.arc(2,8,4.5,0,7); g.fill(); g.strokeStyle='#1a0a0a'; g.lineWidth=1.5; g.beginPath(); g.arc(2,8,10,0,7); g.stroke(); for(let k=0;k<3;k++){ const a=k*2.09; g.beginPath(); g.arc(2+Math.cos(a)*10,8+Math.sin(a)*10,3,0,7); g.fill(); } }
+    else if(F.snake){ g.fillStyle='#141414'; g.beginPath(); g.ellipse(2,8,2.5,13,0,0,7); g.fill(); }
+    else { g.fillStyle=shade(ey,.2); g.beginPath(); g.ellipse(2,6,F.angry?4:8,F.angry?6:12,0,0,7); g.fill(); }
+    g.fillStyle='#fff'; g.beginPath(); g.ellipse(-5,-5,6,7.5,0,0,7); g.fill(); g.beginPath(); g.ellipse(9,20,3,3.5,0,0,7); g.fill();
+    g.strokeStyle=F.snake?'#7a3aa0':'#1e1424'; g.lineCap='round'; g.lineWidth=F.snake?9:7; g.beginPath(); g.moveTo(-26,-14); g.quadraticCurveTo(0,-36,28,-18); g.stroke(); g.lineWidth=5; g.beginPath(); g.moveTo(26,-18); g.lineTo(36,-8); g.stroke();
+    if(F.rings){ g.strokeStyle='#1a1a1a'; g.lineWidth=6; g.beginPath(); g.ellipse(2,4,30,36,0,0,7); g.stroke(); }
+    g.strokeStyle=brow; g.lineWidth=6; g.beginPath(); if(F.angry||F.frown){ g.moveTo(-22,-48); g.lineTo(24,-38); } else if(F.nervous){ g.moveTo(-20,-40); g.quadraticCurveTo(4,-52,24,-50); } else { g.moveTo(-18,-40); g.quadraticCurveTo(2,-48,22,-40); } if(!F.rings) g.stroke(); g.restore(); };
+  if(!F.blind){ if(F.scarClosed){ eye(170,false); g.strokeStyle='#1e1424'; g.lineWidth=6; g.beginPath(); g.moveTo(62,140); g.quadraticCurveTo(86,150,110,140); g.stroke(); g.strokeStyle='#a83030'; g.lineWidth=4; g.beginPath(); g.moveTo(80,95); g.lineTo(92,185); g.stroke(); } else { eye(86,true); eye(170,false); } }
+  g.strokeStyle=shade(sk,.7); g.lineWidth=2.5; g.beginPath(); g.moveTo(128,172); g.lineTo(125,182); g.stroke();
+  if(!F.bored){ g.fillStyle='rgba(255,120,120,.22)'; g.beginPath(); g.ellipse(66,184,16,7,0,0,7); g.fill(); g.beginPath(); g.ellipse(190,184,16,7,0,0,7); g.fill(); }
+  if(F.whisk){ g.strokeStyle='#4a2a1a'; g.lineWidth=3.5; for(const y of [176,188,200]){ g.beginPath(); g.moveTo(28,y); g.lineTo(62,y-5); g.stroke(); g.beginPath(); g.moveTo(228,y); g.lineTo(194,y-5); g.stroke(); } }
+  if(F.gills){ g.strokeStyle=shade(sk,.55); g.lineWidth=3; for(const y of [176,188,200]){ g.beginPath(); g.moveTo(34,y); g.quadraticCurveTo(48,y-6,60,y); g.stroke(); g.beginPath(); g.moveTo(222,y); g.quadraticCurveTo(208,y-6,196,y); g.stroke(); } }
+  if(F.scarEye){ g.strokeStyle='#8a2a2a'; g.lineWidth=3; g.beginPath(); g.moveTo(66,174); g.lineTo(96,174); g.moveTo(72,168); g.lineTo(76,180); g.moveTo(84,168); g.lineTo(88,180); g.stroke(); }
+  if(F.scarHead){ g.fillStyle='rgba(150,30,30,.75)'; g.beginPath(); g.ellipse(70,72,20,13,-.3,0,7); g.fill(); }
+  if(F.kanji){ g.fillStyle='#b01818'; g.font='bold 34px serif'; g.textAlign='center'; g.fillText('愛',182,72); }
+  if(F.mask){ g.fillStyle=F.mask; g.beginPath(); g.moveTo(0,162); g.quadraticCurveTo(128,150,256,162); g.lineTo(256,256); g.lineTo(0,256); g.fill(); }
+  else { g.strokeStyle='#7a2a2a'; g.lineCap='round'; g.lineWidth=3.5; g.beginPath();
+    if(F.grin){ g.fillStyle='#7a2a2a'; g.moveTo(108,204); g.quadraticCurveTo(128,226,148,204); g.closePath(); g.fill(); g.fillStyle='#fff'; g.fillRect(112,204,32,5); }
+    else if(F.angry){ g.moveTo(110,212); g.lineTo(146,206); g.stroke(); if(D.hair&&D.hair.s==='bakugo'){ g.fillStyle='#fff'; g.fillRect(114,206,28,4); } }
+    else if(F.frown||F.bored){ g.moveTo(116,210); g.lineTo(140,210); g.stroke(); }
+    else if(F.nervous){ g.moveTo(112,212); g.quadraticCurveTo(120,204,128,212); g.quadraticCurveTo(136,220,144,212); g.stroke(); }
+    else { g.moveTo(114,204); g.quadraticCurveTo(128,214,142,204); g.stroke(); }
+    if(F.gills&&F.grin){ g.fillStyle='#fff'; for(let i=0;i<5;i++){ g.beginPath(); g.moveTo(110+i*7,204); g.lineTo(113+i*7,212); g.lineTo(116+i*7,204); g.fill(); } } }
+  if(F.eyeband){ g.save(); g.translate(128,118); g.rotate(-.3); g.fillStyle=F.eyeband; g.fillRect(-220,-40,190,80); g.restore(); }
   const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; t.anisotropy=4; return FACES[key]=t; }
 
-/* ---------- personnages façon anime (proportions réalistes, cel-shading, contours) ---------- */
+/* ---------- construction du personnage ---------- */
 const CHARGEO={};
-const SLEEVES=['jacket','coat','robe','kimono','haori','uniform','suit','gi','armor','dress','maid','sailor'];
-function charParts(sp){ const key=JSON.stringify(sp); if(CHARGEO[key]) return CHARGEO[key];
-  const sk=sp.sk||'#f6d2b8', c1=sp.c1||'#3050c0', c2=sp.c2||'#202028', hc=sp.hc||'#2a2020', o=sp.o||'shirt';
-  const gloves=accOf(sp,'gloves'), hand=gloves&&gloves!==true?gloves:sk, shoe=shade(c2,.45), sleeve=SLEEVES.includes(o);
-  const P={body:[],head:[],armL:[],armR:[],legL:[],legR:[]};
-  /* jambes (pivot à la hanche) */
-  for(const k of ['legL','legR']){ const L=P[k];
-    L.push([tf(cyl(.27,.21,1.15),0,-.55,0),c2],[tf(sph(.21),0,-1.12,0),c2],[tf(cyl(.205,.15,1.05),0,-1.66,0),c2],[tf(cyl(.17,.17,.12,14),0,-2.12,0),shade(c2,.7)],[tf(sph(.24,14,10),0,-2.36,.1,0,0,0,.9,.6,1.5),shoe]); }
+function charParts(D){ const key=JSON.stringify(D); if(CHARGEO[key]) return CHARGEO[key];
+  const sk=D.skin||'#f6d2b8', top=D.top||{c:'#3050c0'}, tc=top.c, pc=(D.pants||{}).c||'#202028', plen=(D.pants||{}).len||'long', sh=D.shoes||{c:'#2a2a2a'}, sc=sh.c, hair=D.hair||{s:'luffy',c:'#202020'}, hc=hair.c||'#202020';
+  const hand=D.gloves||sk, slv=top.sleeve||'short', bw=D.build||1;
+  const P={body:[],head:[],armL:[],armR:[],legL:[],legR:[]}, TX=[];
+  /* jambes */
+  for(const k of ['legL','legR']){ const L=P[k], side=k==='legL'?-1:1;
+    L.push([tf(cyl(.27,.21,1.15),0,-.55,0),pc],[tf(sph(.21),0,-1.12,0),plen==='shorts'?pc:pc]);
+    if(plen==='shorts'){ L.push([tf(cyl(.25,.24,.16,14),0,-1.02,0),shade(pc,.8)],[tf(cyl(.19,.14,1.0),0,-1.66,0),sk]); }
+    else if(plen==='hakama'){ L.push([tf(cyl(.3,.44,2.0,16),0,-1.15,0),pc]); }
+    else L.push([tf(cyl(.205,.15,1.05),0,-1.66,0),pc]);
+    if(sh.t==='boot') L.push([tf(cyl(.2,.18,.8,14),0,-1.9,0),sc],[tf(sph(.24,14,10),0,-2.36,.1,0,0,0,.95,.62,1.5),sc]);
+    else if(sh.t==='sandal') L.push([tf(cyl(.15,.14,.25,12),0,-2.15,0),plen==='long'&&!D.robe?pc:sk],[tf(sph(.22,14,10),0,-2.36,.1,0,0,0,.85,.5,1.4),sk],[tf(BOX,0,-2.48,.12,0,0,0,.42,.08,.68),sc]);
+    else L.push([tf(sph(.24,14,10),0,-2.36,.1,0,0,0,.9,.6,1.5),sc]); }
   /* corps */
-  const B=P.body;
-  B.push([tf(lathe([[0,2.36],[.4,2.4],[.5,2.6],[.48,2.85],[.43,2.98],[0,3.0]]),0,0,0,0,0,0,1,1,.74),c2]);
-  B.push([tf(lathe([[0,2.88],[.43,2.9],[.41,3.12],[.48,3.48],[.53,3.74],[.5,3.97],[.26,4.12],[0,4.15]]),0,0,0,0,0,0,1,1,.72),c1]);
-  B.push([tf(new THREE.TorusGeometry(.2,.07,8,20),0,4.12,0,Math.PI/2,0,0,1,1,1),shade(c1,.8)]);
-  B.push([tf(cyl(.47,.49,.13,20),0,2.96,0,0,0,0,1,1,.76),shade(c2,.55)]);
+  const B=P.body, W=(r)=>r*bw;
+  B.push([tf(lathe([[0,2.36],[W(.4),2.4],[W(.5),2.6],[W(.48),2.85],[W(.43),2.98],[0,3.0]]),0,0,0,0,0,0,1,1,.74),pc]);
+  const chest=top.open?(top.under||sk):tc;
+  B.push([tf(lathe([[0,2.88],[W(.43),2.9],[W(.41),3.12],[W(.48),3.48],[W(.53),3.74],[W(.5),3.97],[W(.26),4.12],[0,4.15]]),0,0,0,0,0,0,1,1,.72),chest]);
+  if(top.open){ const gap=top.open*.9; B.push([tf(new THREE.LatheGeometry([[W(.45),2.9],[W(.43),3.12],[W(.5),3.48],[W(.55),3.74],[W(.52),3.97],[W(.28),4.13]].map(([r,y])=>new THREE.Vector2(r,y)),24,gap,Math.PI*2-gap*2),0,0,0,0,0,0,1,1,.74),tc]); }
+  if(top.sh) B.push([tf(new THREE.LatheGeometry([[W(.5),3.62],[W(.545),3.74],[W(.515),3.97],[W(.28),4.13]].map(([r,y])=>new THREE.Vector2(r,y)),24),0,0,0,0,0,0,1,1,.75),top.sh]);
+  if(top.zip) B.push([tf(BOX,0,3.45,.37,-.08,0,0,.07,1.05,.04),top.zip]);
+  if(top.vcol){ B.push([tf(BOX,-.13,3.75,.36,-.1,0,-.45,.09,.75,.04),top.vcol],[tf(BOX,.13,3.75,.36,-.1,0,.45,.09,.75,.04),top.vcol]); }
+  if(top.xmark){ B.push([tf(BOX,0,3.5,.37,-.08,0,.7,.09,1,.04),top.xmark],[tf(BOX,0,3.5,.37,-.08,0,-.7,.09,1,.04),top.xmark]); }
+  if(top.buttons) for(let i=0;i<4;i++) B.push([tf(sph(.045),0,3.85-i*.25,.37),top.buttons]);
+  if(top.high) B.push([tf(cyl(.24,.26,.36,18),0,4.25,0),tc]);
+  if(D.neck) B.push([tf(new THREE.TorusGeometry(.2,.06,8,18),0,4.12,0,Math.PI/2),D.neck]); else if(!top.high) B.push([tf(new THREE.TorusGeometry(.2,.06,8,18),0,4.12,0,Math.PI/2),shade(chest,.8)]);
   B.push([tf(cyl(.12,.13,.32),0,4.2,0),sk]);
-  B.push([tf(sph(.23),-.55,3.95,0),sleeve||o==='shirt'?c1:sk],[tf(sph(.23),.55,3.95,0),sleeve||o==='shirt'?c1:sk]);
-  if(['jacket','coat','haori','uniform','suit'].includes(o)) B.push([tf(BOX,0,3.45,.36,-.08,0,0,.12,1.05,.04),shade(c1,.6)]);
-  if(o==='gi') B.push([tf(cyl(.5,.52,.18,20),0,3.02,0,0,0,0,1,1,.76),c2]);
-  if(['robe','kimono','coat','haori','dress','maid'].includes(o)) B.push([tf(lathe([[.48,2.98],[.55,2.5],[.64,1.75],[.66,1.6]],22),0,0,0,0,0,0,1,1,.8),o==='haori'?shade(c1,1.1):c1]);
-  /* bras (pivot à l'épaule) */
+  const shC=slv==='none'?sk:(top.sh||tc); B.push([tf(sph(.23),-W(.55),3.95,0),shC],[tf(sph(.23),W(.55),3.95,0),shC]);
+  if(D.vest){ B.push([tf(lathe([[W(.47),2.95],[W(.52),3.4],[W(.58),3.74],[W(.54),3.98],[W(.3),4.14]]),0,0,0,0,0,0,1,1,.78),D.vest]); for(const x of [-.24,.24]) B.push([tf(BOX,x,3.2,.42,0,0,0,.26,.3,.1),shade(D.vest,.85)]); B.push([tf(new THREE.TorusGeometry(.27,.09,8,20),0,4.15,0,Math.PI/2),D.vest]); }
+  if(D.belt) B.push([tf(cyl(W(.47),W(.49),.13,20),0,2.96,0,0,0,0,1,1,.76),D.belt]);
+  if(D.sash){ const h=D.sashH||.2; B.push([tf(cyl(W(.5),W(.51),h,20),0,2.98,0,0,0,0,1,1,.77),D.sash]); if(!D.sashH) B.push([tf(BOX,.25,2.6,.3,0,0,.15,.14,.6,.05),D.sash]); }
+  if(D.rope){ B.push([tf(new THREE.TorusGeometry(W(.48),.07,8,24),0,2.98,0,Math.PI/2,0,0,1,.76,1),D.rope],[tf(sph(.11),.12,2.95,.38),D.rope],[tf(cyl(.05,.05,.6),.18,2.6,.36,0,0,.2),D.rope]); }
+  if(D.strap) B.push([tf(BOX,0,3.45,.33,0,0,.75,.14,1.6,.06),D.strap],[tf(BOX,0,3.45,-.33,0,0,-.75,.14,1.6,.06),D.strap]);
+  if(D.robe) B.push([tf(lathe([[W(.48),2.98],[W(.55),2.5],[W(.64),1.75],[W(.66),1.6]],22),0,0,0,0,0,0,1,1,.8),tc]);
+  if(D.hood) B.push([tf(new THREE.TorusGeometry(.32,.14,8,20,Math.PI),0,4.02,-.2,-.4,0,Math.PI,1,1,1),D.hood]);
+  if(D.cape) B.push([tf(new THREE.CylinderGeometry(.6,.9,2.9,20,1,true,Math.PI*.6,Math.PI*.8),0,2.75,-.08,0,0,0,1,1,.9),D.cape]);
+  /* bras */
   for(const k of ['armL','armR']){ const A=P[k];
-    A.push([tf(cyl(.165,.14,.85),0,-.42,0),sleeve?c1:sk],[tf(sph(.14),0,-.86,0),sleeve?c1:sk],[tf(cyl(.14,.11,.8),0,-1.27,0),sleeve?c1:sk],[tf(cyl(.125,.125,.1,12),0,-1.62,0),sleeve?shade(c1,.75):sk],[tf(sph(.14),0,-1.76,0,0,0,0,1,1.3,.8),hand]); }
-  if(o==='shirt'||o==='vest'){ for(const k of ['armL','armR']) P[k][0][1]=o==='vest'?sk:c1; }
-  /* tête (pivot au cou) */
+    const up=slv==='none'?sk:tc, lo=(slv==='long'||slv==='wide')?tc:sk;
+    A.push([tf(cyl(.165,.14,.85),0,-.42,0),up],[tf(sph(.14),0,-.86,0),slv==='short'?tc:lo],[tf(cyl(.14,.11,.8),0,-1.27,0),lo]);
+    if(slv==='short') A.push([tf(cyl(.18,.17,.18,14),0,-.8,0),tc]);
+    if(slv==='wide') A.push([tf(cyl(.2,.36,1.3,16),0,-1.05,0),tc]);
+    if(D.wrist) A.push([tf(cyl(.15,.15,.25,14),0,-1.52,0),D.wrist]);
+    if(D.gaunt) A.push([tf(cyl(.27,.31,.75,16),0,-1.3,0),D.gaunt],[tf(cyl(.32,.32,.1,16),0,-1.0,0),'#f07a1a'],[tf(cyl(.06,.06,.4),0,-.95,.3,Math.PI/2),'#c8c8c8']);
+    if(D.bandArm&&k==='armL') A.push([tf(cyl(.18,.18,.14,14),0,-.3,0),D.bandArm]);
+    A.push([tf(sph(.14),0,-1.76,0,0,0,0,1,1.3,.8),hand]); }
+  /* tête */
   const H=P.head, cH=new THREE.Vector3(0,.5,0);
   H.push([tf(sph(.46,24,18),0,.5,0,0,0,0,.95,1.05,.96),sk],[tf(sph(.3),0,.24,.11,0,0,0,.9,.78,.85),sk],[tf(sph(.1),-.44,.46,0,0,0,0,.45,.75,.5),sk],[tf(sph(.1),.44,.46,0,0,0,0,.45,.75,.5),sk]);
-  const hs=sp.hs||'short';
-  const spike=(yaw,pitch,len,r,col)=>{ const d=new THREE.Vector3(Math.sin(yaw)*Math.sin(pitch),Math.cos(pitch),Math.cos(yaw)*Math.sin(pitch)); const p=cH.clone().addScaledVector(d,.38+len/2); H.push([tfDir(CONE,p,d,r||.24,len,(r||.24)*.7),col||hc]); };
-  if(hs!=='bald'){
-    H.push([tf(new THREE.SphereGeometry(.5,24,16,0,Math.PI*2,0,Math.PI*.56),0,.5,-.03,-.55,0,0,1,1.06,1.03),hc]);
-    if(hs!=='slant'){ for(let i=-3;i<=3;i++){ const a=i*.27; const d=new THREE.Vector3(Math.sin(a)*.25,-1,.35); H.push([tfDir(CONE,new THREE.Vector3(Math.sin(a)*.4,.86,Math.cos(a)*.37),d,.17,.42+(i%2?.06:0),.09),hc]); } } }
-  const R=(a,b)=>a+(Math.sin(a*91.7+b*13.3)*.5+.5)*(b-a);
-  if(hs==='spiky'||hs==='wild'){ for(let i=0;i<12;i++) spike(Math.PI*.4+i/12*Math.PI*1.2,R(.65,1.25),R(.45,.7),.24); for(let i=0;i<5;i++) spike(i/5*Math.PI*2,R(.25,.5),R(.4,.55),.22); }
-  if(hs==='spikyUp'||hs==='longspiky'){ for(let i=0;i<10;i++) spike(i/10*Math.PI*2,R(.25,.75),R(.8,1.2),.27); spike(0,.05,1.25,.3); spike(.3,.6,.6,.2); spike(-.3,.6,.6,.2); }
-  if(hs==='messy'||hs==='short'||hs==='crest'||hs==='undercut'||hs==='side'||hs==='tips'){ for(let i=0;i<8;i++) spike(Math.PI*.45+i/8*Math.PI*1.1,R(1.1,1.7),R(.28,.42),.18); for(let i=0;i<3;i++) spike(i*2,R(.3,.6),.32,.18); }
-  if(hs==='long'||hs==='longspiky'||hs==='braid'||hs==='twin'){ for(let i=-3;i<=3;i++){ const d=new THREE.Vector3(i*.05,-1,-.18); H.push([tfDir(CONE,new THREE.Vector3(i*.12,-.25,-.4),d,.19,2.1,.1),hc]); } for(const s of [-1,1]) H.push([tfDir(CONE,new THREE.Vector3(s*.42,.2,.05),new THREE.Vector3(s*.1,-1,0),.13,1.1,.08),hc]); }
-  if(hs==='bob'){ for(let i=0;i<9;i++){ const a=Math.PI*.4+i/8*Math.PI*1.2; H.push([tfDir(CONE,new THREE.Vector3(Math.sin(a)*.44,.25,Math.cos(a)*.42),new THREE.Vector3(Math.sin(a)*.12,-1,Math.cos(a)*.12),.18,.75,.1),hc]); } }
-  if(hs==='duck'){ for(let i=0;i<6;i++) spike(Math.PI+(i-2.5)*.28,R(1.05,1.35),R(.6,.85),.25); for(const s of [-1,1]) H.push([tfDir(CONE,new THREE.Vector3(s*.36,.55,.32),new THREE.Vector3(s*.05,-1,.1),.12,.75,.08),hc]); }
-  if(hs==='slant'){ for(let i=0;i<9;i++) spike(-1.4+(i%3)*.5,R(.6,1.1),R(.65,.95),.25); }
-  if(hs==='bangs'||hs==='bowl'||hs==='pompadour'||hs==='split'||hs==='cover'||hs==='dome'||hs==='apple'||hs==='moss'||hs==='cloud'||hs==='antenna'||hs==='turban') for(let i=0;i<6;i++) spike(Math.PI*.5+i/6*Math.PI,R(1.2,1.6),.3,.2);
-  /* accessoires */
-  const hb=accOf(sp,'headband'); if(hb){ H.push([tf(new THREE.CylinderGeometry(.49,.49,.13,28,1,true),0,.76,0,0,0,0,.98,1,.99),hb===true?'#4060c0':hb],[tf(BOX,0,.76,.49,0,0,0,.32,.12,.03),'#c8c8d8']); }
-  const bd=accOf(sp,'bandana'); if(bd) H.push([tf(new THREE.SphereGeometry(.52,24,12,0,Math.PI*2,0,Math.PI*.4),0,.52,0),bd===true?'#202020':bd]);
-  if(accOf(sp,'blindfold')) H.push([tf(new THREE.CylinderGeometry(.49,.49,.2,28,1,true),0,.5,0,0,0,0,.98,1,.99),'#1e1e2a']);
-  if(accOf(sp,'straw')) H.push([tf(cyl(.95,.95,.05,28),0,.98,0),'#e8c860'],[tf(cyl(.48,.53,.34,24),0,1.17,0),'#e8c860'],[tf(cyl(.535,.54,.09,24),0,1.05,0),'#d03030']);
-  const cap=accOf(sp,'cap'); if(cap) H.push([tf(new THREE.SphereGeometry(.53,24,12,0,Math.PI*2,0,Math.PI*.48),0,.55,0),cap],[tf(cyl(.3,.3,.04,20),0,.68,.42,0,0,0,1,1,1.2),cap]);
-  const cape=accOf(sp,'cape'); if(cape) B.push([tf(new THREE.CylinderGeometry(.55,.75,2.7,20,1,true,Math.PI*.6,Math.PI*.8),0,2.85,-.05,0,Math.PI,0,1,1,.9),cape]);
-  const sword=accOf(sp,'sword'); if(sword){ B.push([tf(BOX,-.35,3.1,-.42,0,0,.55,.07,2.1,.04),sword===true?'#c8d0e0':sword],[tf(BOX,.08,3.95,-.42,0,0,.55,.28,.06,.12),'#c0a040'],[tf(cyl(.05,.05,.5),.22,4.2,-.42,0,0,.55),'#3a2a1a']); }
-  if(accOf(sp,'bigsword')) B.push([tf(BOX,0,3.2,-.45,0,0,.45,.36,2.8,.05),'#1e1e26'],[tf(BOX,.6,4.4,-.45,0,0,.45,.12,.6,.12),'#c8c8c8']);
-  if(accOf(sp,'swords3')) for(const z of [-.1,.05,.2]) B.push([tf(cyl(.05,.05,1.5),-.48,2.6,z,0,0,-.5),z>0?'#e8e8e8':z>-.05?'#202020':'#c03030']);
-  if(accOf(sp,'gourd')) B.push([tf(sph(.42),0,3.3,-.6,0,0,0,1,1.1,.8),'#b07a48'],[tf(sph(.3),0,4.0,-.55),'#b07a48']);
+  const tip=hair.tip;
+  const spike=(yaw,pitch,len,r,col)=>{ const d=new THREE.Vector3(Math.sin(yaw)*Math.sin(pitch),Math.cos(pitch),Math.cos(yaw)*Math.sin(pitch)); const p=cH.clone().addScaledVector(d,.36+len/2); H.push([tfDir(CONE,p,d,r||.24,len,(r||.24)*.75),col||hc]);
+    if(tip&&!col){ const p2=cH.clone().addScaledVector(d,.36+len*.88); H.push([tfDir(CONE,p2,d,(r||.24)*.45,len*.3,(r||.24)*.34),tip]); } };
+  const strand=(x,y,z,dx,dy,dz,len,r,col)=>H.push([tfDir(CONE,new THREE.Vector3(x,y,z),new THREE.Vector3(dx,dy,dz),r,len,r*.55),col||hc]);
+  const bangs=(n,len,r,col)=>{ for(let i=0;i<n;i++){ const a=(i-(n-1)/2)*(1.7/n); strand(Math.sin(a)*.4,.86,Math.cos(a)*.37,Math.sin(a)*.3,-1,.4,len+(i%2?.06:0),r||.17,col); } };
+  const cap=(col)=>H.push([tf(new THREE.SphereGeometry(.5,24,16,0,Math.PI*2,0,Math.PI*.56),0,.5,-.03,-.55,0,0,1,1.06,1.03),col||hc]);
+  const R=(a,b,i)=>a+(Math.sin(i*91.7+a*13.3+b*7.1)*.5+.5)*(b-a);
+  const s=hair.s;
+  if(s!=='bald') cap(s==='itadori'?hair.under:hc);
+  switch(s){
+    case 'naruto': bangs(7,.48,.19); for(let i=0;i<16;i++) spike(Math.PI*.45+i/16*Math.PI*1.1,R(.6,1.15,i),R(.5,.78,i),.27); for(let i=0;i<6;i++) spike(i*1.05,R(.25,.55,i+20),R(.5,.7,i),.26); spike(.35,.75,.5,.22); spike(-.35,.75,.5,.22); break;
+    case 'luffy': bangs(7,.42,.17); for(let i=0;i<10;i++) spike(Math.PI*.5+i/10*Math.PI,R(1.3,1.8,i),R(.28,.4,i),.2); for(let i=0;i<4;i++) spike(i*1.6,R(.4,.8,i),.3,.2); break;
+    case 'tanjiro': bangs(6,.45,.18); for(let i=0;i<12;i++) spike(Math.PI*.45+i/12*Math.PI*1.1,R(1.1,1.6,i),R(.4,.6,i),.24); for(let i=0;i<4;i++) spike(i*1.6+.3,R(.4,.8,i),.4,.22); break;
+    case 'zenitsu': bangs(7,.5,.18); for(let i=0;i<12;i++) spike(Math.PI*.4+i/12*Math.PI*1.2,R(1.3,1.9,i),R(.5,.7,i),.24); spike(0,.6,.45,.2); break;
+    case 'gon': bangs(5,.3,.16); for(let i=0;i<14;i++) spike(i/14*Math.PI*2,R(.15,.6,i),R(.6,.95,i),.3); break;
+    case 'zoro': for(let i=0;i<22;i++) spike(i/22*Math.PI*2,R(.3,1.45,i),R(.18,.26,i),.2); bangs(5,.18,.14); break;
+    case 'killua': bangs(7,.5,.2); for(let i=0;i<20;i++) spike(i/20*Math.PI*2,R(.45,1.45,i),R(.45,.65,i),.3); break;
+    case 'rukia': for(let i=0;i<11;i++){ const a=Math.PI*.38+i/10*Math.PI*1.24; strand(Math.sin(a)*.45,.28,Math.cos(a)*.43,Math.sin(a)*.1,-1,Math.cos(a)*.1,.8,.19); } bangs(5,.4,.16); strand(0,.8,.44,0,-1,.25,.62,.07); break;
+    case 'bakugo': bangs(7,.45,.2); for(let i=0;i<22;i++) spike(i/22*Math.PI*2,R(.3,1.55,i),R(.55,.85,i),.25); break;
+    case 'kakashi': for(let i=0;i<10;i++) spike(-1.25+R(-.5,.5,i),R(.55,1.15,i),R(.8,1.15,i),.3); bangs(4,.32,.16); break;
+    case 'ssj': for(let i=0;i<9;i++) spike(Math.PI*.3+i/9*Math.PI*1.4,R(.15,.6,i),R(1.0,1.45,i),.34); spike(0,.15,1.4,.36); spike(.5,.35,1.1,.3); spike(-.5,.35,1.1,.3); bangs(3,.55,.18); break;
+    case 'ichigo': bangs(7,.5,.2); for(let i=0;i<16;i++) spike(Math.PI*.2+i/16*Math.PI*1.6,R(.7,1.4,i),R(.5,.75,i),.26); break;
+    case 'sasuke': bangs(4,.5,.16); for(let i=0;i<9;i++) spike(Math.PI+(i-4)*.2,R(.95,1.35,i),R(.7,1.0,i),.27); strand(-.36,.6,.32,-.04,-1,.08,.85,.12); strand(.36,.6,.32,.04,-1,.08,.85,.12); break;
+    case 'itadori': bangs(6,.35,.17,hc); for(let i=0;i<12;i++) spike(i/12*Math.PI*2,R(.2,.85,i),R(.3,.45,i),.22,hc); break;
+    case 'gojo': bangs(7,.5,.19); for(let i=0;i<18;i++) spike(i/18*Math.PI*2,R(.2,1.1,i),R(.55,.8,i),.29); break;
+    case 'kisame': for(let i=0;i<12;i++) spike(i/12*Math.PI*2,R(.15,.7,i),R(.55,.8,i),.26); break;
+    case 'long': bangs(6,.55,.17); for(let i=-3;i<=3;i++) strand(i*.12,-.3,-.42,i*.05,-1,-.15,2.2,.2); for(const s2 of [-1,1]) strand(s2*.43,.15,.12,s2*.08,-1,0,1.3,.13); break;
+    case 'gaara': bangs(6,.36,.17); for(let i=0;i<12;i++) spike(Math.PI*.4+i/12*Math.PI*1.2,R(1.0,1.6,i),R(.32,.45,i),.22); for(let i=0;i<4;i++) spike(i*1.6,R(.3,.7,i),.35,.22); break;
+    case 'bald': break; }
+  /* accessoires de tête */
+  if(D.band){ H.push([tf(new THREE.CylinderGeometry(.49,.49,.14,28,1,true),0,.78,0,0,0,0,.98,1,.99),D.band.c],[tf(BOX,0,.78,.49,0,0,0,.36,.14,.04),'#c8c8d8']); }
+  if(D.face&&D.face.blind) H.push([tf(new THREE.CylinderGeometry(.49,.49,.22,28,1,true),0,.52,0,0,0,0,.98,1,.99),'#16161e']);
+  if(D.face&&D.face.eyeband) H.push([tf(new THREE.CylinderGeometry(.5,.5,.16,28,1,true),0,.62,0,0,0,-.3,.98,1,.99),D.face.eyeband],[tf(BOX,0,.65,.48,0,0,-.3,.34,.14,.04),'#c8c8d8']);
+  if(D.hat==='straw') H.push([tf(cyl(.98,.98,.05,32),0,.98,0),'#ecca62'],[tf(cyl(.5,.55,.36,28),0,1.18,0),'#ecca62'],[tf(cyl(.555,.56,.1,28),0,1.05,0),'#d03030']);
+  if(D.cap) H.push([tf(new THREE.SphereGeometry(.53,24,12,0,Math.PI*2,0,Math.PI*.48),0,.55,0),D.cap],[tf(cyl(.3,.3,.04,20),0,.68,.42,0,0,0,1,1,1.2),D.cap]);
+  if(D.earring==='hanafuda') for(const x of [-.46,.46]) H.push([tf(BOX,x,.25,0,0,0,0,.04,.32,.18),'#f4f4f4'],[tf(sph(.06),x+(x<0?-.025:.025),.28,0),'#d02020']);
+  if(D.earring==='gold') for(let i=0;i<3;i++) H.push([tf(new THREE.TorusGeometry(.05,.015,6,10),-.46,.32-i*.07,0),'#e8c040']);
+  /* armes et objets dans le dos */
+  if(D.katana){ const k=D.katana; if(k.back){ B.push([tf(BOX,0,3.3,-.45,0,0,.6,.1,2.2,.07),k.c],[tf(BOX,.62,4.25,-.45,0,0,.6,.3,.06,.18),k.g],[tf(cyl(.055,.055,.5),.78,4.48,-.45,0,0,.6),'#2a2a2a']); }
+    else { B.push([tf(cyl(.06,.06,1.9,8),-.5,2.75,.15,.25,0,.95),k.c],[tf(cyl(.12,.12,.04,12),-.05,3.18,.3,.25,0,.95),k.g],[tf(cyl(.055,.055,.5,8),.18,3.32,.36,.25,0,.95),'#2a2a2a']); } }
+  if(D.swords3) for(const [z,c] of [[-.12,'#f2f2f2'],[.06,'#141414'],[.24,'#c82a2a']]) B.push([tf(cyl(.055,.055,1.8,8),-.55,2.6,z,.15,0,-.95),c],[tf(cyl(.05,.05,.45,8),-.05,3.08,z+.08,.15,0,-.95),'#2a2a2a']);
+  if(D.zangetsu) B.push([tf(BOX,0,3.1,-.45,0,0,.42,.62,3.2,.06),'#16161c'],[tf(BOX,-.2,3.1,-.45,0,0,.42,.08,3.2,.065),'#d8d8e0'],[tf(cyl(.07,.07,.9,8),.75,4.75,-.45,0,0,.42),'#f2f2f2']);
+  if(D.samehada) B.push([tf(cyl(.26,.4,3.2,10),0,3.2,-.55,0,0,.45),'#4a5a8a'],[tf(cyl(.42,.42,.08,10),-.2,2.65,-.55,0,0,.45),'#e8e8e8'],[tf(cyl(.42,.42,.08,10),.2,3.5,-.55,0,0,.45),'#e8e8e8']);
+  if(D.gourd) B.push([tf(sph(.42),0,3.3,-.62,0,0,0,1,1.1,.8),D.gourd],[tf(sph(.3),0,4.0,-.58),D.gourd],[tf(cyl(.1,.1,.2),0,4.32,-.56),'#5a3a2a']);
+  if(D.pouch) B.push([tf(BOX,.42,2.75,-.1,0,0,0,.2,.3,.24),D.pouch]);
   const parts={}; for(const k in P) parts[k]=P[k].length?merge(P[k]):null;
+  /* vêtements à motif (haori, manteau de l'Akatsuki) : maillages texturés */
+  const cl=D.haori?{tex:pattern(D.haori.tex,D.haori.a,D.haori.b),rep:D.haori.tex==='checker'?[1,1]:[1.5,1.5]}:D.cloak?{tex:pattern('akatsuki'),rep:[2,1.6],high:1}:null;
+  if(cl){ const gap=.35, body=new THREE.LatheGeometry([[W(.6),1.2],[W(.6),1.8],[W(.58),2.5],[W(.56),3.0],[W(.6),3.5],[W(.62),3.78],[W(.56),4.0],[W(.32),4.16]].map(([r,y])=>new THREE.Vector2(r,y)),28,gap,Math.PI*2-gap*2);
+    body.applyMatrix4(new THREE.Matrix4().makeScale(1,1,.82)); const sl=new THREE.CylinderGeometry(.22,.4,1.5,16,1,true); sl.translate(0,-1.0,0);
+    parts.cloth={geo:body,sleeve:sl,tex:cl.tex,rep:cl.rep,high:cl.high}; }
   parts.face=new THREE.SphereGeometry(.468,28,18,Math.PI/2-.82,1.64,Math.PI*.3,Math.PI*.42); parts.face.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(0,.5,0),new THREE.Quaternion(),new THREE.Vector3(.95,1.05,.96)));
   return CHARGEO[key]=parts; }
-function avatar(sp,opt){ opt=opt||{}; const parts=charParts(sp), G=new THREE.Group();
-  const piv={legL:[-.27,2.55,0],legR:[.27,2.55,0],armL:[-.68,3.98,0],armR:[.68,3.98,0],head:[0,4.25,0]}; const rig={};
+function avatar(src,opt){ opt=opt||{}; const D=src.top?src:deriveD(src); const parts=charParts(D), G=new THREE.Group();
+  const bw=D.build||1, piv={legL:[-.27*bw,2.55,0],legR:[.27*bw,2.55,0],armL:[-.68*bw,3.98,0],armR:[.68*bw,3.98,0],head:[0,4.25,0]}; const rig={};
   const body=toonMesh(parts.body,true); G.add(body); rig.body=body;
   for(const k of ['legL','legR','armL','armR','head']){ const g=new THREE.Group(); g.position.set(...piv[k]); g.add(toonMesh(parts[k],true)); G.add(g); rig[k]=g; }
   rig.head.scale.setScalar(1.24);
-  const face=new THREE.Mesh(parts.face,new THREE.MeshBasicMaterial({map:faceTex(sp),transparent:true,polygonOffset:true,polygonOffsetFactor:-2})); rig.head.add(face);
+  const face=new THREE.Mesh(parts.face,new THREE.MeshBasicMaterial({map:faceTex(D),transparent:true,polygonOffset:true,polygonOffsetFactor:-2})); rig.head.add(face);
+  if(parts.cloth){ const t=parts.cloth.tex.clone(); t.needsUpdate=true; t.repeat.set(...parts.cloth.rep); const m=new THREE.MeshToonMaterial({map:t,gradientMap:GRAD,side:THREE.DoubleSide});
+    const cm=new THREE.Mesh(parts.cloth.geo,m); cm.castShadow=true; cm.add(new THREE.Mesh(parts.cloth.geo,OUTLINE)); body.add(cm);
+    for(const k of ['armL','armR']){ const s=new THREE.Mesh(parts.cloth.sleeve,m); s.castShadow=true; s.add(new THREE.Mesh(parts.cloth.sleeve,OUTLINE)); rig[k].add(s); }
+    if(parts.cloth.high){ const col=new THREE.Mesh(new THREE.CylinderGeometry(.42,.6,.7,20,1,true),m); col.position.y=4.35; body.add(col); } }
   rig.armL.rotation.z=-.1; rig.armR.rotation.z=.1;
-  const aura=accOf(sp,'aura'); if(aura){ const r=new THREE.Mesh(new THREE.TorusGeometry(1.4,.07,6,40),new THREE.MeshBasicMaterial({color:aura,transparent:true,opacity:.8,toneMapped:false})); r.rotation.x=Math.PI/2; r.position.y=.1; G.add(r); const gl=glow(aura,5,.35); gl.position.y=2.6; G.add(gl); }
-  G.userData.rig=rig; if(opt.scale) G.scale.setScalar(opt.scale); return G; }
+  if(D.aura){ const r=new THREE.Mesh(new THREE.TorusGeometry(1.4,.07,6,40),new THREE.MeshBasicMaterial({color:D.aura,transparent:true,opacity:.8,toneMapped:false})); r.rotation.x=Math.PI/2; r.position.y=.1; G.add(r); const gl=glow(D.aura,5,.35); gl.position.y=2.6; G.add(gl); }
+  if(D.scale) G.userData.baseScale=D.scale;
+  G.userData.rig=rig; G.scale.setScalar((opt.scale||1)*(D.scale||1)); return G; }
+
 /* créatures */
 function snake(c1,c2,len){ const G=new THREE.Group(), segs=[]; const n=len+4;
   for(let i=0;i<n;i++){ const r=.62-i*.035; const s=toonMesh(merge([[sph(r,16,12),i%2?c1:shade(c1,.85)],[tf(sph(r*.85,12,8),0,-r*.35,0,0,0,0,1,.6,1),c2]]),true); s.position.set(0,r,-i*.62); G.add(s); segs.push(s); }
@@ -338,6 +451,7 @@ function fox(c1,c2,tails){ const G=new THREE.Group();
     tg.setAttribute('color',new THREE.BufferAttribute(tc,3)); t.add(toonMesh(tg,true)); G.add(t); ts.push(t); }
   G.userData.rig={legs,tails:ts,head}; return G; }
 function heroModel(n,scale){ const sp=SPECIES[n].sp; let m;
+  if(DESIGN[n]) return avatar(DESIGN[n],{scale});
   if(sp.k==='snake') m=snake(sp.c1,sp.c2||'#f0f0f0',7); else if(sp.k==='fox') m=fox(sp.c1,sp.c2||'#f8f0e0',sp.big?9:3); else m=avatar(sp);
   if(scale) m.scale.setScalar(scale); return m; }
 function animRig(G,phase,moving,atk){ const r=G.userData.rig;
@@ -384,7 +498,7 @@ function groundAt(cx,cy){ const v=new THREE.Vector2(cx/innerWidth*2-1,-(cy/inner
 /* ---------- joueur (avatar façon Roblox) ---------- */
 let PL=null;
 const PLAYER_SP={hs:'spiky',hc:'#6a4232',ey:'#2a7ae0',o:'jacket',c1:'#2f6fd0',c2:'#2a2a3a',a:['headband:#e04050']};
-function makePlayer(){ if(PL) return PL; const m=avatar(PLAYER_SP); const tag=labelSprite('LOAN','#fff',.9); tag.position.y=6.6; m.add(tag);
+function makePlayer(){ if(PL) return PL; const m=avatar(PLAYER_D); const tag=labelSprite('LOAN','#fff',.9); tag.position.y=6.6; m.add(tag);
   PL={m,x:0,y:0,z:0,vy:0,face:0,phase:0,ground:true,wantJump:0,moving:false}; return PL; }
 function blocked(){ return $('ovl').classList.contains('on')||$('modal').classList.contains('on'); }
 function updatePlayer(dt,world){ if(blocked()){ PL.moving=false; animRig(PL.m,PL.phase,false,0); PL.m.position.set(PL.x,PL.y,PL.z); return; }
